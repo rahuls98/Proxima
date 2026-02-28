@@ -16,6 +16,7 @@ Primary page:
   - Owns websocket lifecycle
   - Owns mic capture pipeline
   - Owns screen-share frame streaming control
+  - Owns chat text and file-upload websocket messaging
   - Owns audio playback pipeline
   - Emits typed domain events to UI
 - `lib/proxima-agent/audio.ts`
@@ -55,7 +56,13 @@ During active screen sharing:
 - The shared screen remains visible locally via a `<video>` preview.
 - Screen frames are captured as periodic JPEG snapshots and sent through `ProximaAgentService` for backend Gemini Live analysis.
 
-Current placeholder actions remain: file attach, text send, camera, more actions.
+Chat panel capabilities:
+
+- Send text chat turns to the live session.
+- Attach and upload one file at a time from the composer.
+- Show upload status events in transcript (`Uploading...`, `File uploaded...`).
+
+Still placeholder actions: camera, more actions.
 
 ## Reuse Pattern
 

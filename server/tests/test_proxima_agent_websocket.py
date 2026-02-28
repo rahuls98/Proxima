@@ -38,6 +38,9 @@ class FakeManager:
         self.session = None
         self.streamed_audio = []
         self.streamed_video = []
+        self.sent_text_messages = []
+        self.uploaded_files = {}
+        self.summary_requests = []
         self.connected = False
         self.last_config = None
 
@@ -55,6 +58,30 @@ class FakeManager:
 
     async def stream_video_input(self, frame_data: bytes, mime_type: str = "image/jpeg"):
         self.streamed_video.append((frame_data, mime_type))
+
+    def live_tool_declarations(self):
+        return []
+
+    async def send_text_message(self, text: str, turn_complete: bool = True):
+        self.sent_text_messages.append((text, turn_complete))
+
+    def store_uploaded_file(self, *, file_name: str, mime_type: str, data: bytes) -> str:
+        file_id = f"file-{len(self.uploaded_files) + 1}"
+        self.uploaded_files[file_id] = {
+            "file_name": file_name,
+            "mime_type": mime_type,
+            "data": data,
+        }
+        return file_id
+
+    async def request_uploaded_file_summary(self, *, file_id: str, file_name: str, mime_type: str):
+        self.summary_requests.append(
+            {
+                "file_id": file_id,
+                "file_name": file_name,
+                "mime_type": mime_type,
+            }
+        )
 
     async def iter_events(self):
         if FakeManager.scripted_events:
@@ -212,6 +239,60 @@ class ProximaAgentWebSocketTests(unittest.TestCase):
                 )
                 time.sleep(0.05)
                 self.assertEqual(len(FakeManager.last_instance.streamed_video), 1)
+
+                ws.send_json({"type": "disconnect"})
+
+    def test_forwards_user_chat_messages_to_manager(self):
+        """Ensures text chat messages are forwarded as live user turns."""
+        with TestClient(self.app) as client:
+            with client.websocket_connect("/ws/proxima-agent") as ws:
+                _ = ws.receive_json()
+
+                ws.send_json({"type": "user_message", "text": "Summarize the last upload"})
+                time.sleep(0.05)
+
+                self.assertEqual(len(FakeManager.last_instance.sent_text_messages), 1)
+                self.assertEqual(
+                    FakeManager.last_instance.sent_text_messages[0][0],
+                    "Summarize the last upload",
+                )
+
+                ws.send_json({"type": "disconnect"})
+
+    def test_file_upload_persists_payload_and_requests_summary(self):
+        """Verifies file uploads are stored and trigger summary request workflow."""
+        with TestClient(self.app) as client:
+            with client.websocket_connect("/ws/proxima-agent") as ws:
+                _ = ws.receive_json()
+
+                ws.send_json(
+                    {
+                        "type": "file_upload",
+                        "fileName": "agenda.pdf",
+                        "mimeType": "application/pdf",
+                        "data": base64.b64encode(b"pdf-bytes").decode("ascii"),
+                    }
+                )
+
+                uploaded = ws.receive_json()
+                self.assertEqual(uploaded["type"], "file_uploaded")
+                self.assertEqual(uploaded["fileName"], "agenda.pdf")
+
+                self.assertEqual(len(FakeManager.last_instance.uploaded_files), 1)
+                stored = FakeManager.last_instance.uploaded_files[uploaded["fileId"]]
+                self.assertEqual(stored["file_name"], "agenda.pdf")
+                self.assertEqual(stored["mime_type"], "application/pdf")
+                self.assertEqual(stored["data"], b"pdf-bytes")
+
+                self.assertEqual(len(FakeManager.last_instance.summary_requests), 1)
+                self.assertEqual(
+                    FakeManager.last_instance.summary_requests[0],
+                    {
+                        "file_id": uploaded["fileId"],
+                        "file_name": "agenda.pdf",
+                        "mime_type": "application/pdf",
+                    },
+                )
 
                 ws.send_json({"type": "disconnect"})
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
 
 import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
@@ -42,6 +42,7 @@ export function MeetingRoom() {
     );
     const [screenShareStream, setScreenShareStream] =
         useState<MediaStream | null>(null);
+    const [isUploadingFile, setIsUploadingFile] = useState(false);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
@@ -53,6 +54,7 @@ export function MeetingRoom() {
     const screenShareStreamRef = useRef<MediaStream | null>(null);
     const screenShareVideoRef = useRef<HTMLVideoElement | null>(null);
     const screenCaptureCleanupRef = useRef<(() => void) | null>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     const markSpeaker = useCallback((speaker: "user" | "agent") => {
         setActiveSpeaker(speaker);
@@ -148,6 +150,12 @@ export function MeetingRoom() {
                     }
                     return;
                 }
+                case "file_uploaded":
+                    appendTranscript(
+                        "system",
+                        `File uploaded: ${event.fileName}. Proxima is extracting context.`
+                    );
+                    return;
                 case "text":
                     markSpeaker("agent");
                     currentUserMessageIdRef.current = null;
@@ -301,11 +309,39 @@ export function MeetingRoom() {
         window.alert(`${name} is not implemented yet.`);
     };
 
-    const onAttach = () => notImplemented("Attach files");
+    const onAttach = () => {
+        fileInputRef.current?.click();
+    };
     const onSendText = (text: string) => {
-        window.alert(
-            `Text message sending is not implemented yet. Draft length: ${text.length} characters.`
-        );
+        if (!serviceRef.current) {
+            return;
+        }
+        serviceRef.current.sendTextMessage(text);
+        appendTranscript("user", text);
+        currentUserMessageIdRef.current = null;
+    };
+
+    const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+        const selectedFile = event.target.files?.[0];
+        event.target.value = "";
+
+        if (!selectedFile || !serviceRef.current) {
+            return;
+        }
+
+        try {
+            setIsUploadingFile(true);
+            appendTranscript("system", `Uploading ${selectedFile.name}...`);
+            await serviceRef.current.uploadFile(selectedFile);
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : "Failed to upload file.";
+            appendTranscript("system", `Upload failed: ${errorMessage}`);
+        } finally {
+            setIsUploadingFile(false);
+        }
     };
 
     const toggleScreenShare = async () => {
@@ -520,8 +556,17 @@ export function MeetingRoom() {
                     onAttach={onAttach}
                     onSend={onSendText}
                     disabled={
-                        state === "disconnected" || state === "connecting"
+                        state === "disconnected" ||
+                        state === "connecting" ||
+                        isUploadingFile
                     }
+                />
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    onChange={onFileChange}
+                    accept="image/*,application/pdf,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 />
             </section>
         </section>

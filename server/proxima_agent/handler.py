@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from services.gemini_live import GeminiLiveManager
+from services.gemini.live import GeminiLiveManager
 
 from .config import build_live_config, resolve_mode
 
@@ -29,7 +29,10 @@ class ProximaAgentWebSocketHandler:
         self.logger.info("proxima-agent websocket accepted (mode=%s)", mode)
 
         manager = self.manager_factory()
-        config = build_live_config(mode)
+        live_tools = None
+        if hasattr(manager, "live_tool_declarations"):
+            live_tools = manager.live_tool_declarations()
+        config = build_live_config(mode, tools=live_tools)
 
         outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         audio_in_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=64)
@@ -216,6 +219,116 @@ class ProximaAgentWebSocketHandler:
                         )
                         continue
                     await enqueue_video(frame_data, mime_type)
+                elif msg_type == "user_message":
+                    text = payload.get("text")
+                    if not text or not hasattr(manager, "send_text_message"):
+                        continue
+                    try:
+                        await manager.send_text_message(text)
+                    except Exception as exc:
+                        self.logger.exception("Failed to send user text message")
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": f"Unable to send chat message: {exc}",
+                            }
+                        )
+                elif msg_type == "file_upload":
+                    if not hasattr(manager, "store_uploaded_file"):
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": "File upload tools are not available in this session.",
+                            }
+                        )
+                        continue
+
+                    file_name = (payload.get("fileName") or "uploaded-file").strip()
+                    mime_type = (payload.get("mimeType") or "application/octet-stream").strip()
+                    data_b64 = payload.get("data")
+
+                    if not data_b64:
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": "File upload payload is missing data.",
+                            }
+                        )
+                        continue
+
+                    try:
+                        file_bytes = base64.b64decode(data_b64, validate=True)
+                    except Exception:
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": "Discarded invalid file upload payload.",
+                            }
+                        )
+                        continue
+
+                    if len(file_bytes) == 0:
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": "Discarded empty file upload.",
+                            }
+                        )
+                        continue
+
+                    max_upload_bytes = 20 * 1024 * 1024
+                    if len(file_bytes) > max_upload_bytes:
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": "File too large. Maximum upload size is 20MB.",
+                            }
+                        )
+                        continue
+
+                    try:
+                        file_id = manager.store_uploaded_file(
+                            file_name=file_name,
+                            mime_type=mime_type,
+                            data=file_bytes,
+                        )
+                    except Exception as exc:
+                        self.logger.exception("Failed to persist uploaded file")
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": f"Failed to process uploaded file: {exc}",
+                            }
+                        )
+                        continue
+
+                    await enqueue_outbound(
+                        {
+                            "type": "file_uploaded",
+                            "fileId": file_id,
+                            "fileName": file_name,
+                            "mimeType": mime_type,
+                        }
+                    )
+
+                    if hasattr(manager, "request_uploaded_file_summary"):
+                        try:
+                            await manager.request_uploaded_file_summary(
+                                file_id=file_id,
+                                file_name=file_name,
+                                mime_type=mime_type,
+                            )
+                        except Exception as exc:
+                            self.logger.exception("Failed to request file summary")
+                            await enqueue_outbound(
+                                {
+                                    "type": "warning",
+                                    "message": (
+                                        "File uploaded, but summary request failed. "
+                                        f"Error: {exc}"
+                                    ),
+                                }
+                            )
                 elif msg_type == "ping":
                     await enqueue_outbound({"type": "pong"})
                 elif msg_type in {"disconnect", "end_session"}:

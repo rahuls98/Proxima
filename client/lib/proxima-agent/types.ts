@@ -18,6 +18,7 @@ export type ProximaAgentInboundMessage = {
         | "session_ready"
         | "stream_started"
         | "stream_stopped"
+        | "file_uploaded"
         | "user_text"
         | "text"
         | "audio"
@@ -32,6 +33,8 @@ export type ProximaAgentInboundMessage = {
     mode?: string;
     audio?: string;
     mimeType?: string;
+    fileId?: string;
+    fileName?: string;
 };
 
 export type ProximaAgentOutboundMessage =
@@ -43,6 +46,16 @@ export type ProximaAgentOutboundMessage =
     | { type: "screen_share_start" }
     | { type: "screen_share_stop" }
     | {
+          type: "file_upload";
+          fileName: string;
+          mimeType: string;
+          data: string;
+      }
+    | {
+          type: "user_message";
+          text: string;
+      }
+    | {
           type: "screen_frame";
           image: string;
           mimeType?: string;
@@ -52,6 +65,7 @@ export type ProximaAgentEvent =
     | { type: "session_ready"; mode?: string }
     | { type: "stream_started" }
     | { type: "stream_stopped" }
+    | { type: "file_uploaded"; fileId: string; fileName: string }
     | { type: "user_text"; text: string }
     | { type: "text"; text: string }
     | { type: "turn_complete" }

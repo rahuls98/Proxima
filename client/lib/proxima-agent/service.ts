@@ -79,6 +79,25 @@ export class ProximaAgentService {
         });
     }
 
+    async uploadFile(file: File) {
+        const mimeType = file.type || "application/octet-stream";
+        const arrayBuffer = await file.arrayBuffer();
+        this.sendJson({
+            type: "file_upload",
+            fileName: file.name,
+            mimeType,
+            data: bytesToBase64(new Uint8Array(arrayBuffer)),
+        });
+    }
+
+    sendTextMessage(text: string) {
+        const normalized = text.trim();
+        if (!normalized) {
+            return;
+        }
+        this.sendJson({ type: "user_message", text: normalized });
+    }
+
     disconnect() {
         this.streamEnabled = false;
         this.stopMic();
@@ -338,6 +357,15 @@ export class ProximaAgentService {
                     this.onEvent({ type: "user_text", text: payload.text });
                 }
                 return;
+            case "file_uploaded":
+                if (payload.fileId && payload.fileName) {
+                    this.onEvent({
+                        type: "file_uploaded",
+                        fileId: payload.fileId,
+                        fileName: payload.fileName,
+                    });
+                }
+                return;
             case "text":
                 if (payload.text) {
                     this.onEvent({ type: "text", text: payload.text });
@@ -373,4 +401,14 @@ export class ProximaAgentService {
                 return;
         }
     }
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+    let binary = "";
+    const chunkSize = 0x8000;
+    for (let index = 0; index < bytes.length; index += chunkSize) {
+        const chunk = bytes.subarray(index, index + chunkSize);
+        binary += String.fromCharCode(...chunk);
+    }
+    return btoa(binary);
 }

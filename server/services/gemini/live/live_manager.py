@@ -4,6 +4,9 @@ from collections.abc import AsyncIterator, Callable
 from google import genai
 from google.genai import types
 
+from services.gemini.model_settings import get_live_model_name
+from services.gemini.tools import UploadedFileTools
+
 from .tool_dispatcher import ToolDispatcher
 
 
@@ -15,12 +18,59 @@ class GeminiLiveManager:
     Facade for the Gemini Multimodal Live API.
     Handles persistent connections and dispatches incoming events.
     """
-    def __init__(self, model: str = "gemini-live-2.5-flash-native-audio"):
+    def __init__(self, model: str | None = None):
         self.client = genai.Client()
-        self.model = model
+        self.model = model or get_live_model_name()
         self.session = None
         self._connection_cm = None
         self.dispatcher = ToolDispatcher()
+        self.uploaded_file_tools = UploadedFileTools()
+        self.uploaded_file_tools.register(self.dispatcher)
+
+    def live_tool_declarations(self) -> list[types.Tool]:
+        return self.uploaded_file_tools.declarations()
+
+    def store_uploaded_file(self, *, file_name: str, mime_type: str, data: bytes) -> str:
+        record = self.uploaded_file_tools.add_uploaded_file(
+            file_name=file_name,
+            mime_type=mime_type,
+            data=data,
+        )
+        return record.file_id
+
+    async def send_text_message(self, text: str, turn_complete: bool = True):
+        if not self.session:
+            return
+
+        normalized = text.strip()
+        if not normalized:
+            return
+
+        await self.session.send_client_content(
+            turns=[
+                types.Content(
+                    role="user",
+                    parts=[types.Part(text=normalized)],
+                )
+            ],
+            turn_complete=turn_complete,
+        )
+
+    async def request_uploaded_file_summary(
+        self,
+        *,
+        file_id: str,
+        file_name: str,
+        mime_type: str,
+    ):
+        await self.send_text_message(
+            (
+                "A user uploaded a file in the chat. "
+                f"file_id={file_id}, file_name={file_name}, mime_type={mime_type}. "
+                "Call summarize_uploaded_file with this file_id and then explain the "
+                "file's purpose and key points in a short response."
+            )
+        )
 
     async def connect(self, config: types.LiveConnectConfig):
         """Initializes the bidirectional WebSocket session."""

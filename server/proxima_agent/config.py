@@ -21,16 +21,24 @@ def resolve_mode(raw_mode: str | None) -> ProximaAgentMode:
     return normalized if normalized in SYSTEM_PROMPTS else DEFAULT_MODE
 
 
-def build_live_config(mode: ProximaAgentMode = DEFAULT_MODE) -> types.LiveConnectConfig:
+def build_live_config(
+    mode: ProximaAgentMode = DEFAULT_MODE,
+    tools: list[types.Tool] | None = None,
+) -> types.LiveConnectConfig:
     """Build Gemini Live config for a given Proxima agent mode."""
-    return types.LiveConnectConfig(
-        response_modalities=["AUDIO"],
-        system_instruction=SYSTEM_PROMPTS[mode],
-        input_audio_transcription=types.AudioTranscriptionConfig(),
-        output_audio_transcription=types.AudioTranscriptionConfig(),
-        realtime_input_config=types.RealtimeInputConfig(
+    kwargs: dict[str, object] = {
+        "response_modalities": ["AUDIO"],
+        "system_instruction": SYSTEM_PROMPTS[mode],
+        "input_audio_transcription": types.AudioTranscriptionConfig(),
+        "output_audio_transcription": types.AudioTranscriptionConfig(),
+        "realtime_input_config": types.RealtimeInputConfig(
             automatic_activity_detection=types.AutomaticActivityDetection(disabled=False),
             activity_handling=types.ActivityHandling.START_OF_ACTIVITY_INTERRUPTS,
             turn_coverage=types.TurnCoverage.TURN_INCLUDES_ONLY_ACTIVITY,
         ),
-    )
+    }
+
+    if tools:
+        kwargs["tools"] = tools
+
+    return types.LiveConnectConfig(**kwargs)

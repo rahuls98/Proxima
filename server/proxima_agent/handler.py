@@ -33,14 +33,17 @@ class ProximaAgentWebSocketHandler:
 
         outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         audio_in_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=64)
+        video_in_queue: asyncio.Queue[tuple[bytes, str]] = asyncio.Queue(maxsize=4)
 
         sender_task: asyncio.Task | None = None
         send_task: asyncio.Task | None = None
         receive_task: asyncio.Task | None = None
+        video_send_task: asyncio.Task | None = None
         client_task: asyncio.Task | None = None
 
         reconnect_lock = asyncio.Lock()
         stream_enabled = True
+        screen_share_enabled = False
 
         async def enqueue_outbound(message: dict[str, Any]):
             # Drop late audio frames when network/UI is back-pressured.
@@ -56,6 +59,14 @@ class ProximaAgentWebSocketHandler:
                     break
             await audio_in_queue.put(chunk)
 
+        async def enqueue_video(frame_data: bytes, mime_type: str):
+            while video_in_queue.full():
+                try:
+                    video_in_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+            await video_in_queue.put((frame_data, mime_type))
+
         async def websocket_sender():
             while True:
                 payload = await outbound_queue.get()
@@ -68,6 +79,11 @@ class ProximaAgentWebSocketHandler:
                 while not audio_in_queue.empty():
                     try:
                         audio_in_queue.get_nowait()
+                    except asyncio.QueueEmpty:
+                        break
+                while not video_in_queue.empty():
+                    try:
+                        video_in_queue.get_nowait()
                     except asyncio.QueueEmpty:
                         break
 
@@ -92,6 +108,17 @@ class ProximaAgentWebSocketHandler:
                 except Exception as exc:
                     self.logger.exception("stream_input failed")
                     await reconnect_live_session(f"stream_input failure: {exc}")
+
+        async def send_video_to_gemini():
+            while True:
+                frame_data, mime_type = await video_in_queue.get()
+                try:
+                    await manager.stream_video_input(frame_data, mime_type=mime_type)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    self.logger.exception("stream_video_input failed")
+                    await reconnect_live_session(f"stream_video_input failure: {exc}")
 
         async def receive_from_gemini():
             while True:
@@ -134,7 +161,7 @@ class ProximaAgentWebSocketHandler:
                     await asyncio.sleep(0.1)
 
         async def receive_from_client():
-            nonlocal stream_enabled
+            nonlocal screen_share_enabled, stream_enabled
             while True:
                 message = await websocket.receive()
 
@@ -162,6 +189,33 @@ class ProximaAgentWebSocketHandler:
                 elif msg_type == "stream_stop":
                     stream_enabled = False
                     await enqueue_outbound({"type": "stream_stopped"})
+                elif msg_type == "screen_share_start":
+                    screen_share_enabled = True
+                elif msg_type == "screen_share_stop":
+                    screen_share_enabled = False
+                    while not video_in_queue.empty():
+                        try:
+                            video_in_queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
+                elif msg_type == "screen_frame":
+                    if not screen_share_enabled:
+                        continue
+                    image_b64 = payload.get("image")
+                    if not image_b64:
+                        continue
+                    mime_type = payload.get("mimeType") or "image/jpeg"
+                    try:
+                        frame_data = base64.b64decode(image_b64, validate=True)
+                    except Exception:
+                        await enqueue_outbound(
+                            {
+                                "type": "warning",
+                                "message": "Discarded invalid screen frame payload.",
+                            }
+                        )
+                        continue
+                    await enqueue_video(frame_data, mime_type)
                 elif msg_type == "ping":
                     await enqueue_outbound({"type": "pong"})
                 elif msg_type in {"disconnect", "end_session"}:
@@ -174,11 +228,12 @@ class ProximaAgentWebSocketHandler:
 
             sender_task = asyncio.create_task(websocket_sender())
             send_task = asyncio.create_task(send_to_gemini())
+            video_send_task = asyncio.create_task(send_video_to_gemini())
             receive_task = asyncio.create_task(receive_from_gemini())
             client_task = asyncio.create_task(receive_from_client())
 
             done, pending = await asyncio.wait(
-                [sender_task, send_task, receive_task, client_task],
+                [sender_task, send_task, video_send_task, receive_task, client_task],
                 return_when=asyncio.FIRST_COMPLETED,
             )
 
@@ -204,11 +259,15 @@ class ProximaAgentWebSocketHandler:
             except Exception:
                 pass
         finally:
-            for task in [sender_task, send_task, receive_task, client_task]:
+            for task in [sender_task, send_task, video_send_task, receive_task, client_task]:
                 if task is not None and not task.done():
                     task.cancel()
             await asyncio.gather(
-                *[task for task in [sender_task, send_task, receive_task, client_task] if task],
+                *[
+                    task
+                    for task in [sender_task, send_task, video_send_task, receive_task, client_task]
+                    if task
+                ],
                 return_exceptions=True,
             )
             await manager.close()

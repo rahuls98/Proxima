@@ -37,6 +37,7 @@ class FakeManager:
         FakeManager.last_instance = self
         self.session = None
         self.streamed_audio = []
+        self.streamed_video = []
         self.connected = False
         self.last_config = None
 
@@ -51,6 +52,9 @@ class FakeManager:
 
     async def stream_input(self, pcm_data: bytes, sample_rate: int = 16000):
         self.streamed_audio.append((pcm_data, sample_rate))
+
+    async def stream_video_input(self, frame_data: bytes, mime_type: str = "image/jpeg"):
+        self.streamed_video.append((frame_data, mime_type))
 
     async def iter_events(self):
         if FakeManager.scripted_events:
@@ -164,6 +168,50 @@ class ProximaAgentWebSocketTests(unittest.TestCase):
                 self.assertEqual(audio["mimeType"], "audio/pcm;rate=24000")
                 self.assertEqual(base64.b64decode(audio["audio"]), b"\x00\x01")
                 self.assertEqual(turn_complete["type"], "turn_complete")
+
+                ws.send_json({"type": "disconnect"})
+
+    def test_streams_screen_frames_when_screen_share_enabled(self):
+        """Ensures screen frame payloads are forwarded to Gemini only after start signal."""
+        with TestClient(self.app) as client:
+            with client.websocket_connect("/ws/proxima-agent") as ws:
+                _ = ws.receive_json()
+
+                ws.send_json(
+                    {
+                        "type": "screen_frame",
+                        "image": base64.b64encode(b"frame-before-start").decode("ascii"),
+                        "mimeType": "image/jpeg",
+                    }
+                )
+                time.sleep(0.05)
+                self.assertEqual(FakeManager.last_instance.streamed_video, [])
+
+                ws.send_json({"type": "screen_share_start"})
+                ws.send_json(
+                    {
+                        "type": "screen_frame",
+                        "image": base64.b64encode(b"frame-after-start").decode("ascii"),
+                        "mimeType": "image/jpeg",
+                    }
+                )
+                time.sleep(0.05)
+                self.assertEqual(len(FakeManager.last_instance.streamed_video), 1)
+                self.assertEqual(
+                    FakeManager.last_instance.streamed_video[0],
+                    (b"frame-after-start", "image/jpeg"),
+                )
+
+                ws.send_json({"type": "screen_share_stop"})
+                ws.send_json(
+                    {
+                        "type": "screen_frame",
+                        "image": base64.b64encode(b"frame-after-stop").decode("ascii"),
+                        "mimeType": "image/jpeg",
+                    }
+                )
+                time.sleep(0.05)
+                self.assertEqual(len(FakeManager.last_instance.streamed_video), 1)
 
                 ws.send_json({"type": "disconnect"})
 

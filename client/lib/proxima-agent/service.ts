@@ -7,7 +7,11 @@ import {
     sampleRateFromMimeType,
     TARGET_SAMPLE_RATE,
 } from "./audio";
-import type { ProximaAgentEvent, ProximaAgentInboundMessage } from "./types";
+import type {
+    ProximaAgentEvent,
+    ProximaAgentInboundMessage,
+    ProximaAgentOutboundMessage,
+} from "./types";
 
 type ProximaAgentServiceOptions = {
     wsUrl?: string;
@@ -47,21 +51,32 @@ export class ProximaAgentService {
     }
 
     startStream() {
-        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
-            return;
-        }
-
         this.streamEnabled = true;
-        this.websocket.send(JSON.stringify({ type: "stream_start" }));
+        this.sendJson({ type: "stream_start" });
     }
 
     stopStream() {
-        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+        this.streamEnabled = false;
+        this.sendJson({ type: "stream_stop" });
+    }
+
+    startScreenShare() {
+        this.sendJson({ type: "screen_share_start" });
+    }
+
+    stopScreenShare() {
+        this.sendJson({ type: "screen_share_stop" });
+    }
+
+    sendScreenFrame(imageBase64: string, mimeType = "image/jpeg") {
+        if (!imageBase64) {
             return;
         }
-
-        this.streamEnabled = false;
-        this.websocket.send(JSON.stringify({ type: "stream_stop" }));
+        this.sendJson({
+            type: "screen_frame",
+            image: imageBase64,
+            mimeType,
+        });
     }
 
     disconnect() {
@@ -71,7 +86,7 @@ export class ProximaAgentService {
 
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             this.intentionalClose = true;
-            this.websocket.send(JSON.stringify({ type: "disconnect" }));
+            this.sendJson({ type: "disconnect" });
             this.websocket.close(1000, "client disconnected");
         }
 
@@ -164,6 +179,13 @@ export class ProximaAgentService {
 
         this.websocket = ws;
         return ws;
+    }
+
+    private sendJson(payload: ProximaAgentOutboundMessage) {
+        if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
+            return;
+        }
+        this.websocket.send(JSON.stringify(payload));
     }
 
     private async ensureMicPipeline() {

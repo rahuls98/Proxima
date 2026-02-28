@@ -6,6 +6,7 @@ import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
 import { ChatTranscript } from "@/components/molecules/ChatTranscript";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
+import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import type {
     ProximaAgentConnectionState,
@@ -39,7 +40,9 @@ export function MeetingRoom() {
     const [activeSpeaker, setActiveSpeaker] = useState<"user" | "agent" | null>(
         null
     );
-    const isScreenShareActive = false;
+    const [screenShareStream, setScreenShareStream] =
+        useState<MediaStream | null>(null);
+    const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
     const stateRef = useRef<ProximaAgentConnectionState>("disconnected");
@@ -47,6 +50,9 @@ export function MeetingRoom() {
     const currentBotMessageIdRef = useRef<number | null>(null);
     const currentUserMessageIdRef = useRef<number | null>(null);
     const speakerTimeoutRef = useRef<number | null>(null);
+    const screenShareStreamRef = useRef<MediaStream | null>(null);
+    const screenShareVideoRef = useRef<HTMLVideoElement | null>(null);
+    const screenCaptureCleanupRef = useRef<(() => void) | null>(null);
 
     const markSpeaker = useCallback((speaker: "user" | "agent") => {
         setActiveSpeaker(speaker);
@@ -200,8 +206,26 @@ export function MeetingRoom() {
             if (speakerTimeoutRef.current) {
                 window.clearTimeout(speakerTimeoutRef.current);
             }
+            if (screenCaptureCleanupRef.current) {
+                screenCaptureCleanupRef.current();
+                screenCaptureCleanupRef.current = null;
+            }
+            const existingShareStream = screenShareStreamRef.current;
+            if (existingShareStream) {
+                screenShareStreamRef.current = null;
+                existingShareStream
+                    .getTracks()
+                    .forEach((track) => track.stop());
+            }
         };
     }, [handleEvent]);
+
+    useEffect(() => {
+        if (!screenShareVideoRef.current) {
+            return;
+        }
+        screenShareVideoRef.current.srcObject = screenShareStream;
+    }, [screenShareStream]);
 
     const connect = async () => {
         if (!serviceRef.current) {
@@ -241,7 +265,28 @@ export function MeetingRoom() {
         }
     };
 
+    const stopScreenShare = (notify = true) => {
+        if (screenCaptureCleanupRef.current) {
+            screenCaptureCleanupRef.current();
+            screenCaptureCleanupRef.current = null;
+        }
+
+        const existingShareStream = screenShareStreamRef.current;
+        if (existingShareStream) {
+            screenShareStreamRef.current = null;
+            existingShareStream.getTracks().forEach((track) => track.stop());
+            setScreenShareStream(null);
+        }
+
+        serviceRef.current?.stopScreenShare();
+
+        if (notify) {
+            appendTranscript("system", "Screen sharing stopped.");
+        }
+    };
+
     const endSession = () => {
+        stopScreenShare(false);
         serviceRef.current?.disconnect();
         setState("disconnected");
         stateRef.current = "disconnected";
@@ -263,42 +308,134 @@ export function MeetingRoom() {
         );
     };
 
+    const toggleScreenShare = async () => {
+        if (screenShareStreamRef.current) {
+            stopScreenShare();
+            return;
+        }
+
+        if (
+            !navigator.mediaDevices ||
+            typeof navigator.mediaDevices.getDisplayMedia !== "function"
+        ) {
+            appendTranscript(
+                "system",
+                "Screen sharing is not supported in this browser."
+            );
+            return;
+        }
+
+        try {
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: false,
+            });
+
+            screenShareStreamRef.current = stream;
+            setScreenShareStream(stream);
+            serviceRef.current?.startScreenShare();
+            appendTranscript("system", "Screen sharing started.");
+
+            screenCaptureCleanupRef.current = await startScreenFrameCapture({
+                stream,
+                onFrame: (frame) => {
+                    serviceRef.current?.sendScreenFrame(
+                        frame.imageBase64,
+                        frame.mimeType
+                    );
+                },
+            });
+
+            const [videoTrack] = stream.getVideoTracks();
+            if (videoTrack) {
+                videoTrack.addEventListener("ended", () => {
+                    if (screenShareStreamRef.current === stream) {
+                        stopScreenShare();
+                    }
+                });
+            }
+        } catch (error) {
+            const errorMessage =
+                error instanceof Error
+                    ? error.message
+                    : "Unable to start screen sharing.";
+            appendTranscript("system", `Screen share failed: ${errorMessage}`);
+        }
+    };
+
     return (
         <section className="grid h-[calc(100vh-4rem)] w-full grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-4 rounded-2xl bg-zinc-100 p-4">
             <div className="flex min-w-0 flex-col gap-4">
                 <div
                     className={`min-h-0 flex flex-1 ${
                         isScreenShareActive
-                            ? "items-start justify-center"
+                            ? "items-stretch justify-stretch"
                             : "items-center justify-center"
                     }`}
                 >
-                    <div className="flex w-full max-w-[1200px] flex-col gap-4">
+                    <div
+                        className={`flex w-full flex-col gap-4 ${
+                            isScreenShareActive
+                                ? "max-w-none"
+                                : "max-w-[1200px]"
+                        }`}
+                    >
                         {isScreenShareActive ? (
-                            <div className="min-h-[320px]">
+                            <div className="flex min-h-0 flex-1 flex-col gap-3">
+                                <div className="flex shrink-0 justify-center">
+                                    <div className="grid w-full max-w-[430px] grid-cols-2 gap-3">
+                                        <ParticipantTile
+                                            name="You"
+                                            subtitle={
+                                                state === "muted"
+                                                    ? "Muted"
+                                                    : "Microphone live"
+                                            }
+                                            isSpeaking={
+                                                activeSpeaker === "user"
+                                            }
+                                            compact
+                                            className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
+                                        />
+                                        <ParticipantTile
+                                            name="Agent"
+                                            subtitle="Training Agent"
+                                            isSpeaking={
+                                                activeSpeaker === "agent"
+                                            }
+                                            compact
+                                            className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-black">
+                                    <video
+                                        ref={screenShareVideoRef}
+                                        className="h-full w-full object-contain"
+                                        autoPlay
+                                        muted
+                                        playsInline
+                                    />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="grid min-h-[260px] grid-cols-2 gap-4">
                                 <ParticipantTile
-                                    name="Screen Share"
-                                    subtitle="Shared Content"
+                                    name="You"
+                                    subtitle={
+                                        state === "muted"
+                                            ? "Muted"
+                                            : "Microphone live"
+                                    }
+                                    isSpeaking={activeSpeaker === "user"}
+                                />
+                                <ParticipantTile
+                                    name="Agent"
+                                    subtitle="Training Agent"
+                                    isSpeaking={activeSpeaker === "agent"}
                                 />
                             </div>
-                        ) : null}
-
-                        <div className="grid min-h-[260px] grid-cols-2 gap-4">
-                            <ParticipantTile
-                                name="You"
-                                subtitle={
-                                    state === "muted"
-                                        ? "Muted"
-                                        : "Microphone live"
-                                }
-                                isSpeaking={activeSpeaker === "user"}
-                            />
-                            <ParticipantTile
-                                name="Agent"
-                                subtitle="Training Agent"
-                                isSpeaking={activeSpeaker === "agent"}
-                            />
-                        </div>
+                        )}
                     </div>
                 </div>
 
@@ -327,9 +464,13 @@ export function MeetingRoom() {
                             }
                         />
                         <IconButton
-                            label="Share Screen"
+                            label={
+                                isScreenShareActive
+                                    ? "Stop Share"
+                                    : "Share Screen"
+                            }
                             icon={<span>🖥️</span>}
-                            onClick={() => notImplemented("Share screen")}
+                            onClick={toggleScreenShare}
                             disabled={
                                 state === "disconnected" ||
                                 state === "connecting"

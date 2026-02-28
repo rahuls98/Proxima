@@ -11,6 +11,12 @@
 - WebSocket API: `ws://localhost:8000/ws/proxima-agent?mode=training`
 - Health: `http://localhost:8000/health`
 
+## Current Capabilities
+
+- Real-time voice conversation (mic -> Gemini Live -> streamed audio response)
+- Screen sharing in the training room UI
+- Live screen-share analysis by Gemini via periodic frame streaming over the same websocket session
+
 ## Quick Start
 
 ### 1) Server

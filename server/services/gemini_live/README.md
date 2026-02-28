@@ -6,6 +6,11 @@ This package is the single place for Gemini Live SDK interaction logic.
 
 `services/gemini_live` encapsulates Gemini-specific concerns so higher layers (websocket endpoints and feature handlers) work with normalized events and simple method calls.
 
+This now includes multimodal realtime input:
+
+- microphone PCM audio
+- screen-share image frames (for visual context and analysis)
+
 ## Files
 
 - `live_manager.py`: Gemini connection lifecycle, streaming input, event normalization, and optional tool-call dispatch.
@@ -16,6 +21,7 @@ This package is the single place for Gemini Live SDK interaction logic.
 - `connect(config)`: open a live Gemini session.
 - `close()`: close live Gemini session safely.
 - `stream_input(pcm_data, sample_rate=16000)`: send realtime PCM audio input.
+- `stream_video_input(frame_data, mime_type="image/jpeg")`: send realtime screen-share frames as visual input.
 - `begin_activity()`, `end_activity()`: manual activity boundaries (optional for manual VAD flows).
 - `iter_events()`: async generator that yields normalized events per Gemini turn.
 

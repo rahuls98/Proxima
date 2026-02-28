@@ -34,6 +34,20 @@ export type ProximaAgentInboundMessage = {
     mimeType?: string;
 };
 
+export type ProximaAgentOutboundMessage =
+    | { type: "stream_start" }
+    | { type: "stream_stop" }
+    | { type: "ping" }
+    | { type: "disconnect" }
+    | { type: "end_session" }
+    | { type: "screen_share_start" }
+    | { type: "screen_share_stop" }
+    | {
+          type: "screen_frame";
+          image: string;
+          mimeType?: string;
+      };
+
 export type ProximaAgentEvent =
     | { type: "session_ready"; mode?: string }
     | { type: "stream_started" }

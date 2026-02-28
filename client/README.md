@@ -2,7 +2,7 @@
 
 ## Overview
 
-The client provides a reusable UI architecture for a continuous conversational voice agent.
+The client provides a reusable UI architecture for a continuous conversational voice + screen-aware agent.
 
 Primary page:
 
@@ -15,11 +15,14 @@ Primary page:
 - `lib/proxima-agent/service.ts`
   - Owns websocket lifecycle
   - Owns mic capture pipeline
+  - Owns screen-share frame streaming control
   - Owns audio playback pipeline
   - Emits typed domain events to UI
 - `lib/proxima-agent/audio.ts`
   - PCM conversion helpers
   - Sample-rate conversion helpers
+- `lib/proxima-agent/screen-share.ts`
+  - Screen-share frame capture helpers (JPEG snapshots)
 - `lib/proxima-agent/types.ts`
   - Shared UI/service event and state types
 
@@ -46,7 +49,13 @@ The `MeetingRoom` organism composes:
 - Center stage (2/3): participant tiles for `You` and `Agent`
 - Right panel (1/3): transcript and chat composer
 
-The non-implemented actions (file attach, text send, share screen, camera, more actions) intentionally show placeholder alerts.
+During active screen sharing:
+
+- The left meeting pane switches to a top strip of compact participant tiles plus a dedicated screen stage below.
+- The shared screen remains visible locally via a `<video>` preview.
+- Screen frames are captured as periodic JPEG snapshots and sent through `ProximaAgentService` for backend Gemini Live analysis.
+
+Current placeholder actions remain: file attach, text send, camera, more actions.
 
 ## Reuse Pattern
 

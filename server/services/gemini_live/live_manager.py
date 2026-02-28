@@ -48,6 +48,15 @@ class GeminiLiveManager:
                 audio=types.Blob(data=pcm_data, mime_type=f"audio/pcm;rate={sample_rate}")
             )
 
+    async def stream_video_input(
+        self, frame_data: bytes, mime_type: str = "image/jpeg"
+    ):
+        """Streams visual frames (screen-share snapshots) to the model."""
+        if self.session:
+            await self.session.send_realtime_input(
+                video=types.Blob(data=frame_data, mime_type=mime_type)
+            )
+
     async def begin_activity(self):
         """Signals start of user activity for manual turn control."""
         if self.session:

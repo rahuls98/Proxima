@@ -1,4 +1,4 @@
-export default function FullScreenLayout({
+export default function FullScreenTemplate({
     children,
 }: {
     children: React.ReactNode;

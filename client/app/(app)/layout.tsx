@@ -1,9 +1,9 @@
-import SideNavLayout from "@/components/templates/SideNavLayout";
+import SideNavTemplate from "@/components/templates/SideNavTemplate";
 
 export default function AppLayout({
     children,
 }: Readonly<{
     children: React.ReactNode;
 }>) {
-    return <SideNavLayout>{children}</SideNavLayout>;
+    return <SideNavTemplate>{children}</SideNavTemplate>;
 }

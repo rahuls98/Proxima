@@ -7,8 +7,7 @@ from dotenv import load_dotenv  # type: ignore
 from fastapi import FastAPI, WebSocket  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 
-from proxima_agent import ProximaAgentWebSocketHandler
-from proxima_agent.context_api import router as context_router
+from proxima import ProximaAgentWebSocketHandler, context_router
 
 # Load server/.env for Vertex/Gemini environment variables.
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)

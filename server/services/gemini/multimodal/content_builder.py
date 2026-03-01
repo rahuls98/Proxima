@@ -1,4 +1,4 @@
-# services/gemini/multimodal/part_builder.py
+# services/gemini/multimodal/content_builder.py
 
 from dataclasses import dataclass
 from google.genai import types # type: ignore

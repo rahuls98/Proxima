@@ -1,4 +1,4 @@
-# server/proxima_agent/handler.py
+# server/proxima_agent/websocket/handler.py
 
 import asyncio
 import base64
@@ -11,7 +11,7 @@ from fastapi import WebSocket, WebSocketDisconnect  # type: ignore
 
 from services.gemini.live import GeminiLiveManager
 
-from .config import build_live_config, resolve_mode
+from ..config import build_live_config, resolve_mode
 
 
 class ProximaAgentWebSocketHandler:

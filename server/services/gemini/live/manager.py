@@ -1,18 +1,18 @@
-# server/services/gemini/live/live_manager.py
+# server/services/gemini/live/manager.py
 
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator
 
 from google import genai
 from google.genai import types  # type: ignore
 
-from services.gemini.model_settings import get_live_model_name
+from services.gemini.config import get_live_model_name
 from services.gemini.tools import UploadedFileTools
 
-from .tool_dispatcher import ToolDispatcher
+from .dispatcher import ToolDispatcher
 
 
-logger = logging.getLogger("gemini_live_manager")
+logger = logging.getLogger("gemini_live")
 
 
 class GeminiLiveManager:
@@ -118,73 +118,6 @@ class GeminiLiveManager:
         """Signals end of user activity for manual turn control."""
         if self.session:
             await self.session.send_realtime_input(activity_end=types.ActivityEnd())
-
-    async def listen(self, event_callback: Callable):
-        """
-        Asynchronous listener loop.
-        
-        :param event_callback: Function handling (event_type, payload).
-        """
-        if not self.session:
-            return
-
-        async for response in self.session.receive():
-            # Handle Interruptions
-            if response.server_content and response.server_content.interrupted:
-                await event_callback("interruption", True)
-
-            if response.server_content and response.server_content.waiting_for_input:
-                await event_callback("waiting_for_input", True)
-
-            if response.server_content and response.server_content.turn_complete:
-                await event_callback("turn_complete", True)
-
-            if (
-                response.server_content
-                and response.server_content.input_transcription
-                and response.server_content.input_transcription.text
-            ):
-                await event_callback(
-                    "user_text", response.server_content.input_transcription.text
-                )
-
-            # Handle output transcription when using audio responses.
-            if (
-                response.server_content
-                and response.server_content.output_transcription
-                and response.server_content.output_transcription.text
-            ):
-                await event_callback(
-                    "text", response.server_content.output_transcription.text
-                )
-
-            # Handle Tool Calls
-            if response.tool_call and response.tool_call.function_calls:
-                function_responses = []
-                for function_call in response.tool_call.function_calls:
-                    result = await self.dispatcher.execute(function_call)
-                    function_responses.append(
-                        types.FunctionResponse(
-                            id=function_call.id,
-                            name=function_call.name,
-                            response=result,
-                        )
-                    )
-                await self.session.send_tool_response(function_responses=function_responses)
-            
-            # Route content
-            if response.server_content and response.server_content.model_turn:
-                for part in response.server_content.model_turn.parts:
-                    if part.text:
-                        await event_callback("text", part.text)
-                    if part.inline_data and part.inline_data.data:
-                        await event_callback(
-                            "audio",
-                            {
-                                "data": part.inline_data.data,
-                                "mime_type": part.inline_data.mime_type,
-                            },
-                        )
 
     async def iter_events(self) -> AsyncIterator[dict]:
         """

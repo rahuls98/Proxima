@@ -1,4 +1,4 @@
-# server/services/gemini/live/tool_dispatcher.py
+# server/services/gemini/live/dispatcher.py
 
 import json
 import inspect

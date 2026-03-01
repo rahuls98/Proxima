@@ -1,4 +1,4 @@
-# server/services/gemini/tools/uploaded_file_tools.py
+# server/services/gemini/tools/file/file_tools.py
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ from typing import Any
 
 from google.genai import types  # type: ignore
 
-from .document_processor import GeminiDocumentProcessor
-from .file_context_store import FileContextStore, UploadedFileRecord
+from .summarizer import GeminiDocumentProcessor
+from .store import FileContextStore, UploadedFileRecord
 
 
 TOOL_NAME_SUMMARIZE_UPLOADED_FILE = "summarize_uploaded_file"
@@ -81,4 +81,3 @@ class UploadedFileTools:
             "mime_type": record.mime_type,
             "summary": record.summary,
         }
-

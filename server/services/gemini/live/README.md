@@ -1,59 +1,91 @@
-`server/services/gemini/live/README.md`
+# Gemini Live Service
 
-# Gemini Live Service Wrapper
+Real-time streaming integration with Gemini Live for continuous conversations.
 
-This package is the single place for Gemini Live SDK interaction logic.
+## Overview
 
-## Purpose
+Provides a high-level facade over the Gemini Multimodal Live API. Manages session lifecycle, concurrent audio/video/text streaming, tool orchestration, and event normalization.
 
-`services/gemini/live` encapsulates Gemini-specific concerns so higher layers (websocket endpoints and feature handlers) work with normalized events and simple method calls.
+## Modules
 
-This now includes multimodal realtime input:
+### manager.py - GeminiLiveManager
 
-- microphone PCM audio
-- screen-share image frames (for visual context and analysis)
-- text chat turns
-- uploaded-file tool orchestration for document summarization
+Main session manager.
 
-## Files
+- `connect(config)` / `close()`: Manages SDK connection context manager
+- `stream_input(pcm, sample_rate)`: Streams PCM audio data to Gemini
+- `stream_video_input(frame_data, mime_type)`: Streams video frames (JPEG/PNG)
+- `send_text_message(text)`: Sends text turns (user chat input)
+- `iter_events()`: Async generator yielding normalized event dicts
+    - Intercepts `tool_call` responses
+    - Resolves tools via `ToolDispatcher`
+    - Sends tool responses back to Gemini
+    - Yields normalized events: `audio`, `text`, `user_text`, `turn_complete`, `waiting_for_input`, `interruption`
+- `store_uploaded_file(file_name, mime_type, data)` / `request_uploaded_file_summary(file_id, file_name, mime_type)`: File upload entry points
+- `live_tool_declarations()`: Returns list of registered tools for config assembly
 
-- `live_manager.py`: Gemini connection lifecycle, streaming input, event normalization, and optional tool-call dispatch.
-- `tool_dispatcher.py`: function registration/execution for Gemini tool calls.
-- `../tools/uploaded_file_tools.py`: reusable uploaded-file storage + summary tool declaration/implementation.
+### dispatcher.py - ToolDispatcher
 
-## Public API (`GeminiLiveManager`)
+Tool registry and executor.
 
-- `connect(config)`: open a live Gemini session.
-- `close()`: close live Gemini session safely.
-- `stream_input(pcm_data, sample_rate=16000)`: send realtime PCM audio input.
-- `stream_video_input(frame_data, mime_type="image/jpeg")`: send realtime screen-share frames as visual input.
-- `begin_activity()`, `end_activity()`: manual activity boundaries (optional for manual VAD flows).
-- `iter_events()`: async generator that yields normalized events per Gemini turn.
-- `send_text_message(text, turn_complete=True)`: send a text chat turn into the live session.
-- `store_uploaded_file(file_name, mime_type, data)`: stage uploaded file bytes in session-local context.
-- `request_uploaded_file_summary(file_id, file_name, mime_type)`: prompt model to call `summarize_uploaded_file`.
+- `register(name, func)`: Registers a tool function (sync or async)
+- `execute(tool_call)`: Executes registered tool
+    - Parses args from tool call
+    - Detects if async via `inspect.iscoroutinefunction()`
+    - Invokes function and returns `{result: ...}` or `{error: ...}`
 
-## Normalized event shape from `iter_events()`
+## Event Flow
 
-- `{"type":"interruption"}`
-- `{"type":"user_text","text":"..."}`
-- `{"type":"text","text":"..."}`
-- `{"type":"audio","data":<bytes>,"mime_type":"audio/pcm;rate=24000"}`
-- `{"type":"turn_complete"}`
-- `{"type":"waiting_for_input"}`
+```
+iter_events() loop:
+  for each SDK event:
+    if type == "audio":
+      normalize and yield {type, audio, mimeType}
+    elif type == "tool_call":
+      dispatcher.execute(tool_call)
+      session.send_tool_response()
+    elif type in {text, user_text, interruption, turn_complete, waiting_for_input}:
+      normalize and yield event
+```
 
-Tool-call responses are handled internally by `GeminiLiveManager` when function calls are present.
-Tool execution is routed through `ToolDispatcher`, which calls registered functions and returns `FunctionResponse` payloads.
+## Tool Integration
 
-## Uploaded-file summary flow
+Tools are registered at construction via `UploadedFileTools`:
 
-1. Client sends `file_upload` websocket message with base64 file data.
-2. Websocket handler decodes data and calls `GeminiLiveManager.store_uploaded_file(...)`.
-3. Handler calls `GeminiLiveManager.request_uploaded_file_summary(...)`.
-4. Model emits a tool call (`summarize_uploaded_file`).
-5. `live_manager.py` forwards that call to `tool_dispatcher.py`.
-6. `ToolDispatcher` invokes registered `UploadedFileTools.summarize_uploaded_file(...)`.
-7. Tool uses Gemini document processing (configured by `PROXIMA_GEMINI_DOC_MODEL`) and returns summary context to the live model.
+```python
+manager = GeminiLiveManager()
+# manager._tool_dispatcher has summarize_uploaded_file registered
+config = build_live_config(..., tools=manager.live_tool_declarations())
+```
+
+When Gemini calls a tool, `iter_events()` intercepts, executes via dispatcher, and resumes the session.
+
+## Usage
+
+```python
+from services.gemini.live import GeminiLiveManager
+from proxima.config import build_live_config, resolve_mode
+
+manager = GeminiLiveManager()
+config = build_live_config("training", tools=manager.live_tool_declarations())
+await manager.connect(config)
+
+# Stream audio to Gemini
+await manager.stream_input(pcm_bytes, sample_rate=16000)
+
+# Receive normalized events
+async for event in manager.iter_events():
+    if event["type"] == "audio":
+        send_to_client(event["audio"])
+    elif event["type"] == "text":
+        send_to_client(event["text"])
+
+await manager.close()
+```
+
+## Environment
+
+Uses model from `services.gemini.config.get_live_model_name()` — set `PROXIMA_GEMINI_LIVE_MODEL`. 2. Websocket handler decodes data and calls `GeminiLiveManager.store_uploaded_file(...)`. 3. Handler calls `GeminiLiveManager.request_uploaded_file_summary(...)`. 4. Model emits a tool call (`summarize_uploaded_file`). 5. `live_manager.py` forwards that call to `tool_dispatcher.py`. 6. `ToolDispatcher` invokes registered `UploadedFileTools.summarize_uploaded_file(...)`. 7. Tool uses Gemini document processing (configured by `PROXIMA_GEMINI_DOC_MODEL`) and returns summary context to the live model.
 
 ## Example Usage
 

@@ -1,4 +1,4 @@
-# server/services/gemini/tools/file_context_store.py
+# server/services/gemini/tools/file/file_store.py
 
 from __future__ import annotations
 
@@ -38,4 +38,3 @@ class FileContextStore:
 
     def get(self, file_id: str) -> UploadedFileRecord | None:
         return self._records.get(file_id)
-

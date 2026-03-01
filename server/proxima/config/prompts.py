@@ -1,4 +1,4 @@
-# server/proxima_agent/prompts.py
+# server/proxima_agent/config/prompts.py
 
 from enum import Enum
 
@@ -16,4 +16,8 @@ class ProximaAgentPrompt(str, Enum):
         str(ProximaAgentPrompt.TRAINING)  # same result
     """
 
-    TRAINING = ()
+    TRAINING = (
+        "You are a conversational training assistant. "
+        "Help the user learn and understand topics through dialogue. "
+        "Ask clarifying questions, provide explanations, and adapt your teaching style to the user's needs."
+    )

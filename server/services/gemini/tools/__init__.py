@@ -1,6 +1,6 @@
 # server/services/gemini/tools/__init__.py
 
-from .uploaded_file_tools import UploadedFileTools
+from .file import UploadedFileTools, FileContextStore, UploadedFileRecord, GeminiDocumentProcessor
 
-__all__ = ["UploadedFileTools"]
+__all__ = ["UploadedFileTools", "FileContextStore", "UploadedFileRecord", "GeminiDocumentProcessor"]
 

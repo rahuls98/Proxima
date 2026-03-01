@@ -1,8 +1,8 @@
-# server/proxima_agent/config.py
+# server/proxima_agent/config/config.py
 
 from typing import Literal
 
-from google.genai import types # type: ignore
+from google.genai import types  # type: ignore
 
 from .prompts import ProximaAgentPrompt
 
@@ -37,7 +37,7 @@ def build_live_config(
     """
     kwargs: dict[str, object] = {
         "response_modalities": ["AUDIO"],
-        "system_instruction": SYSTEM_PROMPTS[mode],
+        "system_instruction": str(SYSTEM_PROMPTS[mode]),
         "speech_config": types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(

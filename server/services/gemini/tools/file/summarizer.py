@@ -1,11 +1,12 @@
-# server/services/gemini/tools/document_processor.py
+# server/services/gemini/tools/file/file_summarizer.py
 
 from __future__ import annotations
 
 from google import genai
 from google.genai import types  # type: ignore
 
-from services.gemini.model_settings import get_doc_model_name
+from services.gemini.config import get_doc_model_name
+from services.gemini.multimodal.response_parser import ExtractionError, extract_text
 
 
 SUMMARY_PROMPT = (
@@ -41,18 +42,7 @@ class GeminiDocumentProcessor:
             ],
         )
 
-        text = getattr(response, "text", None)
-        if text:
-            return text.strip()
-
-        candidates = getattr(response, "candidates", None) or []
-        for candidate in candidates:
-            content = getattr(candidate, "content", None)
-            if not content:
-                continue
-            for part in getattr(content, "parts", []) or []:
-                part_text = getattr(part, "text", None)
-                if part_text:
-                    return part_text.strip()
-
-        raise RuntimeError("Gemini document processing returned no summary text")
+        try:
+            return extract_text(response)
+        except ExtractionError as exc:
+            raise RuntimeError("Gemini document processing returned no summary text") from exc

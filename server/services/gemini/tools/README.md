@@ -1,49 +1,93 @@
-`server/services/gemini/tools/README.md`
+# Gemini Tools Service
 
-# Gemini Tools
+Tool implementations for Gemini Live sessions, including file upload handling and summarization.
 
-This package contains reusable Gemini-facing tools used by the live agent.
+## Overview
 
-## Files
+Provides reusable tools that extend Gemini Live agent capabilities. Currently implements uploaded file storage and summarization. Tools are registered with the Gemini Live dispatcher and invoked by the model during conversations.
 
-- `uploaded_file_tools.py`
-    - Registers Gemini function declarations.
-    - Exposes `summarize_uploaded_file` for model tool-calling.
-    - Coordinates storage lookup + document processing.
-- `file_context_store.py`
-    - In-memory session-local storage for uploaded files and extracted summaries.
-- `document_processor.py`
-    - Uses Gemini non-live generation (configured by `PROXIMA_GEMINI_DOC_MODEL`) for document/image/PDF summarization.
+## Structure
 
-## Current Tool: `summarize_uploaded_file`
+```
+tools/
+├── __init__.py        # Exports UploadedFileTools
+├── file/
+│   ├── store.py       # FileContextStore - in-memory file storage
+│   ├── summarizer.py  # GeminiDocumentProcessor - summarization
+│   ├── tools.py       # UploadedFileTools - tool implementation
+│   └── __init__.py    # Exports all file tools
+└── README.md
+```
 
-Input:
+## File Tool Module
 
-- `file_id` (string): ID returned when a file is uploaded via websocket.
+### store.py - FileContextStore
 
-Output:
+In-memory session-scoped file store.
+
+- `add(file_name, mime_type, data)` → `UploadedFileRecord`
+    - Generates UUID hex `file_id`
+    - Stores record with timestamps
+    - Returns record with assigned file_id
+- `get(file_id)` → `UploadedFileRecord | None`
+
+### summarizer.py - GeminiDocumentProcessor
+
+Gemini-powered document summarization for uploaded files.
+
+- `summarize_document(file_bytes, mime_type)` → `str`
+    - Streams file bytes to Gemini with a summarization prompt
+    - Returns 3-6 sentence summary
+    - Raises `RuntimeError` if no text returned
+
+### tools.py - UploadedFileTools
+
+Gemini Live tool implementation for file upload and summarization.
+
+- `register(dispatcher)`: Register `summarize_uploaded_file` tool with dispatcher
+- `declarations()` → `list[types.Tool]`: Tool declarations for Gemini config
+- `add_uploaded_file(file_name, mime_type, data)` → `UploadedFileRecord`: Store a file
+- `async summarize_uploaded_file(file_id)` → `dict[str, str]`: Tool invocation
+
+## Tool: summarize_uploaded_file
+
+**Input**: `file_id` (string) - UUID identifier returned when file is uploaded
+
+**Output**: JSON dict with:
 
 - `file_id`
 - `file_name`
 - `mime_type`
-- `summary`
+- `summary` - 3-6 sentence summary
 
-If `file_id` is missing/invalid, the tool returns an error payload.
+## Data Flow: File Upload → Summarization
 
-## Runtime Flow
+```
+WebSocket handler receives {type: "file_upload"}
+  ↓
+manager.store_uploaded_file()
+  → FileContextStore.add()
+  → returns file_id
+  ↓
+handler sends {type: "file_uploaded", fileId, ...} to client
+  ↓
+Gemini emits tool_call: summarize_uploaded_file(file_id)
+  ↓
+ToolDispatcher.execute()
+  ↓
+UploadedFileTools.summarize_uploaded_file(file_id)
+  → asyncio.to_thread(GeminiDocumentProcessor.summarize_document())
+  → cache summary on FileContextStore record
+  → return {file_id, file_name, mime_type, summary}
+```
 
-1. Websocket handler receives `file_upload`.
-2. File bytes are stored in `FileContextStore`.
-3. Live model is prompted to call `summarize_uploaded_file`.
-4. `ToolDispatcher` executes the registered tool function.
-5. Tool uses `GeminiDocumentProcessor` to extract a concise purpose/summary.
-6. Tool response is sent back to Gemini Live session as `FunctionResponse`.
+## Environment
+
+Uses model from `services.gemini.config.get_doc_model_name()` — set `PROXIMA_GEMINI_DOC_MODEL`.
 
 ## Notes
 
 - Storage is temporary (process memory), not persistent by default.
-- This package is framework-agnostic: it does not depend on FastAPI handlers directly.
-- Add new reusable tools here and register them in the live manager.
-- Model names are sourced from environment variables:
-    - `PROXIMA_GEMINI_LIVE_MODEL`
-    - `PROXIMA_GEMINI_DOC_MODEL`
+- Session-scoped: cleared when Gemini Live session closes.
+- Files are never written to disk.
+- More tools can be added here and registered in the live manager.

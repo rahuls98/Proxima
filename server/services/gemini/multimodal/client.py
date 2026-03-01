@@ -1,4 +1,4 @@
-# services/gemini/multimodal/multimodal_client.py
+# services/gemini/multimodal/client.py
 
 import asyncio
 import logging
@@ -6,16 +6,16 @@ import logging
 from google import genai
 from google.genai import types # type: ignore
 
-from services.gemini.model_settings import get_doc_model_name
-from .part_builder import (
+from services.gemini.config import get_doc_model_name
+from .content_builder import (
     TextContextItem,
     FileContextItem,
     PartBuildError,
     build_parts,
 )
-from .response_extractor import ExtractionError, extract_text
+from .response_parser import ExtractionError, extract_text
 
-logger = logging.getLogger("gemini_multimodal_client")
+logger = logging.getLogger("gemini_multimodal")
 
 # Prompt instructing Gemini how to unify heterogeneous context items
 # into a single structured persona model for training sessions.

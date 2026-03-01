@@ -1,8 +1,8 @@
-# proxima_agent/context_api.py
+# server/proxima_agent/api/context.py
 
 from typing import List
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile # type: ignore
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile  # type: ignore
 
 from services.gemini.multimodal import (
     FileContextItem,

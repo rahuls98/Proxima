@@ -1,4 +1,4 @@
-# server/services/gemini/model_settings.py
+# server/services/gemini/config.py
 
 from __future__ import annotations
 

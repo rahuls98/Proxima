@@ -1,4 +1,4 @@
-# services/gemini/multimodal/response_extractor.py
+# services/gemini/multimodal/response_parser.py
 
 from google.genai import types # type: ignore
 

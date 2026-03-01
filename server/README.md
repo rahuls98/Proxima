@@ -30,6 +30,7 @@ server/
 |-- proxima_agent/
 |   |-- __init__.py                      # Exports ProximaAgentWebSocketHandler
 |   |-- config.py                        # Mode-aware Gemini Live session config and prompts
+|   |-- prompts.py                       # ProximaAgentPrompt str enum -- one member per agent mode
 |   +-- handler.py                       # WebSocket session orchestration logic
 +-- services/
     +-- gemini/
@@ -53,7 +54,9 @@ server/
 main.py
 +-- proxima_agent.ProximaAgentWebSocketHandler       [handler.py]
     |-- proxima_agent.config                          [config.py]
-    |   +-- build_live_config(), resolve_mode()
+    |   |-- build_live_config(), resolve_mode()
+    |   +-- proxima_agent.prompts.ProximaAgentPrompt  [prompts.py]
+    |       +-- TRAINING (str Enum member per mode)
     +-- services.gemini.live.GeminiLiveManager        [live_manager.py]
         |-- services.gemini.model_settings             [model_settings.py]
         |   +-- get_live_model_name()
@@ -104,8 +107,19 @@ re-emits `session_ready` to the client.
 Owns mode resolution and Gemini session config assembly. `resolve_mode()` normalizes
 the `?mode=` query param (falls back to `"training"`). `build_live_config()` returns
 a `types.LiveConnectConfig` with response modality, system prompt, voice settings
-(default voice: Schedar), audio transcription, and activity detection. Accepts an
-optional `tools` list injected by the handler from `manager.live_tool_declarations()`.
+(default voice: Schedar), audio transcription, and activity detection. Resolves the
+system prompt by looking up `SYSTEM_PROMPTS[mode]`, which maps each mode key to its
+`ProximaAgentPrompt` enum member. Accepts an optional `tools` list injected by the
+handler from `manager.live_tool_declarations()`.
+
+**prompts.py -- ProximaAgentPrompt**
+
+A `str` Enum where each member is the full system prompt for one agent mode. Inherits
+from `str` so members pass directly into `types.LiveConnectConfig` as plain strings
+without needing `.value`. `config.py` imports this and maps each `ProximaAgentMode`
+key to its corresponding member in `SYSTEM_PROMPTS`. To add a new mode: add a member
+to `ProximaAgentPrompt`, add the mapping in `SYSTEM_PROMPTS`, and extend
+`ProximaAgentMode`. All three stay in sync by design.
 
 ### Gemini Service -- services/gemini/live/
 
@@ -273,3 +287,5 @@ python -m unittest -v tests/test_proxima_agent_websocket.py
 - `ToolDispatcher` supports both sync and async tool functions transparently.
 - `GeminiLiveManager` provides both `iter_events()` (async generator, used by handler) and `listen()`
   (callback-based, available for alternative integration patterns).
+- To add a new agent mode: add a member to `ProximaAgentPrompt`, map it in `SYSTEM_PROMPTS`,
+  and extend the `ProximaAgentMode` literal in `config.py`.

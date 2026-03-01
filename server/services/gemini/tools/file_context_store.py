@@ -1,3 +1,5 @@
+# server/services/gemini/tools/file_context_store.py
+
 from __future__ import annotations
 
 from dataclasses import dataclass

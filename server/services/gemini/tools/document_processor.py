@@ -1,7 +1,9 @@
+# server/services/gemini/tools/document_processor.py
+
 from __future__ import annotations
 
 from google import genai
-from google.genai import types
+from google.genai import types  # type: ignore
 
 from services.gemini.model_settings import get_doc_model_name
 

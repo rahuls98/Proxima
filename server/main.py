@@ -1,9 +1,11 @@
+# server/main.py
+
 import logging
 from pathlib import Path
 
-from dotenv import load_dotenv
-from fastapi import FastAPI, WebSocket
-from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv  # type: ignore
+from fastapi import FastAPI, WebSocket  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 
 from proxima_agent import ProximaAgentWebSocketHandler
 

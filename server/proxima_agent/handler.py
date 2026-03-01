@@ -1,3 +1,5 @@
+# server/proxima_agent/handler.py
+
 import asyncio
 import base64
 import json
@@ -5,7 +7,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket, WebSocketDisconnect  # type: ignore
 
 from services.gemini.live import GeminiLiveManager
 

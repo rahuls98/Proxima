@@ -1,8 +1,10 @@
+# server/services/gemini/live/live_manager.py
+
 import logging
 from collections.abc import AsyncIterator, Callable
 
 from google import genai
-from google.genai import types
+from google.genai import types  # type: ignore
 
 from services.gemini.model_settings import get_live_model_name
 from services.gemini.tools import UploadedFileTools

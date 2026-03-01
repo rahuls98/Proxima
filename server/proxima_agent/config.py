@@ -1,17 +1,18 @@
+# server/proxima_agent/config.py
+
 from typing import Literal
 
 from google.genai import types # type: ignore
+
+from .prompts import ProximaAgentPrompt
 
 ProximaAgentMode = Literal["training"]
 
 DEFAULT_MODE: ProximaAgentMode = "training"
 DEFAULT_VOICE_NAME: str = "Schedar"
 
-SYSTEM_PROMPTS: dict[ProximaAgentMode, str] = {
-    "training": (
-        "You are Proxima Agent in training mode. "
-        "Be concise, clear, and conversational in voice responses."
-    ),
+SYSTEM_PROMPTS: dict[ProximaAgentMode, ProximaAgentPrompt] = {
+    "training": ProximaAgentPrompt.TRAINING,
 }
 
 
@@ -31,7 +32,6 @@ def build_live_config(
     
     Args:
         mode: Agent mode (e.g., "training")
-        voice_tone: Voice tone/personality (e.g., "Even", "Bright", "Firm")
         voice_name: Specific voice name (e.g., "Schedar", "Zephyr", "Kore")
         tools: Optional list of tools for the agent
     """

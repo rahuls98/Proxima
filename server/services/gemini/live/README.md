@@ -1,3 +1,5 @@
+`server/services/gemini/live/README.md`
+
 # Gemini Live Service Wrapper
 
 This package is the single place for Gemini Live SDK interaction logic.

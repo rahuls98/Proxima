@@ -1,3 +1,5 @@
+# server/services/gemini/model_settings.py
+
 from __future__ import annotations
 
 import os

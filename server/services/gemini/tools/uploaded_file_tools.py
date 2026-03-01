@@ -1,9 +1,11 @@
+# server/services/gemini/tools/uploaded_file_tools.py
+
 from __future__ import annotations
 
 import asyncio
 from typing import Any
 
-from google.genai import types
+from google.genai import types  # type: ignore
 
 from .document_processor import GeminiDocumentProcessor
 from .file_context_store import FileContextStore, UploadedFileRecord

@@ -1,3 +1,5 @@
+`server/services/gemini/tools/README.md`
+
 # Gemini Tools
 
 This package contains reusable Gemini-facing tools used by the live agent.
@@ -5,13 +7,13 @@ This package contains reusable Gemini-facing tools used by the live agent.
 ## Files
 
 - `uploaded_file_tools.py`
-  - Registers Gemini function declarations.
-  - Exposes `summarize_uploaded_file` for model tool-calling.
-  - Coordinates storage lookup + document processing.
+    - Registers Gemini function declarations.
+    - Exposes `summarize_uploaded_file` for model tool-calling.
+    - Coordinates storage lookup + document processing.
 - `file_context_store.py`
-  - In-memory session-local storage for uploaded files and extracted summaries.
+    - In-memory session-local storage for uploaded files and extracted summaries.
 - `document_processor.py`
-  - Uses Gemini non-live generation (configured by `PROXIMA_GEMINI_DOC_MODEL`) for document/image/PDF summarization.
+    - Uses Gemini non-live generation (configured by `PROXIMA_GEMINI_DOC_MODEL`) for document/image/PDF summarization.
 
 ## Current Tool: `summarize_uploaded_file`
 
@@ -43,5 +45,5 @@ If `file_id` is missing/invalid, the tool returns an error payload.
 - This package is framework-agnostic: it does not depend on FastAPI handlers directly.
 - Add new reusable tools here and register them in the live manager.
 - Model names are sourced from environment variables:
-  - `PROXIMA_GEMINI_LIVE_MODEL`
-  - `PROXIMA_GEMINI_DOC_MODEL`
+    - `PROXIMA_GEMINI_LIVE_MODEL`
+    - `PROXIMA_GEMINI_DOC_MODEL`

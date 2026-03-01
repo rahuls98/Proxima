@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket  # type: ignore
 from fastapi.middleware.cors import CORSMiddleware  # type: ignore
 
 from proxima_agent import ProximaAgentWebSocketHandler
+from proxima_agent.context_api import router as context_router
 
 # Load server/.env for Vertex/Gemini environment variables.
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env", override=False)
@@ -23,6 +24,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(context_router)  
 
 handler = ProximaAgentWebSocketHandler(logger=logging.getLogger("proxima_agent_ws"))
 

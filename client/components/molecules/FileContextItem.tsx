@@ -32,14 +32,14 @@ export function FileContextItem({
                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                     aria-label="Select file"
                 />
-                <div className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-500 pointer-events-none bg-white">
+                <div className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 pointer-events-none bg-white">
                     {fileName || "Choose file..."}
                 </div>
             </div>
             <button
                 type="button"
                 onClick={onRemove}
-                className="border border-zinc-300 rounded-md text-zinc-600 hover:text-red-600 hover:border-red-300 px-2 py-2 text-sm transition-colors"
+                className="border border-zinc-300 rounded-md text-zinc-700 hover:text-red-600 hover:border-red-300 px-2 py-2 text-sm transition-colors"
             >
                 ✕
             </button>

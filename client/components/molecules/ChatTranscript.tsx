@@ -8,7 +8,7 @@ export function ChatTranscript({ transcript }: ChatTranscriptProps) {
     return (
         <div className="space-y-2 text-sm">
             {transcript.length === 0 ? (
-                <p className="text-zinc-500"></p>
+                <p className="text-zinc-700"></p>
             ) : (
                 transcript.map((entry) => (
                     <div
@@ -27,7 +27,7 @@ export function ChatTranscript({ transcript }: ChatTranscriptProps) {
                                     ? "max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-3 py-2 text-zinc-100"
                                     : entry.role === "bot"
                                       ? "max-w-[85%] rounded-2xl rounded-bl-md bg-zinc-100 px-3 py-2 text-zinc-900"
-                                      : "max-w-[90%] rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-500"
+                                      : "max-w-[90%] rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-700"
                             }
                         >
                             {entry.text}

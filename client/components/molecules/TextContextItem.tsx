@@ -34,7 +34,7 @@ export function TextContextItem({
             <button
                 type="button"
                 onClick={onRemove}
-                className="mt-1 border border-zinc-300 rounded-md text-zinc-600 hover:text-red-600 hover:border-red-300 px-2 py-2 text-sm transition-colors"
+                className="mt-1 border border-zinc-300 rounded-md text-zinc-700 hover:text-red-600 hover:border-red-300 px-2 py-2 text-sm transition-colors"
             >
                 ✕
             </button>

@@ -1,6 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "react";
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    type ChangeEvent,
+} from "react";
 
 import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
@@ -547,7 +553,7 @@ export function MeetingRoom() {
             <section className="flex min-w-[320px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white">
                 <header className="border-b border-zinc-200 px-4 py-3">
                     <h2 className="text-sm font-semibold">Chat</h2>
-                    <p className="mt-1 text-xs text-zinc-500">{message}</p>
+                    <p className="mt-1 text-xs text-zinc-700">{message}</p>
                 </header>
                 <div className="min-h-0 flex-1 overflow-auto p-3">
                     <ChatTranscript transcript={transcript} />

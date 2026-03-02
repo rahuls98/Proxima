@@ -84,61 +84,22 @@ See [services/gemini/README.md](services/gemini/README.md) for full details.
 
 ### Session Initialization Flow
 
-#### Optimized Path (System Instruction via URL)
+**Client connects to WebSocket** → Server resolves mode and initializes with default system prompt → `session_ready` sent to client
 
-```
-CLIENT                    BACKEND                  GEMINI LIVE
+**If custom persona is provided:**
 
-                  ws://localhost:8000
-                  /ws/proxima-agent?mode=training
-                  &system_instruction=You%20are%20...
-  ────────────────→
-              ├─ WebSocket connection established
-              ├─ run(websocket)
-              │  ├─ resolve_mode("training")
-              │  ├─ Parse system_instruction from query param ✓ (NEW: SKIP default)
-              │  ├─ build_live_config(...) {system_instruction AS PROVIDED, voice, ...}
-              │  ├─ Create GeminiLiveManager()
-              │  └─ manager.connect(config) ──→ Initialized WITH custom persona
-              │     ├─ Gemini Live session created
-              │     └─ Agent ready with provided instruction (no reconnect needed)
-              │
-              ├─ Send {type: "session_ready", mode: "training"}
-  ←──────────────────
-     Agent is ready
-     to interact
-     (system instruction already set)
-```
+Client → `{type: "set_system_instruction", instruction: "generated persona..."}` → Server receives, rebuilds config, reconnects Gemini session → `session_ready` sent again to confirm
 
-#### Legacy Path (Backward Compatible)
+**Complete flow for pre-generated persona:**
 
-If no system_instruction in URL, server uses mode default:
-
-```
-CLIENT                    BACKEND                  GEMINI LIVE
-
-  ────────────→
-              ├─ WebSocket connection established
-              ├─ Get SYSTEM_PROMPTS["training"] (default)
-              ├─ build_live_config(DEFAULT, ...)
-              ├─ manager.connect(config) ──→ Initialize with default persona
-              │
-              ├─ Send {type: "session_ready"}
-  ←────────────
-     session_ready
-
-              (Optional: Client can send set_system_instruction message to change)
-              ├─ Receive {type: "set_system_instruction", instruction: "..."}
-              ├─ reconnect_live_session(new_instruction)
-              │  ├─ manager.close()
-              │  ├─ manager.connect(new_config) ──→ Reconnect with new persona
-              │
-              ├─ Send {type: "warning", message: "..."}
-  ←────────────
-     (Session restored with new persona)
-```
-
-**Key Improvement**: System instruction is now passed in URL for faster initialization without reconnection delay
+1. User fills session context form
+2. Client calls POST /context/persona-instruction
+3. Server returns generated persona instruction
+4. Client stores in localStorage
+5. Client connects WebSocket
+6. Client sends set_system_instruction message with persona
+7. Server reconnects Gemini session with new persona
+8. Training session begins with custom AI personality
 
 ### Audio Streaming Flow (Real-Time)
 

@@ -54,10 +54,10 @@ The handler automatically manages:
 ## URL Format
 
 ```
-ws://localhost:8000/ws/proxima-agent?mode=training&system_instruction=<url-encoded-prompt>
+ws://localhost:8000/ws/proxima-agent?mode=training
 ```
 
-Optional: Pass `system_instruction` in URL to initialize with a custom persona (recommended for pre-generated personas).
+The mode parameter determines the default system prompt. Custom personas are applied via `set_system_instruction` message after connection.
 
 ### Connection Status Codes
 

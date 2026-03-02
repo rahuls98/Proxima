@@ -34,7 +34,6 @@ import asyncio
 import base64
 import json
 import logging
-import urllib.parse
 from collections.abc import Callable
 from typing import Any
 
@@ -110,17 +109,7 @@ class ProximaAgentWebSocketHandler:
             - file_uploaded: File upload confirmation
         """
         mode = resolve_mode(websocket.query_params.get("mode"))
-        # Get system instruction from query param (if passed by client) or use mode default
-        system_instruction_param = websocket.query_params.get("system_instruction")
-        if system_instruction_param:
-            try:
-                system_instruction = urllib.parse.unquote(system_instruction_param)
-                self.logger.info("Using system instruction from URL parameter")
-            except Exception as e:
-                self.logger.warning(f"Failed to parse system_instruction param: {e}")
-                system_instruction = str(SYSTEM_PROMPTS[mode])
-        else:
-            system_instruction = str(SYSTEM_PROMPTS[mode])
+        system_instruction = str(SYSTEM_PROMPTS[mode])
         await websocket.accept()
         self.logger.info("proxima-agent websocket accepted (mode=%s)", mode)
 

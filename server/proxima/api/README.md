@@ -41,8 +41,11 @@ REST endpoint for pre-session preparation: converts filled session context form 
 2. Client submits to POST /context/persona-instruction
 3. Server calls Gemini multimodal API with system role (persona generator) and form data
 4. Gemini returns natural-language instruction (250-450 words)
-5. Client stores in localStorage and passes to WebSocket on session start
-6. Agent initializes with generated persona
+5. Client stores in localStorage
+6. Client connects to WebSocket (with default system prompt)
+7. Client sends `{type: "set_system_instruction", instruction: "..."}` message
+8. Server reconnects Gemini session with generated persona
+9. Agent initializes with custom personality
 
 ## Implementation
 

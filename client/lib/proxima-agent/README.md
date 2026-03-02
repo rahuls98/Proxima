@@ -120,12 +120,10 @@ Establish WebSocket connection to server.
 
 **Flow**:
 
-1. Create WebSocket to `ws://localhost:8000/ws/proxima-agent?mode=training&system_instruction=...`
-    - System instruction is passed in URL (if provided) to avoid reconnection on init
+1. Create WebSocket to `ws://localhost:8000/ws/proxima-agent?mode=training`
 2. Wait for `session_ready` event
-3. Start automatic message reader loop
-
-**Note**: System instruction is now passed via URL query parameter instead of a separate message, avoiding the need to reconnect the Gemini session after initial connection.
+3. If systemInstruction provided, send `set_system_instruction` message
+4. Start automatic message reader loop
 
 **Throws**: Error if WebSocket fails to connect
 

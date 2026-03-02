@@ -126,29 +126,23 @@ export class ProximaAgentService {
     /**
      * Calculate default WebSocket URL based on current browser location
      *
-     * @returns ws://host:8000/ws/proxima-agent?mode=training&system_instruction=...
+     * @returns ws://host:8000/ws/proxima-agent?mode=training
      */
     private defaultWebSocketUrl(): string {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const host = window.location.hostname;
         const port = 8000;
-        let url = `${protocol}//${host}:${port}/ws/proxima-agent?mode=${this.mode}`;
-
-        // Include system instruction in URL if provided (avoids reconnect on init)
-        if (this.systemInstruction) {
-            url += `&system_instruction=${encodeURIComponent(this.systemInstruction)}`;
-        }
-
-        return url;
+        return `${protocol}//${host}:${port}/ws/proxima-agent?mode=${this.mode}`;
     }
 
     /**
      * Establish WebSocket connection to server
      *
      * Flow:
-     * 1. Create WebSocket connection (system instruction passed in URL if provided)
+     * 1. Create WebSocket connection
      * 2. Wait for initial session_ready event
-     * 3. Start internal reader loop to process incoming events
+     * 3. If systemInstruction provided, send set_system_instruction message
+     * 4. Start internal reader loop to process incoming events
      *
      * @throws Error if connection fails or times out
      *
@@ -158,7 +152,13 @@ export class ProximaAgentService {
      */
     async connect() {
         await this.ensureSocket();
-        // System instruction is now passed via URL query param, no need to send separately
+        // Send system instruction if available, before starting stream
+        if (this.systemInstruction) {
+            this.sendJson({
+                type: "set_system_instruction",
+                instruction: this.systemInstruction,
+            });
+        }
         await this.ensureMicPipeline();
         this.startStream();
     }

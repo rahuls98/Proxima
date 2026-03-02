@@ -1,73 +1,26 @@
-# API Module: Session Preparation and Context Building
+# API Module
 
-REST endpoints for pre-session preparation, including context synthesis and persona instruction generation.
+REST endpoint for pre-session preparation: converts filled session context form into a natural-language persona instruction.
 
-## Overview
+## What It Does
 
-Provides two main capabilities:
+**POST /context/persona-instruction** - Takes structured session context (from form) and generates a natural-language system instruction for Gemini Live.
 
-1. **Persona Instruction Generation**: Convert filled session context (from the form) into natural-language system prompts for Gemini Live
-2. **Context Synthesis**: Merge arbitrary text and file inputs into unified prospect context (legacy/optional)
+## How to Use
 
-## Workflow
-
-### End-to-End Flow
-
-```
-Client Form Submission
-        ↓
-┌─────────────────────────────────────────┐
-│ POST /context/persona-instruction       │
-│ Request: { session_context: {...} }     │
-│ Response: { persona_instruction: "..." }│
-└─────────────────────────────────────────┘
-        ↓
- Store in localStorage
-        ↓
-┌─────────────────────────────────────────┐
-│ WebSocket set_system_instruction Message│
-│ { type: "set_system_instruction", ... } │
-└─────────────────────────────────────────┘
-        ↓
- Gemini Live Session Begins
- with Generated Persona
-```
-
-## Endpoints
-
-### POST /context/persona-instruction
-
-Generate a natural-language system instruction from filled session context.
-
-**Purpose**: Convert structured session context (from the form UI) into a coherent, stable persona instruction for the Gemini Live API.
-
-**Content-Type**: `application/json`
-
-**Request Body**:
+**Request:**
 
 ```json
 {
     "session_context": {
-        "prospect_info": {
-            "first_name": "John",
-            "last_name": "Doe",
-            "company": "Acme Corp",
-            "title": "VP Sales"
-        },
-        "conversation_style": {
-            "formality_level": 0.7,
-            "humor_level": 0.5
-        },
-        "objection_handling": {
-            "skepticism_level": 0.8,
-            "patience_level": 0.7
-        },
-        "...more fields...": "..."
+        "prospect_info": { "first_name": "John", "company": "Acme" },
+        "conversation_style": { "formality_level": 0.7 },
+        "...more form fields...": "..."
     }
 }
 ```
 
-**Response** (200 OK):
+**Response (200 OK):**
 
 ```json
 {
@@ -76,28 +29,24 @@ Generate a natural-language system instruction from filled session context.
 }
 ```
 
-**Errors**:
+**Errors:**
 
-| Status | Description                                                         |
-| ------ | ------------------------------------------------------------------- |
-| 400    | session_context is empty or missing                                 |
-| 422    | Gemini API error (invalid input, quota exceeded, model unavailable) |
-| 500    | Internal server error                                               |
+- 400: Missing or empty session_context
+- 422: Gemini API error (quota, invalid input, model unavailable)
+- 500: Internal server error
 
-**Example**:
+## Typical Flow
 
-```bash
-curl -X POST http://localhost:8000/context/persona-instruction \
-  -H "Content-Type: application/json" \
-  -d '{
-    "session_context": {
-      "prospect_info": {"first_name": "John"},
-      "conversation_style": {"formality_level": 0.7}
-    }
-  }'
-```
+1. User fills out session context form in UI
+2. Client submits to POST /context/persona-instruction
+3. Server calls Gemini multimodal API with system role (persona generator) and form data
+4. Gemini returns natural-language instruction (250-450 words)
+5. Client stores in localStorage and passes to WebSocket on session start
+6. Agent initializes with generated persona
 
-**Features**:
+## Implementation
+
+The endpoint uses `GeminiMultimodalClient` to make a single multimodal call with predefined system role and user prompt that interprets form fields and generates coherent persona instruction.
 
 - Synthesizes 250-450 word natural-language instruction
 - Interprets slider values (0-1 scales, 1-5 scales) as behavioral descriptions

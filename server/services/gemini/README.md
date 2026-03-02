@@ -1,60 +1,25 @@
 # Gemini Services
 
-Core service layer providing Gemini API integration for live streaming, multimodal context building, and tool orchestration.
-
-## Structure
-
-```
-services/gemini/
-├── config.py            # Environment-based model name resolvers
-├── live/               # Gemini Live streaming
-│   ├── manager.py      # Session connection and event streaming
-│   ├── dispatcher.py   # Tool function registry and execution
-│   └── README.md
-├── multimodal/         # Non-live multimodal Gemini calls
-│   ├── client.py       # Content generation facade
-│   ├── content_builder.py  # Part assembly and validation
-│   ├── response_parser.py  # Safe text extraction
-│   └── README.md
-└── tools/              # Tool implementations for sessions
-    ├── file/          # Uploaded file tools
-    │   ├── store.py
-    │   ├── summarizer.py
-    │   ├── tools.py
-    │   └── __init__.py
-    └── README.md
-```
+Service layer for Gemini API integration: live streaming, multimodal context generation, and tool orchestration.
 
 ## Modules
 
-### config.py
+**live/** - Real-time bidirectional streaming with Gemini Live API
 
-Pure leaf module with environment-based model name resolvers.
+- `GeminiLiveManager` - Session lifecycle, audio/video/text streaming, event normalization
+- `ToolDispatcher` - Tool registry and execution (for file summarization, etc.)
 
-- `get_live_model_name()`: Returns `PROXIMA_GEMINI_LIVE_MODEL` or raises
-- `get_doc_model_name()`: Returns `PROXIMA_GEMINI_DOC_MODEL` or raises
+**multimodal/** - Non-live Gemini calls for content generation
 
-### live/
+- `GeminiMultimodalClient` - Request/response generation (persona instructions, summaries)
+- Content validation and response parsing
 
-Gemini Live API integration for real-time bidirectional streaming.
+**tools/file/** - Uploaded file handling
 
-- **manager.py**: `GeminiLiveManager` - session lifecycle, audio/video streaming, text turns, event iteration, and file upload orchestration
-- **dispatcher.py**: `ToolDispatcher` - tool registry and sync/async execution
+- `FileContextStore` - In-memory file storage
+- `GeminiDocumentProcessor` - Document summarization via Gemini
+- `UploadedFileTools` - Tool function for Gemini Live integration
 
-### multimodal/
+## Usage
 
-Non-live Gemini content generation for context building and summarization.
-
-- **client.py**: `GeminiMultimodalClient` - request/response multimodal generation
-- **content_builder.py**: Part assembly with MIME validation and size limits
-- **response_parser.py**: Safe text extraction from responses
-
-### tools/file/
-
-Uploaded file storage and summarization within a session.
-
-- **store.py**: `FileContextStore` - in-memory UUID-keyed file store
-- **summarizer.py**: `GeminiDocumentProcessor` - document summarization via Gemini
-- **tools.py**: `UploadedFileTools` - Gemini Live tool function implementation
-
-See individual README files for detailed module documentation.
+Use `GeminiLiveManager` for live sessions and `GeminiMultimodalClient` for pre/post-session content generation.

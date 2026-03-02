@@ -1,91 +1,53 @@
 # Gemini Multimodal Service
 
-Non-live request/response integration with Gemini for context building and content generation.
+Non-live Gemini API calls for content generation: persona instruction synthesis and file summarization.
 
-## Overview
+## What It Does
 
-Provides a facade for multimodal Gemini content generation. Validates inputs, assembles typed parts, calls Gemini, and safely extracts text responses. Used for prospect context synthesis before training sessions.
+`GeminiMultimodalClient` makes request/response calls to Gemini (not streaming):
 
-## Modules
+- Generate persona instructions from session context
+- Summarize uploaded documents
+- Built on content parts (text, images, files) with MIME validation
 
-### client.py - GeminiMultimodalClient
+## Key Methods
 
-Main facade for multimodal generation.
+**`await client.generate_content(system_role, user_prompt, parts=[])`**
 
-- `build_unified_context(text_items, file_items)`: Synthesizes a unified prospect persona from text and file inputs
-    - Validates input lengths match
-    - Builds `types.Part` list via `content_builder`
-    - Calls Gemini via `asyncio.to_thread()` (non-blocking)
-    - Extracts and returns text via `response_parser`
-    - Wraps all errors as `MultimodalContextError`
+- Calls Gemini API with system role and user prompt
+- Returns response text
+- Raises on API errors (quota, invalid input, etc.)
 
-### content_builder.py
-
-Part assembly and validation.
-
-- `build_parts(text_items, file_items)`: Validates and assembles `types.Part` list
-    - Enforces MIME type support (text, image, PDF, audio, video)
-    - Enforces 20MB inline size limit per file
-    - Raises `PartBuildError` on violations
-    - Raises `ValueError` if no content provided
-
-### response_parser.py
-
-Safe text extraction from Gemini responses.
-
-- `extract_text(response)`: Extracts text from any response shape
-    - Tries `response.text` first
-    - Falls back to `candidates -> content -> parts` tree walk
-    - Raises `ExtractionError` if no text found
-
-## Error Handling
-
-- `MultimodalContextError`: Public API error wrapping all internal failures
-- `PartBuildError`: Input validation failure
-- `ExtractionError`: Response parsing failure
-
-## Usage
+## How to Use
 
 ```python
-from services.gemini.multimodal import GeminiMultimodalClient, TextContextItem, FileContextItem
+from services.gemini.multimodal import GeminiMultimodalClient
 
 client = GeminiMultimodalClient()
 
-text_items = [
-    TextContextItem(key="prospect_name", value="John Doe"),
-    TextContextItem(key="industry", value="SaaS"),
-]
-
-file_items = [
-    FileContextItem(key="resume", data=resume_bytes, mime_type="application/pdf", filename="resume.pdf"),
-]
-
-try:
-    unified = await client.build_unified_context(text_items, file_items)
-    print(f"Persona: {unified}")
-except MultimodalContextError as e:
-    print(f"Error: {e}")
+# Generate persona instruction
+response_text = await client.generate_content(
+    system_role="You are a persona context generator...",
+    user_prompt="Given this form data, generate a system instruction...",
+    parts=[{"type": "text", "text": structured_context}]
+)
 ```
 
-## Data Flow
+## Internal Modules
 
-```
-build_unified_context(text_items, file_items)
-  ↓
-content_builder.build_parts()
-  → validate MIME types
-  → validate file sizes (max 20MB)
-  → assemble types.Part[]
-  ↓
-asyncio.to_thread(genai.generate_content(parts))
-  ↓
+**content_builder.py** - Assembles and validates content parts (text, images, files) with MIME type checking
+
+**response_parser.py** - Safely extracts text from Gemini responses
+↓
 response_parser.extract_text()
-  → try response.text
-  → else walk candidates tree
-  ↓
+→ try response.text
+→ else walk candidates tree
+↓
 return unified_context: str
+
 ```
 
 ## Environment
 
 Uses model from `services.gemini.config.get_doc_model_name()` — set `PROXIMA_GEMINI_DOC_MODEL`.
+```

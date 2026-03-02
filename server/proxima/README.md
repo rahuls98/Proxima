@@ -1,42 +1,27 @@
-# Proxima Agent
+# Proxima Agent (Orchestration Layer)
 
-Core orchestration layer for real-time conversational training sessions via Gemini Live.
-
-## Structure
-
-```
-proxima/
-├── __init__.py              # Exports ProximaAgentWebSocketHandler and context_router
-├── config/                  # Configuration, modes, and system prompts
-│   ├── config.py           # Mode resolution and Gemini Live config builder
-│   └── prompts.py          # System prompts for each agent mode
-├── websocket/              # Real-time session orchestration
-│   └── handler.py          # WebSocket handler: audio/video/chat stream management
-└── api/                    # REST endpoints
-    └── context.py          # POST /context/persona: prospect context builder
-```
+Core orchestration for real-time training sessions: WebSocket handling, REST APIs, and configuration.
 
 ## Modules
 
-### config/
+**config/** - Session configuration and system prompts
 
-Owns session configuration and mode resolution.
+- Mode resolution (?mode=training)
+- Gemini Live config assembly
+- System prompts per mode
 
-- **config.py**: `build_live_config()` assembles `types.LiveConnectConfig` with voice settings, system prompts, and Gemini Live parameters. `resolve_mode()` normalizes query parameters.
-- **prompts.py**: `ProximaAgentPrompt` enum defines system instructions for each agent mode (currently: `TRAINING`).
+**websocket/** - Real-time bidirectional streaming
 
-### websocket/
+- Audio, video, text, file upload handling
+- Automatic reconnection on errors
+- 5 concurrent tasks for streaming
 
-Manages real-time WebSocket sessions with bidirectional audio, video, and chat.
+**api/** - REST endpoints
 
-- **handler.py**: `ProximaAgentWebSocketHandler` orchestrates five concurrent tasks: `websocket_sender`, `receive_from_client`, `send_to_gemini`, `send_video_to_gemini`, and `receive_from_gemini`. Handles backpressure, automatic reconnection, and file uploads.
+- POST /context/persona-instruction - Generate persona from session context
 
-### api/
+## How It Fits Together
 
-REST endpoints for session preparation.
+Client connects to WebSocket → mode is validated and system instruction (from URL param) is loaded → Gemini Live session initialized → bidirectional audio/video/text streaming begins.
 
-- **context.py**: `POST /context/persona` accepts named text and file context items, synthesizes a unified prospect persona via multimodal Gemini call, and returns a summary.
-
-## Protocol
-
-See [WebSocket Protocol](../README.md#websocket-protocol) and [Context API Protocol](../README.md#context-api-protocol) in the main server README.
+Before session, client calls REST API to generate persona instruction, stores in localStorage, passes in WebSocket URL.

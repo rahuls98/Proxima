@@ -1,22 +1,32 @@
-# Gemini File Tools
+# File Tools
 
-Tools for handling uploaded files within Gemini Live sessions.
+Handles file uploads and document summarization in training sessions.
 
-## Overview
+## What It Does
 
-Provides file storage and summarization capabilities as Gemini Live tools. Files are stored in-memory in a session-scoped store and can be summarized on demand via Gemini.
+- `FileContextStore` - Stores uploaded files in-memory with UUID keys
+- `GeminiDocumentProcessor` - Summarizes documents using Gemini API
+- `UploadedFileTools` - Registers tool function for Gemini Live to call
 
-## Structure
+## How to Use
 
+Manually (not typical - usually managed by WebSocket handler):
+
+```python
+from services.gemini.tools.file import FileContextStore, GeminiDocumentProcessor
+
+# Store file
+store = FileContextStore()
+file_id = store.add("document.pdf", "application/pdf", file_bytes)
+
+# Summarize
+processor = GeminiDocumentProcessor()
+summary = await processor.summarize_document(file_bytes, "application/pdf")
 ```
-file/
-├── __init__.py        # Exports FileContextStore, GeminiDocumentProcessor, UploadedFileTools
-├── store.py           # FileContextStore - UUID-keyed file storage
-├── summarizer.py      # GeminiDocumentProcessor - Gemini-powered summarization
-└── tools.py           # UploadedFileTools - Gemini Live tool implementation
-```
 
-## Quick Reference
+## Integration
+
+Tools are auto-registered with `GeminiLiveManager` and available for Gemini to call during sessions.
 
 ### FileContextStore (store.py)
 

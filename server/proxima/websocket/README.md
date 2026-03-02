@@ -1,153 +1,63 @@
-# WebSocket Module: Real-Time Training Sessions
+# WebSocket Module
 
-Real-time bidirectional streaming for training sessions with Gemini Live API.
+Handles real-time bidirectional streaming for training sessions: audio, screen share, text messages, and file uploads.
 
-## Overview
+## What It Does
 
-`ProximaAgentWebSocketHandler` manages the complete lifecycle of a live training session with automatic reconnection, backpressure handling, and support for:
+`ProximaAgentWebSocketHandler` orchestrates a live training session by:
 
-- **Audio streaming**: 16 kHz PCM format with low-latency transmission
-- **Video streaming**: Screen share capability with frame validation
-- **Text messaging**: User messages and file uploads with validation
-- **Dynamic updates**: Persona/system instruction changes without session interruption
+- Receiving audio frames from client microphone and forwarding to Gemini Live
+- Receiving screen share frames (JPEG) for visual context
+- Sending back generated audio and transcriptions
+- Managing file uploads with summarization
+- Handling reconnection automatically on transport errors
 
-## Architecture
+## Key Points
 
-### Task Orchestration
+**Client → Server Messages:**
 
-The handler orchestrates 5 concurrent async tasks communicating through queues:
+- `stream_start` / `stream_stop` - Enable/disable mic
+- `screen_share_start` / `screen_frame` / `screen_share_stop` - Screen sharing
+- `user_message` - Text input
+- `file_upload` - Upload a file (max 20 MB)
+- `set_system_instruction` - Change persona mid-session
+- `ping` - Health check
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│ Client WebSocket Connection                                 │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                    TASK 5
-              receive_from_client
-                         │
-        ┌────────────────┼────────────────┬──────────────┐
-        ▼                ▼                ▼              ▼
-   audio_in_queue  video_in_queue  (user_message)  (ping/pong)
-        │                │           (file_upload)
-   TASK 2           TASK 3
-send_to_gemini  send_video_to_gemini
-        │                │
-        └────────────────┴──────────────┬──────────────────┐
-                                        ▼                  ▼
-                              Gemini Live API ◄──────► config rebuild
-                                        │
-                                   TASK 4
-                             receive_from_gemini
-                                        │
-                    ┌───────────────────┼────────────────┐
-                    ▼                   ▼                ▼
-              audio_frames         transcriptions   state_events
-                    │                   │                │
-                    └───────────────────┴────────────────┘
-                              │
-                        outbound_queue
-                              │
-                           TASK 1
-                      websocket_sender
-                              │
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-              Client Audio Events  (session messages)
-```
+**Server → Client Events:**
 
-### Message Queues
+- `session_ready` - Session initialized and ready
+- `stream_started` / `stream_stopped` - Mic state
+- `audio` - Generated audio frames (base64, 24 kHz PCM)
+- `text` / `user_text` - Transcriptions
+- `turn_complete` / `waiting_for_input` / `interruption` - Conversation state
+- `warning` / `error` - Notifications
 
-| Queue            | Direction       | Capacity  | Overflow Behavior               |
-| ---------------- | --------------- | --------- | ------------------------------- |
-| `outbound_queue` | Server → Client | Unlimited | Drop audio frames if size > 256 |
-| `audio_in_queue` | Client → Gemini | 64 frames | Drop oldest frame               |
-| `video_in_queue` | Client → Gemini | 4 frames  | Drop oldest frame               |
-
-### State & Synchronization
+## How to Use
 
 ```python
-reconnect_lock       # Prevents concurrent reconnections
-stream_enabled       # Audio input on/off flag
-screen_share_enabled # Video input on/off flag
-system_instruction   # Current persona prompt
-config               # Gemini Live configuration
+from proxima.websocket.handler import ProximaAgentWebSocketHandler
+
+handler = ProximaAgentWebSocketHandler()
+
+@app.websocket("/ws/proxima-agent")
+async def websocket_endpoint(websocket: WebSocket):
+    await handler.run(websocket)
 ```
 
-## Message Protocol
+The handler automatically manages:
 
-### Client → Server Messages
+- 5 concurrent async tasks for bidirectional streaming
+- Queues with backpressure (drops old frames if network is slow)
+- Reconnection on errors without losing session state
+- File storage and summarization
 
-#### Audio Control
+## URL Format
 
-```json
-{ "type": "stream_start" }  // Enable audio input streaming
-{ "type": "stream_stop" }   // Disable audio input streaming
+```
+ws://localhost:8000/ws/proxima-agent?mode=training&system_instruction=<url-encoded-prompt>
 ```
 
-#### Screen Share
-
-```json
-{ "type": "screen_share_start" }
-{ "type": "screen_frame", "image": "base64...", "mimeType": "image/jpeg" }
-{ "type": "screen_share_stop" }
-```
-
-#### User Interaction
-
-```json
-{ "type": "user_message", "text": "Hello agent" }
-{ "type": "file_upload", "fileName": "doc.pdf", "mimeType": "application/pdf", "data": "base64..." }
-```
-
-#### Session Control
-
-```json
-{ "type": "ping" }                                                    // Health check
-{ "type": "set_system_instruction", "instruction": "new prompt..." } // Change persona
-{ "type": "disconnect" }                                             // End session
-{ "type": "end_session" }                                            // End session
-```
-
-### Server → Client Events
-
-#### Audio
-
-```json
-{
-    "type": "audio",
-    "audio": "base64-pcm-frames",
-    "mimeType": "audio/pcm;rate=24000"
-}
-```
-
-#### State
-
-```json
-{ "type": "stream_started" }      // Audio streaming enabled
-{ "type": "stream_stopped" }      // Audio streaming disabled
-{ "type": "interruption" }        // User interrupted agent
-{ "type": "turn_complete" }       // Agent finished turn
-{ "type": "waiting_for_input" }   // Agent waiting for user
-```
-
-#### Transcriptions
-
-```json
-{ "type": "text", "text": "Agent speech..." }      // Agent transcription
-{ "type": "user_text", "text": "User speech..." }  // User transcription
-```
-
-#### System Events
-
-```json
-{ "type": "session_ready", "mode": "training" }              // Initial ready signal
-{ "type": "pong" }                                           // Response to ping
-{ "type": "file_uploaded", "fileId": "...", "fileName": "..." } // File confirmation
-{ "type": "warning", "message": "..." }                      // Non-fatal notification
-{ "type": "error", "message": "..." }                        // Fatal error
-```
-
-## Error Handling & Reconnection
+Optional: Pass `system_instruction` in URL to initialize with a custom persona (recommended for pre-generated personas).
 
 ### Connection Status Codes
 

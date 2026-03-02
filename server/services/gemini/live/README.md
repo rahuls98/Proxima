@@ -1,52 +1,73 @@
 # Gemini Live Service
 
-Real-time streaming integration with Gemini Live for continuous conversations.
+Facade over Gemini Multimodal Live API for real-time bidirectional streaming conversations.
 
-## Overview
+## What It Does
 
-Provides a high-level facade over the Gemini Multimodal Live API. Manages session lifecycle, concurrent audio/video/text streaming, tool orchestration, and event normalization.
+`GeminiLiveManager` handles:
+
+- WebSocket connection lifecycle with Gemini Live API
+- Streaming audio/video input to Gemini
+- Receiving and normalizing events (audio, text, transcriptions, state changes)
+- Intercepting and executing tool calls (file summarization, etc.)
+
+## Key Methods
+
+**Connection:**
+
+- `await manager.connect(config)` - Start session
+- `await manager.close()` - End session
+
+**Streaming Input:**
+
+- `await manager.stream_input(pcm_bytes, sample_rate)` - Send audio
+- `await manager.stream_video_input(frame_data, mime_type)` - Send video frames
+- `await manager.send_text_message(text)` - Send text turn
+
+**Receiving Output:**
+
+- `async for event in manager.iter_events()` - Stream normalized events
+
+**File Uploads:**
+
+- `manager.store_uploaded_file(name, mime_type, data)` - Store file
+- `manager.request_uploaded_file_summary(file_id, name, mime_type)` - Request summary
+
+**Tools:**
+
+- `manager.live_tool_declarations()` - Get registered tools
+
+## How to Use
+
+```python
+from services.gemini.live import GeminiLiveManager
+from proxima.config import build_live_config
+
+manager = GeminiLiveManager()
+config = build_live_config("Custom persona...", "training",
+                           tools=manager.live_tool_declarations())
+await manager.connect(config)
+
+await manager.stream_input(pcm_bytes, sample_rate=16000)
+
+async for event in manager.iter_events():
+    if event["type"] == "audio":
+        # Send to client
+    elif event["type"] == "text":
+        # Send to client
+
+await manager.close()
+```
+
+## Tool Integration
+
+Tools like file summarization are registered automatically via `UploadedFileTools`. When Gemini emits a tool call, the manager intercepts, executes it via `ToolDispatcher`, and returns the result.
 
 ## Modules
 
-### manager.py - GeminiLiveManager
+**manager.py** - Main `GeminiLiveManager` class
 
-Main session manager.
-
-- `connect(config)` / `close()`: Manages SDK connection context manager
-- `stream_input(pcm, sample_rate)`: Streams PCM audio data to Gemini
-- `stream_video_input(frame_data, mime_type)`: Streams video frames (JPEG/PNG)
-- `send_text_message(text)`: Sends text turns (user chat input)
-- `iter_events()`: Async generator yielding normalized event dicts
-    - Intercepts `tool_call` responses
-    - Resolves tools via `ToolDispatcher`
-    - Sends tool responses back to Gemini
-    - Yields normalized events: `audio`, `text`, `user_text`, `turn_complete`, `waiting_for_input`, `interruption`
-- `store_uploaded_file(file_name, mime_type, data)` / `request_uploaded_file_summary(file_id, file_name, mime_type)`: File upload entry points
-- `live_tool_declarations()`: Returns list of registered tools for config assembly
-
-### dispatcher.py - ToolDispatcher
-
-Tool registry and executor.
-
-- `register(name, func)`: Registers a tool function (sync or async)
-- `execute(tool_call)`: Executes registered tool
-    - Parses args from tool call
-    - Detects if async via `inspect.iscoroutinefunction()`
-    - Invokes function and returns `{result: ...}` or `{error: ...}`
-
-## Event Flow
-
-```
-iter_events() loop:
-  for each SDK event:
-    if type == "audio":
-      normalize and yield {type, audio, mimeType}
-    elif type == "tool_call":
-      dispatcher.execute(tool_call)
-      session.send_tool_response()
-    elif type in {text, user_text, interruption, turn_complete, waiting_for_input}:
-      normalize and yield event
-```
+**dispatcher.py** - Tool registry and execution
 
 ## Tool Integration
 

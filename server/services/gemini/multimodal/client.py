@@ -34,6 +34,69 @@ UNIFIED_CONTEXT_PROMPT = (
     "5) Do NOT restate raw content — synthesize and extract signal.\n"
 )
 
+# Prompt template for generating persona system instruction from session context JSON
+PERSONA_CONTEXT_GENERATOR_SYSTEM_ROLE = (
+    "You are a Persona Context Generator for an AI sales training platform.\n\n"
+    "Your job is to convert structured session configuration JSON into a natural-language "
+    "persona system instruction that will be used as the persistent system prompt for a "
+    "live conversational AI.\n\n"
+    "The output must:\n"
+    "- Sound natural and cohesive (not robotic)\n"
+    "- Not expose raw JSON structure\n"
+    "- Translate numeric sliders into behavioral tendencies\n"
+    "- Convert dropdown selections into personality traits\n"
+    "- Incorporate voice guidance subtly\n"
+    "- Clearly define objection behavior and escalation rules\n"
+    "- Enforce staying in character\n"
+    "- Be between 250–450 words\n"
+    "- Be formatted in clean paragraphs and bullet sections\n\n"
+    "Do NOT explain your reasoning.\n"
+    "Do NOT restate the input JSON.\n"
+    "Only output the final persona system instruction."
+)
+
+PERSONA_CONTEXT_GENERATOR_USER_PROMPT = (
+    "Convert the following session context JSON into a persona system instruction "
+    "for a live AI prospect simulation.\n\n"
+    "SESSION CONTEXT:\n\n"
+    "{session_context_json}"
+)
+
+# Slider interpretation guidelines
+SLIDER_INTERPRETATION_GUIDE = """
+SLIDER INTERPRETATION RULES:
+
+Skepticism Level (0–1):
+- 0.0–0.3 → Cooperative and open-minded
+- 0.4–0.6 → Neutral but questioning
+- 0.7–1.0 → Actively skeptical and escalatory
+
+Trust Level at Start (0–1):
+- 0.0–0.3 → Guarded, short answers
+- 0.4–0.6 → Conversational
+- 0.7–1.0 → Open and collaborative
+
+Urgency Level (slider_1_5):
+- 1–2 → Low urgency, slow pacing, defer decisions
+- 3 → Moderate urgency
+- 4–5 → High urgency, push for clarity and speed
+
+Energy Level (slider_1_5):
+- 1–2 → Low energy, calm, reserved voice
+- 3 → Moderate energy
+- 4–5 → High energy, more expressive tone
+
+Emotional Variability (slider_1_5):
+- 1–2 → Stable, consistent emotional tone
+- 3 → Moderate emotional responses
+- 4–5 → Highly variable, emotional shifts
+
+Script Adherence Strictness (slider_1_5):
+- 1–2 → Flexible, can deviate from script
+- 3 → Balanced script following
+- 4–5 → Strict adherence to provided script
+"""
+
 
 class MultimodalContextError(Exception):
     """
@@ -112,3 +175,67 @@ class GeminiMultimodalClient:
             return extract_text(response)
         except ExtractionError as exc:
             raise MultimodalContextError(str(exc)) from exc
+
+    async def generate_persona_instruction(
+        self,
+        session_context: dict,
+    ) -> str:
+        """
+        Converts filled session context JSON into a natural-language persona
+        system instruction for live Gemini conversational AI.
+
+        Takes structured session configuration (prospects, KPIs, objections,
+        personality, voice settings, etc.) and produces a clean, stable system
+        prompt that the Live API will use throughout the session.
+
+        Args:
+            session_context: Dictionary containing all filled form fields from
+                the Session Context Builder, including demographic info, KPIs,
+                objections, personality traits, sliders, voice config, etc.
+
+        Returns:
+            Natural language persona system instruction (250-450 words).
+
+        Raises:
+            MultimodalContextError: On Gemini API failure or empty response.
+        """
+        import json
+
+        try:
+            # Convert session context to JSON string with slider interpretation guide
+            context_json_str = json.dumps(session_context, indent=2)
+            
+            # Build the full prompt with system role + user message + slider guide
+            # Note: system_instruction is included in the user message for compatibility
+            full_prompt = (
+                PERSONA_CONTEXT_GENERATOR_SYSTEM_ROLE
+                + "\n\n---\n\n"
+                + PERSONA_CONTEXT_GENERATOR_USER_PROMPT.format(
+                    session_context_json=context_json_str
+                )
+                + "\n\n---\n\n"
+                + SLIDER_INTERPRETATION_GUIDE
+            )
+
+            # Call Gemini with the combined prompt
+            response = await asyncio.to_thread(
+                self.client.models.generate_content,
+                model=self.model,
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part(text=full_prompt)],
+                    )
+                ],
+            )
+        except Exception as exc:
+            logger.exception("Gemini persona instruction generation failed")
+            raise MultimodalContextError(
+                f"Failed to generate persona instruction: {exc}"
+            ) from exc
+
+        try:
+            return extract_text(response)
+        except ExtractionError as exc:
+            raise MultimodalContextError(str(exc)) from exc
+

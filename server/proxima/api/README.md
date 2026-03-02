@@ -1,54 +1,342 @@
-# Proxima API Module
+# API Module: Session Preparation and Context Building
 
-REST endpoints for session preparation and context building.
+REST endpoints for pre-session preparation, including context synthesis and persona instruction generation.
 
 ## Overview
 
-Provides HTTP endpoints for pre-session prospect context synthesis. Accepts arbitrary text and file context items, synthesizes a unified persona, and returns a summary for use before a training session.
+Provides two main capabilities:
 
-## Files
+1. **Persona Instruction Generation**: Convert filled session context (from the form) into natural-language system prompts for Gemini Live
+2. **Context Synthesis**: Merge arbitrary text and file inputs into unified prospect context (legacy/optional)
 
-- **context.py**: `POST /context/persona`
-    - Accepts `multipart/form-data` with parallel arrays of text and file items
-    - Validates MIME types and file sizes (max 20MB per file)
-    - Calls `GeminiMultimodalClient.build_unified_context()`
-    - Returns JSON with unified context summary and item counts
+## Workflow
 
-## Endpoint
+### End-to-End Flow
 
-### POST /context/persona
+```
+Client Form Submission
+        ↓
+┌─────────────────────────────────────────┐
+│ POST /context/persona-instruction       │
+│ Request: { session_context: {...} }     │
+│ Response: { persona_instruction: "..." }│
+└─────────────────────────────────────────┘
+        ↓
+ Store in localStorage
+        ↓
+┌─────────────────────────────────────────┐
+│ WebSocket set_system_instruction Message│
+│ { type: "set_system_instruction", ... } │
+└─────────────────────────────────────────┘
+        ↓
+ Gemini Live Session Begins
+ with Generated Persona
+```
+
+## Endpoints
+
+### POST /context/persona-instruction
+
+Generate a natural-language system instruction from filled session context.
+
+**Purpose**: Convert structured session context (from the form UI) into a coherent, stable persona instruction for the Gemini Live API.
+
+**Content-Type**: `application/json`
+
+**Request Body**:
+
+```json
+{
+    "session_context": {
+        "prospect_info": {
+            "first_name": "John",
+            "last_name": "Doe",
+            "company": "Acme Corp",
+            "title": "VP Sales"
+        },
+        "conversation_style": {
+            "formality_level": 0.7,
+            "humor_level": 0.5
+        },
+        "objection_handling": {
+            "skepticism_level": 0.8,
+            "patience_level": 0.7
+        },
+        "...more fields...": "..."
+    }
+}
+```
+
+**Response** (200 OK):
+
+```json
+{
+    "persona_instruction": "You are a sales training AI...",
+    "source_fields_count": 42
+}
+```
+
+**Errors**:
+
+| Status | Description                                                         |
+| ------ | ------------------------------------------------------------------- |
+| 400    | session_context is empty or missing                                 |
+| 422    | Gemini API error (invalid input, quota exceeded, model unavailable) |
+| 500    | Internal server error                                               |
+
+**Example**:
+
+```bash
+curl -X POST http://localhost:8000/context/persona-instruction \
+  -H "Content-Type: application/json" \
+  -d '{
+    "session_context": {
+      "prospect_info": {"first_name": "John"},
+      "conversation_style": {"formality_level": 0.7}
+    }
+  }'
+```
+
+**Features**:
+
+- Synthesizes 250-450 word natural-language instruction
+- Interprets slider values (0-1 scales, 1-5 scales) as behavioral descriptions
+- Avoids exposing raw JSON to final instruction
+- Idempotent: Same input → Same output
+- Includes voice configuration guidance (if configured)
+- Ready for immediate use in Gemini Live sessions
+
+**Integration with WebSocket**:
+
+After receiving the generated instruction, the client:
+
+1. Stores instruction in `localStorage`
+2. Starts training session
+3. Sends `set_system_instruction` message via WebSocket to apply dynamic persona update
+4. Agent begins session with synthesized persona
+
+### POST /context/persona (Legacy)
+
+Synthesize a unified prospect context from arbitrary text and file inputs.
+
+**Deprecated**: Use `/context/persona-instruction` instead for better UX.
 
 **Content-Type**: `multipart/form-data`
 
 **Parameters**:
 
-| Field                   | Type              | Description              |
-| ----------------------- | ----------------- | ------------------------ |
-| `context_text_keys[]`   | string (repeated) | Key for each text item   |
-| `context_text_values[]` | string (repeated) | Value for each text item |
-| `context_file_keys[]`   | string (repeated) | Key for each file item   |
-| `context_files[]`       | file (repeated)   | File for each file item  |
+| Field                   | Type              | Required | Description         |
+| ----------------------- | ----------------- | -------- | ------------------- |
+| `context_text_keys[]`   | string (repeated) | No       | Key for text item   |
+| `context_text_values[]` | string (repeated) | No       | Value for text item |
+| `context_file_keys[]`   | string (repeated) | No       | Key for file item   |
+| `context_files[]`       | file (repeated)   | No       | File for file item  |
 
-**Supported file MIME types**: `text/*`, `image/*`, `application/pdf`, `audio/*`, `video/*`
+**Validation**:
 
-**Response**:
+- `context_text_keys[]` and `context_text_values[]` must be same length
+- `context_file_keys[]` and `context_files[]` must be same length
+- Supported MIME types: `text/*`, `image/*`, `application/pdf`, `audio/*`, `video/*`
+- Max file size: 20 MB per file
+
+**Response** (200 OK):
 
 ```json
 {
-    "unified_context": "...",
+    "unified_context": "Prospect John Doe is a VP Sales at Acme Corp with 10 years experience...",
     "text_items_count": 2,
     "file_items_count": 1
 }
 ```
 
+**Errors**:
+
+| Status | Description                                 |
+| ------ | ------------------------------------------- |
+| 400    | Array length mismatch or missing context    |
+| 422    | Gemini API error or file validation failure |
+| 500    | Internal server error                       |
+
 **Example**:
 
 ```bash
-curl -F "context_text_keys[]=prospect_name" \
-     -F "context_text_values[]=John Doe" \
-     -F "context_file_keys[]=resume" \
-     -F "context_files[]=@resume.pdf" \
-     http://localhost:8000/context/persona
+curl -X POST http://localhost:8000/context/persona \
+  -F "context_text_keys[]=prospect_name" \
+  -F "context_text_values[]=John Doe" \
+  -F "context_text_keys[]=company" \
+  -F "context_text_values[]=Acme Corp" \
+  -F "context_file_keys[]=resume" \
+  -F "context_files[]=@resume.pdf"
+```
+
+## Implementation Details
+
+### Session Context Input Format
+
+The `session_context` object submitted to `/context/persona-instruction` has the following structure:
+
+```
+{
+  // Prospect Information
+  "prospect_info": {
+    "first_name": string,
+    "last_name": string,
+    "company": string,
+    "job_title": string,
+    "department": string,
+    "seniority_level": string
+  },
+
+  // Conversation Preferences
+  "conversation_style": {
+    "formality_level": float (0-1),      // 0=casual, 1=formal
+    "humor_level": float (0-1),         // 0=serious, 1=very humorous
+    "pace": int (1-5),                  // 1=slow, 5=fast
+    "depth": int (1-5)                  // 1=surface, 5=deep
+  },
+
+  // Objection Handling
+  "objection_handling": {
+    "skepticism_level": float (0-1),    // Expected skepticism
+    "patience_level": float (0-1),      // How patient to be
+    "aggressiveness": int (1-5)         // 1=soft-sell, 5=hard-sell
+  },
+
+  // Communication Preferences
+  "communication": {
+    "prefers_data_driven": boolean,
+    "prefers_stories": boolean,
+    "prefers_visuals": boolean,
+    "attention_span": int (1-5)         // 1=short, 5=long
+  },
+
+  // Additional Context
+  "focus_areas": [string],              // Topics to emphasize
+  "avoid_topics": [string],             // Topics to avoid
+  "background": string                  // Free-form background info
+}
+```
+
+### Persona Generation Process
+
+1. **Extract Context**: Receives filled session context from client
+2. **Validate**: Checks that context is non-empty
+3. **Synthesize**: Calls `GeminiMultimodalClient.generate_persona_instruction()`
+4. **Interpret**: Slider values converted to behavioral descriptions
+5. **Format**: 250-450 word natural-language system prompt
+6. **Return**: Instruction ready for Gemini Live API
+
+### Client-Side Integration
+
+```typescript
+// 1. Generate persona
+const resp = await generatePersonaInstruction(sessionContext);
+const personaInstruction = resp.persona_instruction;
+
+// 2. Store in localStorage
+localStorage.setItem("proxima_persona_instruction", personaInstruction);
+localStorage.setItem("proxima_session_context", JSON.stringify(sessionContext));
+
+// 3. Start WebSocket with instruction
+const service = new ProximaAgentService({
+    systemInstruction: personaInstruction,
+    onEvent: (event) => {
+        /* handle events */
+    },
+});
+await service.connect();
+
+// 4. Send dynamic update (optional, for mid-session changes)
+await service.sendMessage({
+    type: "set_system_instruction",
+    instruction: updatedInstruction,
+});
+```
+
+## Error Handling
+
+### Common Errors
+
+| Symptom                   | Cause                 | Solution                                     |
+| ------------------------- | --------------------- | -------------------------------------------- |
+| 422 Unprocessable Entity  | Gemini API failed     | Check API key, quota, rate limits            |
+| 400 Bad Request           | Array length mismatch | Ensure text_keys and text_values same length |
+| 413 Payload Too Large     | File > 20 MB          | Split large files or increase server limits  |
+| 500 Internal Server Error | Unexpected exception  | Check server logs, retry request             |
+
+### Debugging
+
+Enable debug logging:
+
+```python
+import logging
+logging.getLogger("proxima_agent_api").setLevel(logging.DEBUG)
+```
+
+Check server logs for:
+
+- Gemini API call details
+- Context validation warnings
+- File processing steps
+
+## Performance
+
+| Operation              | Latency     | Notes                              |
+| ---------------------- | ----------- | ---------------------------------- |
+| Persona generation     | 2-5 seconds | Includes Gemini API roundtrip      |
+| Context synthesis      | 1-3 seconds | Includes file reading + Gemini API |
+| Request validation     | <100 ms     | File size checks, array validation |
+| Response serialization | <100 ms     | JSON encoding                      |
+
+## Testing
+
+### Unit Tests
+
+```python
+from proxima.api.context import router
+from fastapi.testclient import TestClient
+
+def test_persona_instruction_generation():
+    client = TestClient(app)
+    response = client.post(
+        "/context/persona-instruction",
+        json={
+            "session_context": {
+                "prospect_info": {"first_name": "John"},
+                "conversation_style": {"formality_level": 0.7}
+            }
+        }
+    )
+    assert response.status_code == 200
+    assert "persona_instruction" in response.json()
+    assert len(response.json()["persona_instruction"]) > 100
+```
+
+### Integration Test
+
+1. Fill form on client
+2. Submit to `/context/persona-instruction`
+3. Verify non-empty persona instruction returned
+4. Store in localStorage
+5. Start WebSocket session
+6. Verify agent uses persona
+
+## Dependencies
+
+- **Gemini Multimodal Client**: `services.gemini.multimodal.GeminiMultimodalClient`
+- **FastAPI**: Request/response handling, validation
+- **Pydantic**: Request/response schema validation
+
+## Future Enhancements
+
+- [ ] Persona instruction caching (same input → cached output)
+- [ ] Batch generation (multiple contexts at once)
+- [ ] Persona templates (predefined instruction patterns)
+- [ ] A/B testing framework (measure persona effectiveness)
+- [ ] Persona validation endpoint (test persona before session)
+- [ ] Streaming persona generation progress
+      http://localhost:8000/context/persona
+
 ```
 
 ## Implementation
@@ -60,3 +348,4 @@ Uses lazy singleton `GeminiMultimodalClient` (instantiated on first request) to:
 3. Extract and return text summary
 
 See [Prospect Context Build](../README.md#prospect-context-build-rest) in the main server README.
+```

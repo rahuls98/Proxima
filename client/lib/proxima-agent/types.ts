@@ -45,6 +45,7 @@ export type ProximaAgentOutboundMessage =
     | { type: "end_session" }
     | { type: "screen_share_start" }
     | { type: "screen_share_stop" }
+    | { type: "set_system_instruction"; instruction: string }
     | {
           type: "file_upload";
           fileName: string;

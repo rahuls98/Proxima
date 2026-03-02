@@ -209,8 +209,16 @@ export function MeetingRoom() {
     );
 
     useEffect(() => {
+        // Retrieve persona instruction from localStorage
+        const personaInstruction =
+            typeof window !== "undefined"
+                ? localStorage.getItem("proxima_persona_instruction") ||
+                  undefined
+                : undefined;
+
         serviceRef.current = new ProximaAgentService({
             mode: "training",
+            systemInstruction: personaInstruction,
             onEvent: handleEvent,
         });
 

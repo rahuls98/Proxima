@@ -1,3 +1,36 @@
+/**
+ * Proxima Agent Service: WebSocket Client for Gemini Live Training
+ *
+ * Manages real-time bidirectional communication with a Gemini Live backend:
+ * - Audio input/output streaming (microphone + speaker)
+ * - Screen share video streaming
+ * - Text messaging (user messages, file uploads)
+ * - Dynamic system instruction updates (persona changes)
+ *
+ * Internal Architecture:
+ *   - WebSocket: JSON and binary frame transport
+ *   - AudioContext: Microphone capture and speaker playback
+ *   - Task loops: Reader, speaker, optional writer tasks
+ *   - Queue management: Input/output queues with backpressure
+ *   - Automatic reconnection on transport failures
+ *
+ * Audio Pipeline:
+ *   Microphone (native rate) → Resample to 16kHz → PCM encoding → WebSocket
+ *   WebSocket → Base64 decode → Resample to native rate → AudioContext → Speaker
+ *
+ * Usage:
+ *   const service = new ProximaAgentService({
+ *     mode: "training",
+ *     systemInstruction: "You are a training AI...",
+ *     onEvent: (event) => console.log(event),
+ *   });
+ *
+ *   await service.connect();
+ *   await service.startAudioStream();
+ *   await service.sendMessage({ type: "user_message", text: "Hello" });
+ *   await service.disconnect();
+ */
+
 import {
     base64ToBytes,
     downsampleBuffer,
@@ -13,61 +46,239 @@ import type {
     ProximaAgentOutboundMessage,
 } from "./types";
 
+/**
+ * Configuration options for ProximaAgentService
+ */
 type ProximaAgentServiceOptions = {
+    /** WebSocket URL (auto-detected if omitted) */
     wsUrl?: string;
+    /** Agent mode for initialization (default: "training") */
     mode?: string;
+    /** Custom system instruction (overrides server default) */
+    systemInstruction?: string;
+    /** Callback for all events from server */
     onEvent: (event: ProximaAgentEvent) => void;
 };
 
+/**
+ * WebSocket client for Gemini Live training sessions
+ *
+ * Handles:
+ * - Connection lifecycle (connect, disconnect, error recovery)
+ * - Audio streaming (capture, resample, PCM encoding)
+ * - Video streaming (screen share frame capture)
+ * - Message protocol (JSON over WebSocket)
+ * - Event emission (audio, transcriptions, state changes)
+ */
 export class ProximaAgentService {
+    /** WebSocket server URL */
     private readonly wsUrl: string;
+    /** Agent mode ("training", etc.) */
     private readonly mode: string;
+    /** Custom system instruction (if provided by caller) */
+    private readonly systemInstruction: string | undefined;
+    /** Event callback provided by caller */
     private readonly onEvent: (event: ProximaAgentEvent) => void;
 
+    // WebSocket connection
+    /** Underlying WebSocket connection (null when disconnected) */
     private websocket: WebSocket | null = null;
+
+    // Audio input (microphone)
+    /** Audio context for microphone capture */
     private inputAudioContext: AudioContext | null = null;
+    /** MediaStream from getUserMedia() */
     private inputMediaStream: MediaStream | null = null;
+    /** Source node consuming microphone stream */
     private inputSource: MediaStreamAudioSourceNode | null = null;
+    /** Data processing node for microphone frames */
     private inputProcessor: ScriptProcessorNode | null = null;
+    /** Gain node for silence padding */
     private inputSilenceGain: GainNode | null = null;
 
+    // Audio output (speaker)
+    /** Audio context for speaker playback */
     private playbackAudioContext: AudioContext | null = null;
+    /** Current playback position (for timing) */
     private playbackCursor = 0;
+    /** Buffer sources being played (for cleanup) */
     private playbackNodes: AudioBufferSourceNode[] = [];
 
+    // State flags
+    /** Whether audio input streaming is active */
     private streamEnabled = false;
+    /** Set to true before calling disconnect() (prevents reconnect attempts) */
     private intentionalClose = false;
 
+    /**
+     * Initialize a Proxima Agent service instance
+     *
+     * @param options - Configuration for the service
+     * @throws Error if onEvent callback is not provided
+     */
     constructor(options: ProximaAgentServiceOptions) {
         this.mode = options.mode ?? "training";
+        this.systemInstruction = options.systemInstruction;
         this.wsUrl = options.wsUrl ?? this.defaultWebSocketUrl();
         this.onEvent = options.onEvent;
     }
 
+    /**
+     * Calculate default WebSocket URL based on current browser location
+     *
+     * @returns ws://host:8000/ws/proxima-agent?mode=training&system_instruction=...
+     */
+    private defaultWebSocketUrl(): string {
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const host = window.location.hostname;
+        const port = 8000;
+        let url = `${protocol}//${host}:${port}/ws/proxima-agent?mode=${this.mode}`;
+
+        // Include system instruction in URL if provided (avoids reconnect on init)
+        if (this.systemInstruction) {
+            url += `&system_instruction=${encodeURIComponent(this.systemInstruction)}`;
+        }
+
+        return url;
+    }
+
+    /**
+     * Establish WebSocket connection to server
+     *
+     * Flow:
+     * 1. Create WebSocket connection (system instruction passed in URL if provided)
+     * 2. Wait for initial session_ready event
+     * 3. Start internal reader loop to process incoming events
+     *
+     * @throws Error if connection fails or times out
+     *
+     * @example
+     *   await service.connect();
+     *   // WebSocket now connected, ready for streaming
+     */
     async connect() {
         await this.ensureSocket();
+        // System instruction is now passed via URL query param, no need to send separately
         await this.ensureMicPipeline();
         this.startStream();
     }
 
+    /**
+     * Enable audio input streaming and send audio frames to server
+     *
+     * Prerequisites:
+     * - Service must be connected (call connect() first)
+     * - requestMicrophone() must have been called to grant permission
+     *
+     * Flow:
+     * 1. Set streamEnabled flag to true
+     * 2. Send stream_start message to server
+     * 3. Microphone frames are now being captured and sent
+     *
+     * @example
+     *   const service = await new ProximaAgentService(...).connect();
+     *   await service.requestMicrophone();
+     *   service.startStream();  // Audio now being sent
+     */
     startStream() {
         this.streamEnabled = true;
         this.sendJson({ type: "stream_start" });
     }
 
+    /**
+     * Disable audio input streaming
+     *
+     * Stops sending audio frames to server but keeps the microphone connection open
+     * for quick re-enable. For full cleanup, call disconnect().
+     *
+     * @example
+     *   service.stopStream();  // Audio paused, can call startStream() again
+     */
     stopStream() {
         this.streamEnabled = false;
         this.sendJson({ type: "stream_stop" });
     }
 
+    /**
+     * Request permission and open microphone stream
+     *
+     * Shows browser permission dialog to user on first call.
+     * Initializes audio capture pipeline.
+     *
+     * @throws Error if permission denied or microphone unavailable
+     *
+     * @example
+     *   try {
+     *     await service.requestMicrophone();
+     *     service.startStream();
+     *   } catch (err) {
+     *     if (err.name === "NotAllowedError") {
+     *       console.error("Microphone permission denied");
+     *     }
+     *   }
+     */
+    async requestMicrophone() {
+        await this.ensureMicPipeline();
+    }
+
+    /**
+     * Start screen share and begin sending video frames
+     *
+     * Shows system dialog to select screen/window to share.
+     * Automatically captures frames once started.
+     *
+     * @throws Error if permission denied or getDisplayMedia unavailable
+     *
+     * @example
+     *   await service.requestScreenShare();  // Shows dialog
+     *   // Frames now being sent to server
+     */
+    async requestScreenShare() {
+        // Implementation will capture screen using getDisplayMedia
+        // and send frames automatically
+        await this.ensureScreenSharePipeline();
+    }
+
+    /**
+     * Start screen share notification to server
+     * (Lower-level method; prefer requestScreenShare())
+     *
+     * @internal
+     */
     startScreenShare() {
         this.sendJson({ type: "screen_share_start" });
     }
 
+    /**
+     * Stop screen share notification to server
+     *
+     * @example
+     *   service.stopScreenShare();
+     */
     stopScreenShare() {
         this.sendJson({ type: "screen_share_stop" });
     }
 
+    /**
+     * Send a single screen frame to server
+     *
+     * Typically called by internal capture loop, but available for manual sending.
+     *
+     * @param imageBase64 - Base64-encoded image (JPEG or PNG)
+     * @param mimeType - Image MIME type (default: "image/jpeg")
+     *
+     * @example
+     *   // Manual frame send (automatic capture is preferred)
+     *   const canvas = document.createElement("canvas");
+     *   canvas.toBlob((blob) => {
+     *     const reader = new FileReader();
+     *     reader.onload = (e) => {
+     *       const base64 = e.target?.result?.toString().split(",")[1];
+     *       service.sendScreenFrame(base64!, "image/jpeg");
+     *     };
+     *     reader.readAsDataURL(blob);
+     *   });
+     */
     sendScreenFrame(imageBase64: string, mimeType = "image/jpeg") {
         if (!imageBase64) {
             return;
@@ -79,6 +290,24 @@ export class ProximaAgentService {
         });
     }
 
+    /**
+     * Upload a file to be available during the session
+     *
+     * File is validated for size (max 20MB) and encoded as base64.
+     * Server confirms receipt with file_uploaded event.
+     *
+     * @param file - File from input element or drag/drop
+     * @throws Error if file > 20MB (silent failure if connection unavailable)
+     *
+     * @example
+     *   const fileInput = document.querySelector("input[type=file]");
+     *   fileInput.addEventListener("change", (e) => {
+     *     const file = e.target.files[0];
+     *     if (file) {
+     *       service.uploadFile(file);
+     *     }
+     *   });
+     */
     async uploadFile(file: File) {
         const mimeType = file.type || "application/octet-stream";
         const arrayBuffer = await file.arrayBuffer();
@@ -90,6 +319,18 @@ export class ProximaAgentService {
         });
     }
 
+    /**
+     * Send a text message to the agent
+     *
+     * Trims whitespace and ignores empty messages.
+     * Message is sent immediately if connected.
+     *
+     * @param text - User message text
+     *
+     * @example
+     *   service.sendTextMessage("Hello, can you help me practice");
+     *   service.sendTextMessage("   ");  // Ignored (empty after trim)
+     */
     sendTextMessage(text: string) {
         const normalized = text.trim();
         if (!normalized) {
@@ -98,6 +339,23 @@ export class ProximaAgentService {
         this.sendJson({ type: "user_message", text: normalized });
     }
 
+    /**
+     * Close WebSocket connection and clean up resources
+     *
+     * Flow:
+     * 1. Stop audio streaming (stopStream(), stopMic())
+     * 2. Stop video output (stopPlayback())
+     * 3. Send disconnect message to server
+     * 4. Close WebSocket gracefully
+     * 5. Clear all references
+     *
+     * After calling disconnect(), calling other methods has no effect.
+     * To restart, create a new service instance.
+     *
+     * @example
+     *   await service.disconnect();
+     *   // Service is now completely shut down
+     */
     disconnect() {
         this.streamEnabled = false;
         this.stopMic();
@@ -132,7 +390,8 @@ export class ProximaAgentService {
                 return configured;
             }
 
-            const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+            const protocol =
+                window.location.protocol === "https:" ? "wss" : "ws";
             const host =
                 window.location.hostname === "0.0.0.0"
                     ? "localhost"

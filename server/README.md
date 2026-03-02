@@ -80,6 +80,118 @@ See [proxima/README.md](proxima/README.md) for full details.
 
 See [services/gemini/README.md](services/gemini/README.md) for full details.
 
+## Complete Backend Data Flows
+
+### Session Initialization Flow
+
+#### Optimized Path (System Instruction via URL)
+
+```
+CLIENT                    BACKEND                  GEMINI LIVE
+
+                  ws://localhost:8000
+                  /ws/proxima-agent?mode=training
+                  &system_instruction=You%20are%20...
+  ────────────────→
+              ├─ WebSocket connection established
+              ├─ run(websocket)
+              │  ├─ resolve_mode("training")
+              │  ├─ Parse system_instruction from query param ✓ (NEW: SKIP default)
+              │  ├─ build_live_config(...) {system_instruction AS PROVIDED, voice, ...}
+              │  ├─ Create GeminiLiveManager()
+              │  └─ manager.connect(config) ──→ Initialized WITH custom persona
+              │     ├─ Gemini Live session created
+              │     └─ Agent ready with provided instruction (no reconnect needed)
+              │
+              ├─ Send {type: "session_ready", mode: "training"}
+  ←──────────────────
+     Agent is ready
+     to interact
+     (system instruction already set)
+```
+
+#### Legacy Path (Backward Compatible)
+
+If no system_instruction in URL, server uses mode default:
+
+```
+CLIENT                    BACKEND                  GEMINI LIVE
+
+  ────────────→
+              ├─ WebSocket connection established
+              ├─ Get SYSTEM_PROMPTS["training"] (default)
+              ├─ build_live_config(DEFAULT, ...)
+              ├─ manager.connect(config) ──→ Initialize with default persona
+              │
+              ├─ Send {type: "session_ready"}
+  ←────────────
+     session_ready
+
+              (Optional: Client can send set_system_instruction message to change)
+              ├─ Receive {type: "set_system_instruction", instruction: "..."}
+              ├─ reconnect_live_session(new_instruction)
+              │  ├─ manager.close()
+              │  ├─ manager.connect(new_config) ──→ Reconnect with new persona
+              │
+              ├─ Send {type: "warning", message: "..."}
+  ←────────────
+     (Session restored with new persona)
+```
+
+**Key Improvement**: System instruction is now passed in URL for faster initialization without reconnection delay
+
+### Audio Streaming Flow (Real-Time)
+
+**Browser → Backend:** Microphone captures PCM audio at native sample rate → client downsamples to 16kHz → enqueues to `audio_in_queue` → `send_to_gemini()` streams to Gemini Live API
+
+**Gemini Live → Backend:** API processes audio, transcribes, generates response → `iter_events()` receives audio frames (24kHz), user_text, text, turn_complete, interruption events
+
+**Backend → Browser:** Events enqueued to `outbound_queue` → sent as WebSocket messages → base64 audio decoded, resampled to native rate → played through speaker
+
+### Screen Share Flow
+
+**Browser → Backend:** Screen capture frames (JPEG) sent via `screen_frame` message → enqueued to `video_in_queue` → validated (MIME type, base64 decode) → `stream_video_input()` sends to Gemini Live
+
+**Gemini Live → Backend:** Processes video frames as context in conversation → `iter_events()` continues to receive text/audio responses with visual understanding applied
+
+### File Upload Flow
+
+**Browser → Backend:** File selected → `uploadFile()` base64 encodes → validates size/type → `store_uploaded_file()` persists in-memory with fileId
+
+**Backend → Gemini:** Request Gemini to summarize file via tool declaration
+
+**Gemini → Backend:** Emits `tool_call: summarize_uploaded_file(fileId)` event → backend intercepts with `ToolDispatcher.execute()` → `GeminiDocumentProcessor.summarize()` processes file → `send_tool_response(summary)` returns to Gemini
+
+**Gemini → Backend → Browser:** Gemini continues conversation with file context embedded → sends text response → enqueued to `outbound_queue` → client receives transcription + response
+
+### Persona Instruction Generation Flow
+
+**Client → POST /context/persona-instruction:** Sends session context (shapes, styles, fields) in request body
+
+**Backend Processing:** Creates `GeminiMultimodalClient` → calls `genai.generate_content()` with system role (persona generator) and user prompt (interpret form fields, generate 250-450 word instruction)
+
+**Gemini API:** Processes request (2-5 seconds) → returns natural-language persona instruction
+
+**Backend → Client:** Returns `{persona_instruction: "...", source_fields_count: 42}`
+
+**Client:** Stores instruction in `localStorage` under key `proxima_persona_instruction` → instruction passed in WebSocket URL on session connect
+
+### Dynamic Reconnection Flow (Persona Change)
+
+**Trigger:** Client sends `{type: "set_system_instruction", instruction: "new prompt"}` message during active session
+
+**Backend Processing:** `receive_from_client()` receives message → updates `system_instruction` variable → rebuilds `config` with new instruction → calls `reconnect_live_session("system instruction update")`
+
+**Reconnection Process:** Acquires atomic `reconnect_lock` → flushes audio/video queues (drops stale frames) → closes old manager session (receives 1000 OK) → creates new manager session with updated config → resets `stream_enabled = True` → sends `{type: "warning"}` and `{type: "session_ready"}` to client
+
+**Transparent Recovery:** Background tasks resume against new session. If `receive_from_gemini` or `send_to_gemini` see code 1000 in old session, they sleep 100ms and retry against new session. User can continue speaking during transition (no audio loss)
+
+### Error Recovery Flow
+
+**send_to_gemini() / send_video_to_gemini() / receive_from_gemini() failures:** Catch exception → check if error contains code 1000 (normal close) → if code 1000, sleep 100ms and retry (session already reconnecting elsewhere); otherwise call `reconnect_live_session()` to trigger full reconnection
+
+**receive_from_client() disconnect:** Client WebSocket closes → entire session terminates gracefully (all background tasks canceled, Gemini session closed)
+
 ## WebSocket Protocol
 
 See [proxima/websocket/README.md](proxima/websocket/README.md#protocol) for framing details.

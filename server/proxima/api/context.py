@@ -1,8 +1,9 @@
 # server/proxima_agent/api/context.py
 
-from typing import List
+from typing import List, Dict, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile  # type: ignore
+from pydantic import BaseModel  # type: ignore
 
 from services.gemini.multimodal import (
     FileContextItem,
@@ -22,6 +23,17 @@ def get_client() -> GeminiMultimodalClient:
     if _client is None:
         _client = GeminiMultimodalClient()
     return _client
+
+
+class SessionContextInput(BaseModel):
+    """Request body for persona instruction generation."""
+    session_context: Dict[str, Any]
+
+
+class PersonaInstructionResponse(BaseModel):
+    """Response body for persona instruction generation."""
+    persona_instruction: str
+    source_fields_count: int
 
 
 @router.post("/persona", summary="Build unified persona context from arbitrary inputs")
@@ -72,3 +84,46 @@ async def build_persona_context(
         "text_items_count": len(text_items),
         "file_items_count": len(file_items),
     }
+
+
+@router.post(
+    "/persona-instruction",
+    summary="Generate persona system instruction from filled session context",
+    response_model=PersonaInstructionResponse,
+)
+async def generate_persona_instruction(req: SessionContextInput):
+    """
+    Takes filled session context JSON and generates a natural-language
+    persona system instruction for the Gemini Live API.
+
+    The instruction is stable, self-contained, and ready to be used as the
+    system prompt throughout the training session.
+
+    Args:
+        req: SessionContextInput containing the complete filled form data.
+
+    Returns:
+        PersonaInstructionResponse with the generated persona instruction
+        and metadata about the input.
+
+    Raises:
+        HTTPException 422: On Gemini API failure or invalid input.
+    """
+    if not req.session_context:
+        raise HTTPException(
+            status_code=400,
+            detail="session_context cannot be empty.",
+        )
+
+    try:
+        instruction = await get_client().generate_persona_instruction(
+            session_context=req.session_context
+        )
+    except MultimodalContextError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    return PersonaInstructionResponse(
+        persona_instruction=instruction,
+        source_fields_count=len(req.session_context),
+    )
+

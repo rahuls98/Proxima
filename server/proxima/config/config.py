@@ -24,6 +24,7 @@ def resolve_mode(raw_mode: str | None) -> ProximaAgentMode:
 
 
 def build_live_config(
+    system_instruction: str,
     mode: ProximaAgentMode = DEFAULT_MODE,
     voice_name: str = DEFAULT_VOICE_NAME,
     tools: list[types.Tool] | None = None,
@@ -31,13 +32,14 @@ def build_live_config(
     """Build Gemini Live config for a given Proxima agent mode and voice settings.
     
     Args:
+        system_instruction: System instruction for the agent (required)
         mode: Agent mode (e.g., "training")
         voice_name: Specific voice name (e.g., "Schedar", "Zephyr", "Kore")
         tools: Optional list of tools for the agent
     """
     kwargs: dict[str, object] = {
         "response_modalities": ["AUDIO"],
-        "system_instruction": str(SYSTEM_PROMPTS[mode]),
+        "system_instruction": system_instruction,
         "speech_config": types.SpeechConfig(
             voice_config=types.VoiceConfig(
                 prebuilt_voice_config=types.PrebuiltVoiceConfig(

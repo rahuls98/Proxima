@@ -640,6 +640,15 @@ export class ProximaAgentService {
                 this.stopPlayback();
                 this.onEvent({ type: "interruption" });
                 return;
+            case "coach_intervention":
+                if (payload.payload?.category && payload.payload?.hint) {
+                    this.onEvent({
+                        type: "coach_intervention",
+                        category: payload.payload.category,
+                        hint: payload.payload.hint,
+                    });
+                }
+                return;
             case "warning":
                 if (payload.message) {
                     this.onEvent({ type: "warning", message: payload.message });

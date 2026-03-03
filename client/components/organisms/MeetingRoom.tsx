@@ -11,10 +11,12 @@ import {
 import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
 import { ChatTranscript } from "@/components/molecules/ChatTranscript";
+import { CoachingHint } from "@/components/molecules/CoachingHint";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import type {
+    CoachingInterventionType,
     ProximaAgentConnectionState,
     ProximaAgentEvent,
     TranscriptItem,
@@ -38,6 +40,12 @@ function mergeTextWithOverlap(existing: string, incoming: string): string {
     return existing + incoming;
 }
 
+type CoachingHintData = {
+    id: number;
+    category: CoachingInterventionType;
+    hint: string;
+};
+
 export function MeetingRoom() {
     const [state, setState] =
         useState<ProximaAgentConnectionState>("disconnected");
@@ -49,11 +57,13 @@ export function MeetingRoom() {
     const [screenShareStream, setScreenShareStream] =
         useState<MediaStream | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
+    const [coachingHints, setCoachingHints] = useState<CoachingHintData[]>([]);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
     const stateRef = useRef<ProximaAgentConnectionState>("disconnected");
     const transcriptIdRef = useRef(0);
+    const coachingHintIdRef = useRef(0);
     const currentBotMessageIdRef = useRef<number | null>(null);
     const currentUserMessageIdRef = useRef<number | null>(null);
     const speakerTimeoutRef = useRef<number | null>(null);
@@ -182,6 +192,17 @@ export function MeetingRoom() {
                     currentBotMessageIdRef.current = null;
                     appendTranscript("system", "Interrupted.");
                     setActiveSpeaker("user");
+                    return;
+                case "coach_intervention":
+                    coachingHintIdRef.current += 1;
+                    setCoachingHints((prev) => [
+                        ...prev,
+                        {
+                            id: coachingHintIdRef.current,
+                            category: event.category,
+                            hint: event.hint,
+                        },
+                    ]);
                     return;
                 case "warning":
                     appendTranscript("system", event.message);
@@ -415,6 +436,23 @@ export function MeetingRoom() {
 
     return (
         <section className="grid h-[calc(100vh-4rem)] w-full grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-4 rounded-2xl bg-zinc-100 p-4">
+            {/* Coaching Hint Overlays */}
+            <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-end gap-3 p-6">
+                {coachingHints.map((hint) => (
+                    <div key={hint.id} className="pointer-events-auto">
+                        <CoachingHint
+                            category={hint.category}
+                            hint={hint.hint}
+                            onDismiss={() => {
+                                setCoachingHints((prev) =>
+                                    prev.filter((h) => h.id !== hint.id)
+                                );
+                            }}
+                        />
+                    </div>
+                ))}
+            </div>
+
             <div className="flex min-w-0 flex-col gap-4">
                 <div
                     className={`min-h-0 flex flex-1 ${

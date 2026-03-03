@@ -313,6 +313,20 @@ class ProximaAgentWebSocketHandler:
                                     "text": event["text"],
                                 }
                             )
+                            continue
+
+                        # Handle coaching UI events
+                        if event["type"] == "ui_event" and event.get("sub_type") == "coaching":
+                            coaching_data = event.get("data", {})
+                            await enqueue_outbound(
+                                {
+                                    "type": "coach_intervention",
+                                    "payload": {
+                                        "category": coaching_data.get("intervention_type"),
+                                        "hint": coaching_data.get("suggested_action"),
+                                    },
+                                }
+                            )
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:

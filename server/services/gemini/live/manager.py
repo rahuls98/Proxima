@@ -7,7 +7,7 @@ from google import genai
 from google.genai import types  # type: ignore
 
 from services.gemini.config import get_live_model_name
-from services.gemini.tools import UploadedFileTools
+from services.gemini.tools import UploadedFileTools, TrainingTools
 
 from .dispatcher import ToolDispatcher
 
@@ -28,9 +28,11 @@ class GeminiLiveManager:
         self.dispatcher = ToolDispatcher()
         self.uploaded_file_tools = UploadedFileTools()
         self.uploaded_file_tools.register(self.dispatcher)
+        self.training_tools = TrainingTools()
+        self.training_tools.register(self.dispatcher)
 
     def live_tool_declarations(self) -> list[types.Tool]:
-        return self.uploaded_file_tools.declarations()
+        return self.uploaded_file_tools.declarations() + self.training_tools.declarations()
 
     def store_uploaded_file(self, *, file_name: str, mime_type: str, data: bytes) -> str:
         record = self.uploaded_file_tools.add_uploaded_file(
@@ -155,6 +157,16 @@ class GeminiLiveManager:
             if response.tool_call and response.tool_call.function_calls:
                 function_responses = []
                 for function_call in response.tool_call.function_calls:
+                    # Intercept coaching hints to generate UI events
+                    if function_call.name == "trigger_ui_coaching_hint":
+                        import json
+                        args = json.loads(function_call.args) if isinstance(function_call.args, str) else function_call.args
+                        yield {
+                            "type": "ui_event",
+                            "sub_type": "coaching",
+                            "data": args,
+                        }
+                    
                     result = await self.dispatcher.execute(function_call)
                     function_responses.append(
                         types.FunctionResponse(
@@ -167,6 +179,16 @@ class GeminiLiveManager:
 
             if response.server_content and response.server_content.model_turn:
                 for part in response.server_content.model_turn.parts:
+                    # Skip text parts during tool calls to prevent "ghost" pre-fill messages
+                    # The model will send the real response after the tool completes
+                    if part.text and response.tool_call is None:
+                        # Only yield text if there's no concurrent tool call
+                        yield {
+                            "type": "text",
+                            "text": part.text,
+                        }
+                    
+                    # Always yield audio data (even during tool calls)
                     if part.inline_data and part.inline_data.data:
                         yield {
                             "type": "audio",

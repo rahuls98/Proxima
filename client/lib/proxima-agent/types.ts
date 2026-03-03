@@ -13,6 +13,13 @@ export type TranscriptItem = {
     text: string;
 };
 
+export type CoachingInterventionType =
+    | "MONOLOGUE"
+    | "STUMBLING"
+    | "RESPONSE_ASSIST"
+    | "OBJECTION_RECOVERY"
+    | "INTERRUPTING";
+
 export type ProximaAgentInboundMessage = {
     type?:
         | "session_ready"
@@ -27,7 +34,8 @@ export type ProximaAgentInboundMessage = {
         | "interruption"
         | "warning"
         | "error"
-        | "pong";
+        | "pong"
+        | "coach_intervention";
     text?: string;
     message?: string;
     mode?: string;
@@ -35,6 +43,10 @@ export type ProximaAgentInboundMessage = {
     mimeType?: string;
     fileId?: string;
     fileName?: string;
+    payload?: {
+        category?: CoachingInterventionType;
+        hint?: string;
+    };
 };
 
 export type ProximaAgentOutboundMessage =
@@ -74,4 +86,9 @@ export type ProximaAgentEvent =
     | { type: "interruption" }
     | { type: "warning"; message: string }
     | { type: "error"; message: string }
-    | { type: "socket_closed"; code: number };
+    | { type: "socket_closed"; code: number }
+    | {
+          type: "coach_intervention";
+          category: CoachingInterventionType;
+          hint: string;
+      };

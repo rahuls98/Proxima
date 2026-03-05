@@ -48,3 +48,51 @@ export async function generatePersonaInstruction(sessionContext: {
 
     return response.json();
 }
+
+/**
+ * Session report data structure
+ */
+export type SessionReport = {
+    session_id: string;
+    session_total_time: string;
+    rep_confidence_avg: number;
+    rep_confidence_trend: string;
+    on_rep_confidence_avg: number;
+    on_rep_confidence_trend: string;
+    prospect_sentiment_avg: number;
+    prospect_sentiment_trend: string;
+    key_moments: string[];
+    recommendations: string[];
+    transcript_length: number;
+};
+
+/**
+ * Generate a session performance report
+ * @param sessionId - The session ID to generate report for
+ * @returns Promise resolving to SessionReport
+ */
+export async function generateSessionReport(
+    sessionId: string
+): Promise<SessionReport> {
+    const url = getApiUrl("/report/generate");
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            session_id: sessionId,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+            errorData.detail ||
+                `Failed to generate report: ${response.statusText}`
+        );
+    }
+
+    return response.json();
+}

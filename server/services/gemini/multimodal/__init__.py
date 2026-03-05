@@ -2,6 +2,12 @@
 
 from .client import GeminiMultimodalClient, MultimodalContextError
 from .content_builder import TextContextItem, FileContextItem, PartBuildError
+from .session_report import (
+    SessionReportGenerator,
+    SessionReportError,
+    SessionMetrics,
+    TranscriptEntry,
+)
 
 __all__ = [
     "GeminiMultimodalClient",
@@ -9,4 +15,8 @@ __all__ = [
     "TextContextItem",
     "FileContextItem",
     "PartBuildError",
+    "SessionReportGenerator",
+    "SessionReportError",
+    "SessionMetrics",
+    "TranscriptEntry",
 ]

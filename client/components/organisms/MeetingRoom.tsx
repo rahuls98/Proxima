@@ -7,6 +7,7 @@ import {
     useState,
     type ChangeEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 
 import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
@@ -47,6 +48,7 @@ type CoachingHintData = {
 };
 
 export function MeetingRoom() {
+    const router = useRouter();
     const [state, setState] =
         useState<ProximaAgentConnectionState>("disconnected");
     const [message, setMessage] = useState("Press Join to begin.");
@@ -58,6 +60,7 @@ export function MeetingRoom() {
         useState<MediaStream | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [coachingHints, setCoachingHints] = useState<CoachingHintData[]>([]);
+    const [sessionId, setSessionId] = useState<string | null>(null);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
@@ -128,6 +131,10 @@ export function MeetingRoom() {
         (event: ProximaAgentEvent) => {
             switch (event.type) {
                 case "session_ready":
+                    // Store session ID for report generation
+                    if (event.session_id) {
+                        setSessionId(event.session_id);
+                    }
                     if (
                         stateRef.current === "connecting" ||
                         stateRef.current === "disconnected"
@@ -338,6 +345,11 @@ export function MeetingRoom() {
         currentBotMessageIdRef.current = null;
         currentUserMessageIdRef.current = null;
         setActiveSpeaker(null);
+
+        // Navigate to session report page if we have a session ID and transcript
+        if (sessionId && transcript.length > 0) {
+            router.push(`/training/session-report?session_id=${sessionId}`);
+        }
     };
 
     const notImplemented = (name: string) => {

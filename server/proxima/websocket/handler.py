@@ -42,6 +42,7 @@ from fastapi import WebSocket, WebSocketDisconnect  # type: ignore
 from services.gemini.live import GeminiLiveManager
 
 from ..config import build_live_config, resolve_mode, SYSTEM_PROMPTS
+from ..session_store import get_session_store
 
 
 class ProximaAgentWebSocketHandler:
@@ -112,6 +113,14 @@ class ProximaAgentWebSocketHandler:
         system_instruction = str(SYSTEM_PROMPTS[mode])
         await websocket.accept()
         self.logger.info("proxima-agent websocket accepted (mode=%s)", mode)
+
+        # Initialize session storage
+        session_store = get_session_store()
+        session_id = websocket.query_params.get("session_id")
+        if not session_id:
+            session_id = session_store.create_session(mode=mode)
+        session_store.start_session(session_id)
+        self.logger.info("Session tracking enabled (session_id=%s)", session_id)
 
         # Initialize Gemini Live manager and session configuration
         manager = self.manager_factory()
@@ -220,7 +229,11 @@ class ProximaAgentWebSocketHandler:
                         "message": "Live session reconnected. Audio stream continues.",
                     }
                 )
-                await enqueue_outbound({"type": "session_ready", "mode": mode})
+                await enqueue_outbound({
+                    "type": "session_ready",
+                    "mode": mode,
+                    "session_id": session_id,
+                })
 
         # ============================================================================
         # Task 2: send_to_gemini
@@ -307,6 +320,14 @@ class ProximaAgentWebSocketHandler:
                             continue
 
                         if event["type"] in {"user_text", "text"} and event.get("text"):
+                            # Store transcript message
+                            speaker = "rep" if event["type"] == "user_text" else "prospect"
+                            session_store.add_message(
+                                session_id=session_id,
+                                speaker=speaker,
+                                text=event["text"],
+                            )
+                            
                             await enqueue_outbound(
                                 {
                                     "type": event["type"],
@@ -540,7 +561,11 @@ class ProximaAgentWebSocketHandler:
         try:
             await manager.connect(config)
             self.logger.info("proxima-agent Gemini session connected")
-            await enqueue_outbound({"type": "session_ready", "mode": mode})
+            await enqueue_outbound({
+                "type": "session_ready",
+                "mode": mode,
+                "session_id": session_id,
+            })
 
             sender_task = asyncio.create_task(websocket_sender())
             send_task = asyncio.create_task(send_to_gemini())
@@ -575,6 +600,9 @@ class ProximaAgentWebSocketHandler:
             except Exception:
                 pass
         finally:
+            # Mark session as ended
+            session_store.end_session(session_id)
+            
             for task in [sender_task, send_task, video_send_task, receive_task, client_task]:
                 if task is not None and not task.done():
                     task.cancel()
@@ -587,4 +615,4 @@ class ProximaAgentWebSocketHandler:
                 return_exceptions=True,
             )
             await manager.close()
-            self.logger.info("proxima-agent websocket closed")
+            self.logger.info("proxima-agent websocket closed (session_id=%s)", session_id)

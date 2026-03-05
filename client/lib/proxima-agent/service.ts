@@ -601,7 +601,11 @@ export class ProximaAgentService {
 
         switch (payload.type) {
             case "session_ready":
-                this.onEvent({ type: "session_ready", mode: payload.mode });
+                this.onEvent({
+                    type: "session_ready",
+                    mode: payload.mode,
+                    session_id: payload.session_id,
+                });
                 return;
             case "stream_started":
                 this.streamEnabled = true;

@@ -39,6 +39,7 @@ export type ProximaAgentInboundMessage = {
     text?: string;
     message?: string;
     mode?: string;
+    session_id?: string;
     audio?: string;
     mimeType?: string;
     fileId?: string;
@@ -75,7 +76,7 @@ export type ProximaAgentOutboundMessage =
       };
 
 export type ProximaAgentEvent =
-    | { type: "session_ready"; mode?: string }
+    | { type: "session_ready"; mode?: string; session_id?: string }
     | { type: "stream_started" }
     | { type: "stream_stopped" }
     | { type: "file_uploaded"; fileId: string; fileName: string }

@@ -14,6 +14,7 @@ import { ChatComposer } from "@/components/molecules/ChatComposer";
 import { ChatTranscript } from "@/components/molecules/ChatTranscript";
 import { CoachingHint } from "@/components/molecules/CoachingHint";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
+import { generatePersonaImage } from "@/lib/api";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import type {
@@ -61,6 +62,11 @@ export function MeetingRoom() {
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [coachingHints, setCoachingHints] = useState<CoachingHintData[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadingMessage, setLoadingMessage] = useState(
+        "Loading meeting room..."
+    );
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
@@ -237,18 +243,64 @@ export function MeetingRoom() {
     );
 
     useEffect(() => {
-        // Retrieve persona instruction from localStorage
-        const personaInstruction =
-            typeof window !== "undefined"
-                ? localStorage.getItem("proxima_persona_instruction") ||
-                  undefined
-                : undefined;
+        // Initialize meeting room: generate persona image and setup service
+        const initialize = async () => {
+            if (typeof window === "undefined") {
+                setIsLoading(false);
+                return;
+            }
 
-        serviceRef.current = new ProximaAgentService({
-            mode: "training",
-            systemInstruction: personaInstruction,
-            onEvent: handleEvent,
-        });
+            try {
+                // Step 1: Generate persona image
+                setLoadingMessage("Generating persona avatar...");
+                const sessionContextStr = localStorage.getItem(
+                    "proxima_session_context"
+                );
+
+                if (sessionContextStr) {
+                    try {
+                        const sessionContext = JSON.parse(sessionContextStr);
+                        console.log("Generating persona image...");
+                        const imageUrl =
+                            await generatePersonaImage(sessionContext);
+                        setPersonaImageUrl(imageUrl);
+                        console.log("Persona image generated successfully");
+                    } catch (error) {
+                        console.error(
+                            "Failed to generate persona image:",
+                            error
+                        );
+                        // Continue without image - it's not critical
+                    }
+                } else {
+                    console.log(
+                        "No session context found for persona image generation"
+                    );
+                }
+
+                // Step 2: Initialize service
+                setLoadingMessage("Initializing training session...");
+                const personaInstruction =
+                    localStorage.getItem("proxima_persona_instruction") ||
+                    undefined;
+
+                serviceRef.current = new ProximaAgentService({
+                    mode: "training",
+                    systemInstruction: personaInstruction,
+                    onEvent: handleEvent,
+                });
+
+                // Small delay to ensure smooth transition
+                await new Promise((resolve) => setTimeout(resolve, 500));
+
+                setIsLoading(false);
+            } catch (error) {
+                console.error("Initialization error:", error);
+                setIsLoading(false);
+            }
+        };
+
+        initialize();
 
         return () => {
             serviceRef.current?.destroy();
@@ -266,6 +318,10 @@ export function MeetingRoom() {
                 existingShareStream
                     .getTracks()
                     .forEach((track) => track.stop());
+            }
+            // Cleanup blob URL
+            if (personaImageUrl) {
+                URL.revokeObjectURL(personaImageUrl);
             }
         };
     }, [handleEvent]);
@@ -446,6 +502,28 @@ export function MeetingRoom() {
         }
     };
 
+    // Show loading screen while initializing
+    if (isLoading) {
+        return (
+            <section className="flex h-[calc(100vh-4rem)] w-full items-center justify-center rounded-2xl bg-zinc-100">
+                <div className="flex flex-col items-center gap-6">
+                    <div className="relative">
+                        <div className="h-16 w-16 animate-spin rounded-full border-4 border-zinc-300 border-t-emerald-500"></div>
+                        <div className="absolute inset-0 h-16 w-16 animate-pulse rounded-full border-4 border-emerald-500/20"></div>
+                    </div>
+                    <div className="text-center">
+                        <p className="text-lg font-semibold text-zinc-900">
+                            {loadingMessage}
+                        </p>
+                        <p className="mt-1 text-sm text-zinc-600">
+                            Preparing your training session
+                        </p>
+                    </div>
+                </div>
+            </section>
+        );
+    }
+
     return (
         <section className="grid h-[calc(100vh-4rem)] w-full grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-4 rounded-2xl bg-zinc-100 p-4">
             {/* Coaching Hint Overlays */}
@@ -505,6 +583,9 @@ export function MeetingRoom() {
                                             }
                                             compact
                                             className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
+                                            avatarUrl={
+                                                personaImageUrl || undefined
+                                            }
                                         />
                                     </div>
                                 </div>
@@ -533,6 +614,7 @@ export function MeetingRoom() {
                                     name="Agent"
                                     subtitle="Training Agent"
                                     isSpeaking={activeSpeaker === "agent"}
+                                    avatarUrl={personaImageUrl || undefined}
                                 />
                             </div>
                         )}

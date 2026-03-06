@@ -50,6 +50,38 @@ export async function generatePersonaInstruction(sessionContext: {
 }
 
 /**
+ * Generate a persona image from session context
+ * @param sessionContext - The session context JSON object
+ * @returns Promise resolving to a blob URL for the generated image
+ */
+export async function generatePersonaImage(sessionContext: {
+    [key: string]: unknown;
+}): Promise<string> {
+    const url = getApiUrl("/context/persona-image");
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            session_context: sessionContext,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+            errorData.detail || `API error: ${response.statusText}`
+        );
+    }
+
+    // Convert the image blob to a blob URL
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+}
+
+/**
  * Session report data structure
  */
 export type SessionReport = {

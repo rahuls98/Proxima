@@ -3,6 +3,7 @@
 from typing import List, Dict, Any
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile  # type: ignore
+from fastapi.responses import Response  # type: ignore
 from pydantic import BaseModel  # type: ignore
 
 from services.gemini.multimodal import (
@@ -11,11 +12,13 @@ from services.gemini.multimodal import (
     MultimodalContextError,
     TextContextItem,
 )
+from services.gemini.imagen import GeminiImagenClient, ImagenError
 
 router = APIRouter(prefix="/context", tags=["context"])
 
 # Lazy singleton — instantiated on first request so .env is already loaded.
 _client: GeminiMultimodalClient | None = None
+_imagen_client: GeminiImagenClient | None = None
 
 
 def get_client() -> GeminiMultimodalClient:
@@ -23,6 +26,13 @@ def get_client() -> GeminiMultimodalClient:
     if _client is None:
         _client = GeminiMultimodalClient()
     return _client
+
+
+def get_imagen_client() -> GeminiImagenClient:
+    global _imagen_client
+    if _imagen_client is None:
+        _imagen_client = GeminiImagenClient()
+    return _imagen_client
 
 
 class SessionContextInput(BaseModel):
@@ -125,5 +135,52 @@ async def generate_persona_instruction(req: SessionContextInput):
     return PersonaInstructionResponse(
         persona_instruction=instruction,
         source_fields_count=len(req.session_context),
+    )
+
+
+@router.post(
+    "/persona-image",
+    summary="Generate persona image from session context",
+    response_class=Response,
+)
+async def generate_persona_image(req: SessionContextInput):
+    """
+    Generates a professional portrait image for the AI persona based on
+    session context using Google's Imagen API.
+
+    The image is generated based on the persona's role, industry, and
+    demographic information to create a realistic professional headshot
+    for display in the meeting room participant tile.
+
+    Args:
+        req: SessionContextInput containing the complete session context data.
+
+    Returns:
+        PNG image data (binary response)
+
+    Raises:
+        HTTPException 400: If session_context is empty
+        HTTPException 422: On Imagen API failure
+    """
+    if not req.session_context:
+        raise HTTPException(
+            status_code=400,
+            detail="session_context cannot be empty.",
+        )
+
+    try:
+        image_bytes = await get_imagen_client().generate_persona_image(
+            session_context=req.session_context
+        )
+    except ImagenError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    # Return the image as PNG
+    return Response(
+        content=image_bytes,
+        media_type="image/png",
+        headers={
+            "Content-Disposition": "inline; filename=persona.png"
+        }
     )
 

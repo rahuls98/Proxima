@@ -7,6 +7,7 @@ type ParticipantTileProps = {
     children?: ReactNode;
     className?: string;
     compact?: boolean;
+    avatarUrl?: string;
 };
 
 export function ParticipantTile({
@@ -16,6 +17,7 @@ export function ParticipantTile({
     children,
     className = "",
     compact = false,
+    avatarUrl,
 }: ParticipantTileProps) {
     const sizeClass = compact
         ? "h-[100px] min-h-0 flex-none p-2"
@@ -29,10 +31,22 @@ export function ParticipantTile({
                     : "border-zinc-700"
             }`}
         >
+            {avatarUrl && (
+                <div
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${avatarUrl})` }}
+                />
+            )}
             <div className="absolute inset-0 bg-gradient-to-b from-zinc-700/30 to-zinc-950/90" />
             <div className="relative z-10 flex items-center justify-between">
                 <div>
-                    <p className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>
+                    <p
+                        className={
+                            compact
+                                ? "text-xs font-semibold"
+                                : "text-sm font-semibold"
+                        }
+                    >
                         {name}
                     </p>
                     {subtitle && !compact ? (

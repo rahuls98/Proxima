@@ -80,6 +80,7 @@ export function MeetingRoom() {
     const screenShareVideoRef = useRef<HTMLVideoElement | null>(null);
     const screenCaptureCleanupRef = useRef<(() => void) | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const imageGenerationInitiatedRef = useRef(false);
 
     const markSpeaker = useCallback((speaker: "user" | "agent") => {
         setActiveSpeaker(speaker);
@@ -242,16 +243,22 @@ export function MeetingRoom() {
         [appendBotText, appendTranscript, markSpeaker, updateTranscriptText]
     );
 
+    // Initialize persona image once on mount
     useEffect(() => {
-        // Initialize meeting room: generate persona image and setup service
-        const initialize = async () => {
+        const generateImage = async () => {
+            // Prevent duplicate generations in React Strict Mode
+            if (imageGenerationInitiatedRef.current) {
+                console.log("Image generation already initiated, skipping...");
+                return;
+            }
+            imageGenerationInitiatedRef.current = true;
+
             if (typeof window === "undefined") {
                 setIsLoading(false);
                 return;
             }
 
             try {
-                // Step 1: Generate persona image
                 setLoadingMessage("Generating persona avatar...");
                 const sessionContextStr = localStorage.getItem(
                     "proxima_session_context"
@@ -278,29 +285,42 @@ export function MeetingRoom() {
                     );
                 }
 
-                // Step 2: Initialize service
                 setLoadingMessage("Initializing training session...");
-                const personaInstruction =
-                    localStorage.getItem("proxima_persona_instruction") ||
-                    undefined;
-
-                serviceRef.current = new ProximaAgentService({
-                    mode: "training",
-                    systemInstruction: personaInstruction,
-                    onEvent: handleEvent,
-                });
-
                 // Small delay to ensure smooth transition
-                await new Promise((resolve) => setTimeout(resolve, 500));
-
+                await new Promise((resolve) => setTimeout(resolve, 300));
                 setIsLoading(false);
             } catch (error) {
-                console.error("Initialization error:", error);
+                console.error("Image generation error:", error);
                 setIsLoading(false);
             }
         };
 
-        initialize();
+        generateImage();
+
+        // Cleanup blob URL on unmount
+        return () => {
+            if (personaImageUrl) {
+                URL.revokeObjectURL(personaImageUrl);
+            }
+            // Reset flag for potential remounts
+            imageGenerationInitiatedRef.current = false;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount
+
+    useEffect(() => {
+        // Initialize service when handleEvent is available
+        const personaInstruction =
+            typeof window !== "undefined"
+                ? localStorage.getItem("proxima_persona_instruction") ||
+                  undefined
+                : undefined;
+
+        serviceRef.current = new ProximaAgentService({
+            mode: "training",
+            systemInstruction: personaInstruction,
+            onEvent: handleEvent,
+        });
 
         return () => {
             serviceRef.current?.destroy();
@@ -318,10 +338,6 @@ export function MeetingRoom() {
                 existingShareStream
                     .getTracks()
                     .forEach((track) => track.stop());
-            }
-            // Cleanup blob URL
-            if (personaImageUrl) {
-                URL.revokeObjectURL(personaImageUrl);
             }
         };
     }, [handleEvent]);

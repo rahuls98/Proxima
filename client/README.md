@@ -2,47 +2,62 @@
 
 ## Overview
 
-The client provides a reusable UI architecture for a continuous conversational voice + screen-aware agent.
+The client provides a reusable UI architecture for a continuous conversational voice + screen-aware agent with persona management and training history.
 
-Primary page:
+## Key Pages
 
-- `http://localhost:3000/training`
+- `http://localhost:3000/training` - Main training hub
+- `http://localhost:3000/training/context-builder` - Create/edit training personas
+- `http://localhost:3000/training/session` - Live training session room
+- `http://localhost:3000/training/session-report` - Post-session performance reports
+- `http://localhost:3000/personas` - Saved persona library
+- `http://localhost:3000/history` - Training session history
 
 ## Architecture
 
 ### Service / Utils Layer
 
-- `lib/proxima-agent/service.ts`
-  - Owns websocket lifecycle
-  - Owns mic capture pipeline
-  - Owns screen-share frame streaming control
-  - Owns chat text and file-upload websocket messaging
-  - Owns audio playback pipeline
-  - Emits typed domain events to UI
-- `lib/proxima-agent/audio.ts`
-  - PCM conversion helpers
-  - Sample-rate conversion helpers
-- `lib/proxima-agent/screen-share.ts`
-  - Screen-share frame capture helpers (JPEG snapshots)
-- `lib/proxima-agent/types.ts`
-  - Shared UI/service event and state types
+**Agent Services:**
+
+- `lib/proxima-agent/service.ts` - WebSocket lifecycle, mic capture, screen-share streaming, audio playback
+- `lib/proxima-agent/audio.ts` - PCM and sample-rate conversion helpers
+- `lib/proxima-agent/screen-share.ts` - Screen-share frame capture (JPEG snapshots)
+- `lib/proxima-agent/types.ts` - Shared UI/service event and state types
+
+**Data Management:**
+
+- `lib/persona-storage.ts` - Persona library management (localStorage)
+- `lib/training-history.ts` - Training session history (localStorage)
+- `lib/api.ts` - Backend API client functions
+
+**Note:** Data management currently uses localStorage. See [`LOCALSTORAGE_MIGRATION.md`](LOCALSTORAGE_MIGRATION.md) for migration plan to server-side APIs.
 
 ### UI Component Layer (Atomic Design)
 
 - Atoms (generic reusable)
-  - `components/atoms/Button.tsx`
-  - `components/atoms/IconButton.tsx`
-  - `components/atoms/StatusLine.tsx`
-  - `components/atoms/Heading.tsx`
-- Molecules (generic reusable)
-  - `components/molecules/ControlRow.tsx`
-  - `components/molecules/ChatTranscript.tsx`
-  - `components/molecules/ChatComposer.tsx`
-  - `components/molecules/ParticipantTile.tsx`
-- Organisms (feature-specific)
-  - `components/organisms/MeetingRoom.tsx`
+    - `components/atoms/Button.tsx`
+      **Atoms** (generic reusable):
+- `Button`, `IconButton`, `Input`, `TextArea`, `Heading`, `StatusLine`
 
-## Meet-style Layout
+**Molecules** (composite components):
+
+- `ControlRow`, `ChatTranscript`, `ChatComposer`, `ParticipantTile`
+- `ContextSection`, `AdditionalTextContext`, `AdditionalFileContext`
+- `CoachingHint`, `SessionReport`
+
+**Organisms** (feature-specific):
+
+- `MeetingRoom` - Live training session interface
+
+**Templates**:
+
+- `SideNavTemplate` - Main navigation layout
+
+**Pages**:
+
+- `app/(app)/training/` - Training hub and context builder
+- `app/(app)/personas/` - Persona library management
+- `app/(app)/history/` - Training session history
 
 The `MeetingRoom` organism composes:
 
@@ -68,15 +83,58 @@ Still placeholder actions: camera, more actions.
 
 To build another proxima-agent UI:
 
-1. Instantiate `ProximaAgentService` in your organism/component.
-2. Consume `ProximaAgentEvent` messages.
-3. Render any custom controls or visualization layers on top.
+1. Features
+
+### 1. Persona Management
+
+- **Create personas** via context builder form (prospect details, KPIs, objections, personality)
+- **Generate AI instructions** from structured context (via `/context/persona-instruction` API)
+- **Save personas** to library for reuse
+- **Load personas** to prefill context builder
+- **Delete personas** from library
+
+### 2. Training Sessions
+
+- **Live voice conversations** with AI prospect persona
+- **Screen sharing** with visual analysis
+- **Real-time coaching** hints and interventions
+- **Chat messaging** and file uploads during session
+- **Session transcripts** with participant attribution
+
+### 3. Session Reports
+
+- **Performance metrics** (confidence, sentiment)
+- **Key moments** identification
+- **Coaching recommendations**
+- **Cached reports** for instant replay (no regeneration)
+
+### 4. Training History
+
+- **Auto-save** completed sessions
+- **Browse history** with metadata (persona, duration, message count)
+- **Quick access** to session reports
+- **Delete** old sessions
 
 ## Configuration
 
 Optional websocket override for non-local environments:
 
 - `NEXT_PUBLIC_PROXIMA_AGENT_WS_URL`
+
+If unset, client defaults to:
+
+- `ws://<current-hostname>:8000/ws/proxima-agent?mode=training`
+
+## Data Storage
+
+Currently uses browser localStorage for rapid prototyping:
+
+- `proxima_saved_personas` - Persona library
+- `proxima_training_history` - Session history with cached reports
+- `proxima_persona_instruction` - Active session persona (staging)
+- `proxima_session_context` - Active session context (staging)
+
+See [`LOCALSTORAGE_MIGRATION.md`](LOCALSTORAGE_MIGRATION.md) for detailed migration plan to server-side storage.
 
 If unset, client defaults to:
 

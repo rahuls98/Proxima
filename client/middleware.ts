@@ -8,7 +8,8 @@ export function middleware(request: NextRequest) {
     if (
         (pathname === "/training/session" ||
             pathname === "/training/context-builder") &&
-        !referer.includes("/training")
+        !referer.includes("/training") &&
+        !referer.includes("/personas")
     ) {
         return NextResponse.redirect(new URL("/training", request.url));
     }

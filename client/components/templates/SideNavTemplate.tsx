@@ -45,6 +45,22 @@ export default function SideNavTemplate({
                                 Training
                             </button>
                         </li>
+                        <li>
+                            <button
+                                onClick={() => navigate("/personas")}
+                                className="w-full text-left block px-4 py-2 rounded-md hover:bg-zinc-100 transition-colors text-sm"
+                            >
+                                Personas
+                            </button>
+                        </li>
+                        <li>
+                            <button
+                                onClick={() => navigate("/history")}
+                                className="w-full text-left block px-4 py-2 rounded-md hover:bg-zinc-100 transition-colors text-sm"
+                            >
+                                History
+                            </button>
+                        </li>
                     </ul>
                 </nav>
             </aside>

@@ -16,6 +16,8 @@ import { CoachingHint } from "@/components/molecules/CoachingHint";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
+import { saveTrainingSession } from "@/lib/training-history";
+import { generateSessionReport } from "@/lib/api";
 import type {
     CoachingInterventionType,
     ProximaAgentConnectionState,
@@ -335,7 +337,7 @@ export function MeetingRoom() {
         }
     };
 
-    const endSession = () => {
+    const endSession = async () => {
         stopScreenShare(false);
         serviceRef.current?.disconnect();
         setState("disconnected");
@@ -346,8 +348,50 @@ export function MeetingRoom() {
         currentUserMessageIdRef.current = null;
         setActiveSpeaker(null);
 
-        // Navigate to session report page if we have a session ID and transcript
+        // Save session to training history if we have a session ID and transcript
         if (sessionId && transcript.length > 0) {
+            // Extract persona info from session context
+            const sessionContextStr = localStorage.getItem(
+                "proxima_session_context"
+            );
+            let personaName: string | undefined;
+            let jobTitle: string | undefined;
+
+            if (sessionContextStr) {
+                try {
+                    const sessionContext = JSON.parse(sessionContextStr);
+                    personaName = sessionContext.prospect_name;
+                    jobTitle = sessionContext.job_title;
+                } catch (error) {
+                    console.error("Failed to parse session context:", error);
+                }
+            }
+
+            // Generate and cache the report
+            try {
+                const report = await generateSessionReport(sessionId);
+
+                saveTrainingSession({
+                    id: sessionId,
+                    timestamp: new Date().toISOString(),
+                    transcriptLength: transcript.length,
+                    personaName,
+                    jobTitle,
+                    report, // Cache the report
+                });
+            } catch (error) {
+                console.error("Failed to generate report:", error);
+                // Still save the session without the report
+                saveTrainingSession({
+                    id: sessionId,
+                    timestamp: new Date().toISOString(),
+                    transcriptLength: transcript.length,
+                    personaName,
+                    jobTitle,
+                });
+            }
+
+            // Navigate to session report page
             router.push(`/training/session-report?session_id=${sessionId}`);
         }
     };

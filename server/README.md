@@ -17,7 +17,8 @@ Real-time conversational training platform via Gemini Live with prospect context
 ## Endpoints
 
 - `ws://localhost:8000/ws/proxima-agent` - Live multimodal training agent (see [WebSocket Protocol](#websocket-protocol))
-- `POST http://localhost:8000/context/persona` - Prospect context builder (see [Context API Protocol](#context-api-protocol))
+- `POST http://localhost:8000/context/persona-instruction` - Generate persona from context (see [Context API Protocol](#context-api-protocol))
+- `POST http://localhost:8000/report/generate` - Generate session performance report (see [Report API Protocol](#report-api-protocol))
 - `GET http://localhost:8000/health` - Health check
 
 ## Directory Structure

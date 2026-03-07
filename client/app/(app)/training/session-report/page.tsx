@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/atoms/Button";
 import { Heading } from "@/components/atoms/Heading";
 import { generateSessionReport, type SessionReport } from "@/lib/api";
+import { getTrainingSessionById } from "@/lib/training-history";
 
 function MetricBar({ value, max = 10 }: { value: number; max?: number }) {
     const percentage = (value / max) * 100;
@@ -58,6 +59,9 @@ export default function SessionReportPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    // Track which session we've fetched to prevent duplicate API calls
+    const hasFetchedRef = useRef(false);
+
     useEffect(() => {
         if (!sessionId) {
             setError("No session ID provided");
@@ -65,11 +69,26 @@ export default function SessionReportPage() {
             return;
         }
 
-        const fetchReport = async () => {
+        // Skip if we've already started fetching
+        if (hasFetchedRef.current) {
+            return;
+        }
+        hasFetchedRef.current = true;
+
+        const loadReport = async () => {
             setIsLoading(true);
             setError(null);
 
             try {
+                // First, check if we have the report cached in training history
+                const cachedSession = getTrainingSessionById(sessionId);
+                if (cachedSession?.report) {
+                    setReport(cachedSession.report);
+                    setIsLoading(false);
+                    return;
+                }
+
+                // If not cached, generate it from the API
                 const data = await generateSessionReport(sessionId);
                 setReport(data);
             } catch (err) {
@@ -83,7 +102,7 @@ export default function SessionReportPage() {
             }
         };
 
-        fetchReport();
+        loadReport();
     }, [sessionId]);
 
     if (isLoading) {
@@ -92,7 +111,7 @@ export default function SessionReportPage() {
                 <div className="text-center">
                     <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
                     <p className="text-zinc-600">
-                        Generating performance report...
+                        Loading performance report...
                     </p>
                 </div>
             </div>

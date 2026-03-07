@@ -1,6 +1,16 @@
 # API Module
 
-REST endpoint for pre-session preparation: converts filled session context form into a natural-language persona instruction.
+REST endpoints for pre-session preparation and post-session analytics.
+
+## Endpoints
+
+### POST /context/persona-instruction
+
+Converts filled session context form into a natural-language persona instruction for Gemini Live.
+
+### POST /report/generate
+
+Generates performance analysis report from completed training session transcript.
 
 ## What It Does
 
@@ -287,7 +297,112 @@ def test_persona_instruction_generation():
 - [ ] A/B testing framework (measure persona effectiveness)
 - [ ] Persona validation endpoint (test persona before session)
 - [ ] Streaming persona generation progress
-      http://localhost:8000/context/persona
+
+---
+
+## POST /report/generate
+
+Generates a comprehensive performance analysis report from a completed training session.
+
+### What It Does
+
+Analyzes the full session transcript and generates:
+
+- Performance metrics (confidence levels, sentiment trends)
+- Key moments identification
+- Coaching recommendations
+- Trend analysis across the session
+
+### Request
+
+**Endpoint**: `POST /report/generate`
+
+**Content-Type**: `application/json`
+
+**Body**:
+
+```json
+{
+    "session_id": "session_abc123"
+}
+```
+
+### Response (200 OK)
+
+```json
+{
+    "session_id": "session_abc123",
+    "session_total_time": "14m 32s",
+    "transcript_length": 42,
+    "rep_confidence_avg": 7.2,
+    "rep_confidence_trend": "improving",
+    "on_rep_confidence_avg": 6.8,
+    "on_rep_confidence_trend": "stable",
+    "prospect_sentiment_avg": 6.5,
+    "prospect_sentiment_trend": "increasing",
+    "key_moments": [
+        "Successfully handled pricing objection at 3:42",
+        "Strong value proposition delivery at 7:15",
+        "Effective closing attempt at 12:30"
+    ],
+    "recommendations": [
+        "Practice more discovery questions early in conversation",
+        "Build stronger rapport before discussing pricing",
+        "Use more specific industry examples"
+    ]
+}
+```
+
+### Errors
+
+- **404**: Session not found in session store
+- **422**: Invalid session_id format or Gemini API error
+- **500**: Internal server error
+
+### Typical Flow
+
+1. User completes training session
+2. Session ends, `session_id` available
+3. Client calls `POST /report/generate` with session_id
+4. Server retrieves transcript from session store
+5. Server calls Gemini to analyze transcript
+6. Gemini generates performance metrics and insights
+7. Server returns structured report
+8. Client caches report in localStorage for quick access
+
+### Report Metrics
+
+**Confidence Metrics** (0-10 scale):
+
+- `rep_confidence_avg`: Rep's internal confidence throughout session
+- `on_rep_confidence_avg`: Confidence projected to prospect (external)
+
+**Sentiment Metrics** (0-10 scale):
+
+- `prospect_sentiment_avg`: Prospect's emotional state and engagement
+
+**Trends**:
+
+- `improving` / `stable` / `declining` - Overall trajectory during session
+- `increasing` / `decreasing` - Sentiment direction
+
+### Implementation Details
+
+- Uses `GeminiMultimodalClient` for report generation
+- Analyzes entire transcript with specialized system prompt
+- Structured output ensures consistent report format
+- Idempotent: Same session → Same report (when cached)
+- Average processing time: 3-5 seconds
+
+### Caching Strategy
+
+Client-side caching in localStorage:
+
+- Reports stored with session history
+- No regeneration on subsequent views
+- Instant loading for historical sessions
+
+**Note**: Future versions will add server-side caching and report versioning.
 
 ```
 

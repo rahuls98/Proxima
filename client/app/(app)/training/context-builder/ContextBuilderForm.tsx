@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { SESSION_CONTEXT_BUILDER_SCHEMA } from "./schema";
 import { Button } from "@/components/atoms/Button";
 import { ContextSection } from "@/components/molecules/ContextSection";
 import { AdditionalTextContext } from "@/components/molecules/AdditionalTextContext";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
 import { generatePersonaInstruction } from "@/lib/api";
+import { savePersona, getPersonaById } from "@/lib/persona-storage";
 
 interface FormValues {
     [key: string]: string | number | boolean | string[] | null;
@@ -30,6 +32,9 @@ interface PersonaInstructionResponse {
 }
 
 export function ContextBuilderForm() {
+    const searchParams = useSearchParams();
+    const personaId = searchParams?.get("personaId");
+
     const [formValues, setFormValues] = useState<FormValues>(() => {
         const initial: FormValues = {};
         SESSION_CONTEXT_BUILDER_SCHEMA.sections.forEach((section) => {
@@ -54,6 +59,44 @@ export function ContextBuilderForm() {
         null
     );
     const [error, setError] = useState<string | null>(null);
+
+    // Load persona data if personaId is provided
+    useEffect(() => {
+        if (personaId) {
+            const persona = getPersonaById(personaId);
+            if (persona) {
+                // Prefill form with persona's session context
+                setFormValues(persona.sessionContext as FormValues);
+
+                // Prefill additional text context
+                const additionalTextContext = persona.sessionContext
+                    .additional_text_context as
+                    | AdditionalTextItem[]
+                    | undefined;
+                if (additionalTextContext && additionalTextContext.length > 0) {
+                    setAdditionalText(additionalTextContext);
+                    setTextCounter(
+                        Math.max(
+                            ...additionalTextContext.map((item) => item.id)
+                        ) + 1
+                    );
+                }
+
+                // Set the existing persona instruction
+                setGeneratedPersona(persona.personaInstruction);
+
+                // Update staging keys so session can use this persona immediately
+                localStorage.setItem(
+                    "proxima_persona_instruction",
+                    persona.personaInstruction
+                );
+                localStorage.setItem(
+                    "proxima_session_context",
+                    JSON.stringify(persona.sessionContext)
+                );
+            }
+        }
+    }, [personaId]);
 
     function handleFieldChange(
         fieldKey: string,
@@ -168,6 +211,9 @@ export function ContextBuilderForm() {
                 "proxima_session_context",
                 JSON.stringify(sessionContext)
             );
+
+            // Save the persona for future reuse
+            savePersona(sessionContext, data.persona_instruction);
         } catch (err) {
             setError(
                 err instanceof Error ? err.message : "An unknown error occurred"

@@ -50,9 +50,34 @@ export async function generatePersonaInstruction(sessionContext: {
 }
 
 /**
- * Session report data structure - Comprehensive training analysis
+ * Real backend session report structure from /report/generate API
  */
-export type SessionReport = {
+export type RealSessionReport = {
+    session_id: string;
+    session_total_time: string;
+    rep_confidence_avg: number;
+    rep_confidence_trend: string;
+    on_rep_confidence_avg: number;
+    on_rep_confidence_trend: string;
+    prospect_sentiment_avg: number;
+    prospect_sentiment_trend: string;
+    key_moments: string[];
+    recommendations: string[];
+    transcript_length: number;
+    // Multi-participant session fields (optional)
+    call_leadership_score?: number | null;
+    delegation_skill?: number | null;
+    interruption_handling?: number | null;
+    collaboration_score?: number | null;
+    peer_leadership?: number | null;
+    teammate_archetype?: string | null;
+};
+
+/**
+ * Mock session report data structure - Comprehensive training analysis
+ * (Used for development/testing with mock data generators)
+ */
+export type MockSessionReport = {
     session_overview: {
         session_id: string;
         scenario: string;
@@ -124,14 +149,17 @@ export type SessionReport = {
     };
 };
 
+// For backward compatibility, keep the old name as an alias to MockSessionReport
+export type SessionReport = MockSessionReport;
+
 /**
  * Generate a session performance report
  * @param sessionId - The session ID to generate report for
- * @returns Promise resolving to SessionReport
+ * @returns Promise resolving to RealSessionReport
  */
 export async function generateSessionReport(
     sessionId: string
-): Promise<SessionReport> {
+): Promise<RealSessionReport> {
     const url = getApiUrl("/report/generate");
 
     const response = await fetch(url, {

@@ -47,6 +47,13 @@ class GenerateReportResponse(BaseModel):
     key_moments: list[str]
     recommendations: list[str]
     transcript_length: int
+    # Multi-participant session fields (optional)
+    call_leadership_score: float | None = None
+    delegation_skill: float | None = None
+    interruption_handling: float | None = None
+    collaboration_score: float | None = None
+    peer_leadership: float | None = None
+    teammate_archetype: str | None = None
 
 
 @router.post(
@@ -106,7 +113,12 @@ async def generate_session_report(request: GenerateReportRequest):
     # Generate report using Gemini
     generator = get_generator()
     try:
-        metrics = await generator.generate_report(transcript_entries)
+        # Get teammate archetype from session config if available
+        teammate_archetype = None
+        if session.teammate_config:
+            teammate_archetype = session.teammate_config.get("behavior_archetype")
+        
+        metrics = await generator.generate_report(transcript_entries, teammate_archetype)
     except SessionReportError as exc:
         logger.exception("Failed to generate session report")
         raise HTTPException(
@@ -127,6 +139,12 @@ async def generate_session_report(request: GenerateReportRequest):
         key_moments=metrics["key_moments"],
         recommendations=metrics["recommendations"],
         transcript_length=len(transcript),
+        call_leadership_score=metrics.get("call_leadership_score"),
+        delegation_skill=metrics.get("delegation_skill"),
+        interruption_handling=metrics.get("interruption_handling"),
+        collaboration_score=metrics.get("collaboration_score"),
+        peer_leadership=metrics.get("peer_leadership"),
+        teammate_archetype=metrics.get("teammate_archetype"),
     )
 
 

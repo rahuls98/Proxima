@@ -17,7 +17,7 @@ import { ParticipantTile } from "@/components/molecules/ParticipantTile";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import { saveTrainingSession } from "@/lib/training-history";
-import { generateSessionReport } from "@/lib/api";
+import type { TeammateConfig } from "@/lib/teammate-config";
 import type {
     CoachingInterventionType,
     ProximaAgentConnectionState,
@@ -63,6 +63,10 @@ export function MeetingRoom() {
     const [isUploadingFile, setIsUploadingFile] = useState(false);
     const [coachingHints, setCoachingHints] = useState<CoachingHintData[]>([]);
     const [sessionId, setSessionId] = useState<string | null>(null);
+    const [teammateConfig, setTeammateConfig] = useState<TeammateConfig | null>(
+        null
+    );
+    const [teammateActive, setTeammateActive] = useState(false);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
@@ -70,6 +74,7 @@ export function MeetingRoom() {
     const transcriptIdRef = useRef(0);
     const coachingHintIdRef = useRef(0);
     const currentBotMessageIdRef = useRef<number | null>(null);
+    const currentTeammateMessageIdRef = useRef<number | null>(null);
     const currentUserMessageIdRef = useRef<number | null>(null);
     const speakerTimeoutRef = useRef<number | null>(null);
     const screenShareStreamRef = useRef<MediaStream | null>(null);
@@ -112,6 +117,35 @@ export function MeetingRoom() {
             const existingId = currentBotMessageIdRef.current;
             if (existingId === null) {
                 currentBotMessageIdRef.current = appendTranscript("bot", chunk);
+                return;
+            }
+
+            setTranscript((prev) =>
+                prev.map((entry) =>
+                    entry.id === existingId
+                        ? {
+                              ...entry,
+                              text: mergeTextWithOverlap(entry.text, chunk),
+                          }
+                        : entry
+                )
+            );
+        },
+        [appendTranscript]
+    );
+
+    const appendTeammateText = useCallback(
+        (chunk: string) => {
+            if (!chunk) {
+                return;
+            }
+
+            const existingId = currentTeammateMessageIdRef.current;
+            if (existingId === null) {
+                currentTeammateMessageIdRef.current = appendTranscript(
+                    "teammate",
+                    chunk
+                );
                 return;
             }
 
@@ -184,10 +218,18 @@ export function MeetingRoom() {
                 case "text":
                     markSpeaker("agent");
                     currentUserMessageIdRef.current = null;
-                    appendBotText(event.text);
+                    if (event.speaker === "teammate") {
+                        // Teammate text goes into its own transcript entry
+                        appendTeammateText(event.text);
+                    } else {
+                        // Prospect text uses the normal bot message
+                        currentTeammateMessageIdRef.current = null;
+                        appendBotText(event.text);
+                    }
                     return;
                 case "turn_complete":
                     currentBotMessageIdRef.current = null;
+                    currentTeammateMessageIdRef.current = null;
                     if (stateRef.current === "connected") {
                         setMessage("Live conversation in progress.");
                     }
@@ -235,7 +277,13 @@ export function MeetingRoom() {
                     return;
             }
         },
-        [appendBotText, appendTranscript, markSpeaker, updateTranscriptText]
+        [
+            appendBotText,
+            appendTeammateText,
+            appendTranscript,
+            markSpeaker,
+            updateTranscriptText,
+        ]
     );
 
     useEffect(() => {
@@ -245,6 +293,22 @@ export function MeetingRoom() {
                 ? localStorage.getItem("proxima_persona_instruction") ||
                   undefined
                 : undefined;
+
+        // Retrieve teammate config from localStorage
+        const teammateConfigStr =
+            typeof window !== "undefined"
+                ? localStorage.getItem("proxima_teammate_config")
+                : null;
+
+        if (teammateConfigStr) {
+            try {
+                const config = JSON.parse(teammateConfigStr) as TeammateConfig;
+                setTeammateConfig(config);
+                setTeammateActive(true);
+            } catch (error) {
+                console.error("Failed to parse teammate config:", error);
+            }
+        }
 
         serviceRef.current = new ProximaAgentService({
             mode: "training",
@@ -367,32 +431,13 @@ export function MeetingRoom() {
                 }
             }
 
-            // Generate and cache the report
-            try {
-                const report = await generateSessionReport(sessionId);
-
-                saveTrainingSession({
-                    id: sessionId,
-                    timestamp: new Date().toISOString(),
-                    transcriptLength: transcript.length,
-                    personaName,
-                    jobTitle,
-                    report, // Cache the report
-                });
-            } catch (error) {
-                console.error("Failed to generate report:", error);
-                // Still save the session without the report
-                saveTrainingSession({
-                    id: sessionId,
-                    timestamp: new Date().toISOString(),
-                    transcriptLength: transcript.length,
-                    personaName,
-                    jobTitle,
-                });
-            }
-
-            // Navigate to session report page
-            router.push(`/training/session-report?session_id=${sessionId}`);
+            saveTrainingSession({
+                id: sessionId,
+                timestamp: new Date().toISOString(),
+                transcriptLength: transcript.length,
+                personaName,
+                jobTitle,
+            });
         }
     };
 
@@ -527,7 +572,9 @@ export function MeetingRoom() {
                         {isScreenShareActive ? (
                             <div className="flex min-h-0 flex-1 flex-col gap-3">
                                 <div className="flex shrink-0 justify-center">
-                                    <div className="grid w-full max-w-[430px] grid-cols-2 gap-3">
+                                    <div
+                                        className={`grid w-full max-w-[${teammateActive ? "640px" : "430px"}] ${teammateActive ? "grid-cols-3" : "grid-cols-2"} gap-3`}
+                                    >
                                         <ParticipantTile
                                             name="You"
                                             subtitle={
@@ -550,6 +597,19 @@ export function MeetingRoom() {
                                             compact
                                             className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
                                         />
+                                        {teammateActive && teammateConfig && (
+                                            <ParticipantTile
+                                                name={
+                                                    teammateConfig.teammate_name
+                                                }
+                                                subtitle={
+                                                    teammateConfig.teammate_role
+                                                }
+                                                isSpeaking={false}
+                                                compact
+                                                className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                                 <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-black">
@@ -563,7 +623,9 @@ export function MeetingRoom() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="grid min-h-[260px] grid-cols-2 gap-4">
+                            <div
+                                className={`grid min-h-[260px] ${teammateActive ? "grid-cols-3" : "grid-cols-2"} gap-4`}
+                            >
                                 <ParticipantTile
                                     name="You"
                                     subtitle={
@@ -578,6 +640,13 @@ export function MeetingRoom() {
                                     subtitle="Training Agent"
                                     isSpeaking={activeSpeaker === "agent"}
                                 />
+                                {teammateActive && teammateConfig && (
+                                    <ParticipantTile
+                                        name={teammateConfig.teammate_name}
+                                        subtitle={teammateConfig.teammate_role}
+                                        isSpeaking={false}
+                                    />
+                                )}
                             </div>
                         )}
                     </div>
@@ -638,6 +707,25 @@ export function MeetingRoom() {
                                 state === "connecting"
                             }
                         />
+                        {teammateConfig && (
+                            <IconButton
+                                label={
+                                    teammateActive
+                                        ? "Hide Teammate"
+                                        : "Show Teammate"
+                                }
+                                icon={
+                                    <span>{teammateActive ? "👥" : "👤"}</span>
+                                }
+                                onClick={() =>
+                                    setTeammateActive(!teammateActive)
+                                }
+                                disabled={
+                                    state === "disconnected" ||
+                                    state === "connecting"
+                                }
+                            />
+                        )}
                         <IconButton
                             label="End Session"
                             icon={<span>⏹</span>}

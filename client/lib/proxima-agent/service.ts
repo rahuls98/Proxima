@@ -124,15 +124,53 @@ export class ProximaAgentService {
     }
 
     /**
-     * Calculate default WebSocket URL based on current browser location
+     * Calculate default WebSocket URL based on current browser location.
+     * Appends teammate_config if present in localStorage.
      *
-     * @returns ws://host:8000/ws/proxima-agent?mode=training
+     * @returns ws://host:8000/ws/proxima-agent?mode=training[&teammate_config=...]
      */
     private defaultWebSocketUrl(): string {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const host = window.location.hostname;
-        const port = 8000;
-        return `${protocol}//${host}:${port}/ws/proxima-agent?mode=${this.mode}`;
+        const baseUrl = (() => {
+            if (typeof window === "undefined") {
+                return "ws://localhost:8000/ws/proxima-agent";
+            }
+            const configured = process.env.NEXT_PUBLIC_PROXIMA_AGENT_WS_URL;
+            if (configured) return configured;
+            const protocol =
+                window.location.protocol === "https:" ? "wss" : "ws";
+            const host =
+                window.location.hostname === "0.0.0.0"
+                    ? "localhost"
+                    : window.location.hostname;
+            return `${protocol}://${host}:8000/ws/proxima-agent`;
+        })();
+
+        const separator = baseUrl.includes("?") ? "&" : "?";
+        let url = `${baseUrl}${separator}mode=${encodeURIComponent(this.mode)}`;
+
+        // Append teammate config from localStorage if present
+        if (typeof window !== "undefined") {
+            const teammateConfigStr = localStorage.getItem(
+                "proxima_teammate_config"
+            );
+            console.log(
+                "[ProximaAgent] teammate config in localStorage:",
+                teammateConfigStr ? "present" : "null"
+            );
+            if (teammateConfigStr) {
+                try {
+                    const base64Config = btoa(teammateConfigStr);
+                    url += `&teammate_config=${encodeURIComponent(base64Config)}`;
+                    console.log(
+                        "[ProximaAgent] teammate_config appended to URL"
+                    );
+                } catch (error) {
+                    console.error("Failed to encode teammate config:", error);
+                }
+            }
+        }
+
+        return url;
     }
 
     /**
@@ -379,30 +417,6 @@ export class ProximaAgentService {
         }
     }
 
-    private defaultWebSocketUrl() {
-        const baseUrl = (() => {
-            if (typeof window === "undefined") {
-                return "ws://localhost:8000/ws/proxima-agent";
-            }
-
-            const configured = process.env.NEXT_PUBLIC_PROXIMA_AGENT_WS_URL;
-            if (configured) {
-                return configured;
-            }
-
-            const protocol =
-                window.location.protocol === "https:" ? "wss" : "ws";
-            const host =
-                window.location.hostname === "0.0.0.0"
-                    ? "localhost"
-                    : window.location.hostname;
-            return `${protocol}://${host}:8000/ws/proxima-agent`;
-        })();
-
-        const separator = baseUrl.includes("?") ? "&" : "?";
-        return `${baseUrl}${separator}mode=${encodeURIComponent(this.mode)}`;
-    }
-
     private async ensureSocket() {
         if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
             return this.websocket;
@@ -631,7 +645,11 @@ export class ProximaAgentService {
                 return;
             case "text":
                 if (payload.text) {
-                    this.onEvent({ type: "text", text: payload.text });
+                    this.onEvent({
+                        type: "text",
+                        text: payload.text,
+                        speaker: payload.speaker,
+                    });
                 }
                 return;
             case "turn_complete":

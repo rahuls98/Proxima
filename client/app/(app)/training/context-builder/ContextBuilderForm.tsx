@@ -9,6 +9,8 @@ import { AdditionalTextContext } from "@/components/molecules/AdditionalTextCont
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
 import { generatePersonaInstruction } from "@/lib/api";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
+import { TeammateConfigPanel } from "@/components/molecules/TeammateConfigPanel";
+import type { TeammateConfig } from "@/lib/teammate-config";
 
 interface FormValues {
     [key: string]: string | number | boolean | string[] | null;
@@ -59,6 +61,10 @@ export function ContextBuilderForm() {
         null
     );
     const [error, setError] = useState<string | null>(null);
+    const [teammateEnabled, setTeammateEnabled] = useState(false);
+    const [teammateConfig, setTeammateConfig] = useState<TeammateConfig | null>(
+        null
+    );
 
     // Load persona data if personaId is provided
     useEffect(() => {
@@ -212,6 +218,16 @@ export function ContextBuilderForm() {
                 JSON.stringify(sessionContext)
             );
 
+            // Store teammate config if enabled
+            if (teammateEnabled && teammateConfig) {
+                localStorage.setItem(
+                    "proxima_teammate_config",
+                    JSON.stringify(teammateConfig)
+                );
+            } else {
+                localStorage.removeItem("proxima_teammate_config");
+            }
+
             // Save the persona for future reuse
             savePersona(sessionContext, data.persona_instruction);
         } catch (err) {
@@ -273,6 +289,20 @@ export function ContextBuilderForm() {
                         onUpdateFile={updateAdditionalFile}
                     />
                 </div>
+            </section>
+
+            <hr className="border-zinc-200" />
+
+            {/* Teammate Configuration */}
+            <section className="space-y-4">
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-900 border-b border-zinc-200 pb-3">
+                    AI Teammate (Optional)
+                </h3>
+                <TeammateConfigPanel
+                    enabled={teammateEnabled}
+                    onToggle={setTeammateEnabled}
+                    onConfigGenerated={setTeammateConfig}
+                />
             </section>
 
             {/* Submit Button */}

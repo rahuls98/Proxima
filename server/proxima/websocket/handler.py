@@ -40,6 +40,7 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect  # type: ignore
 
 from services.gemini.live import GeminiLiveManager
+from services.gemini.live.multi_participant_manager import MultiParticipantManager
 
 from ..config import build_live_config, resolve_mode, SYSTEM_PROMPTS
 from ..session_store import get_session_store
@@ -117,17 +118,58 @@ class ProximaAgentWebSocketHandler:
         # Initialize session storage
         session_store = get_session_store()
         session_id = websocket.query_params.get("session_id")
+        
+        # Check for teammate config in query params (base64-encoded JSON)
+        teammate_config_b64 = websocket.query_params.get("teammate_config")
+        teammate_config = None
+        if teammate_config_b64:
+            try:
+                teammate_config_json = base64.b64decode(teammate_config_b64).decode("utf-8")
+                teammate_config = json.loads(teammate_config_json)
+                self.logger.info("Received teammate config: %s", teammate_config.get("teammate_name"))
+            except Exception as exc:
+                self.logger.warning("Failed to decode teammate_config: %s", exc)
+        
         if not session_id:
-            session_id = session_store.create_session(mode=mode)
+            session_id = session_store.create_session(mode=mode, teammate_config=teammate_config)
         session_store.start_session(session_id)
         self.logger.info("Session tracking enabled (session_id=%s)", session_id)
 
-        # Initialize Gemini Live manager and session configuration
-        manager = self.manager_factory()
+        # Get session data to check for teammate configuration
+        session = session_store.get_session(session_id)
+        has_teammate = session and session.teammate_config is not None
+        is_multi_participant = has_teammate
+        
+        # Initialize Gemini Live manager (single or multi-participant)
+        manager = None
+        config = None
         live_tools = None
-        if hasattr(manager, "live_tool_declarations"):
-            live_tools = manager.live_tool_declarations()
-        config = build_live_config(system_instruction, mode, tools=live_tools)
+        
+        if has_teammate and session:
+            self.logger.info(
+                "Initializing multi-participant session (teammate=%s, archetype=%s)",
+                session.teammate_config.get("teammate_name"),
+                session.teammate_config.get("behavior_archetype"),
+            )
+            # Build prospect config
+            live_tools = None
+            temp_manager = self.manager_factory()
+            if hasattr(temp_manager, "live_tool_declarations"):
+                live_tools = temp_manager.live_tool_declarations()
+            prospect_config = build_live_config(system_instruction, mode, tools=live_tools)
+            
+            # Create multi-participant manager
+            manager = MultiParticipantManager(
+                teammate_config=session.teammate_config,
+                prospect_config=prospect_config,
+            )
+        else:
+            # Standard single-participant session
+            manager = self.manager_factory()
+            live_tools = None
+            if hasattr(manager, "live_tool_declarations"):
+                live_tools = manager.live_tool_declarations()
+            config = build_live_config(system_instruction, mode, tools=live_tools)
 
         # Communication queues for inter-task messaging
         outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -221,7 +263,14 @@ class ProximaAgentWebSocketHandler:
                         break
 
                 await manager.close()
-                await manager.connect(config)
+                # Connect based on manager type
+                if is_multi_participant:
+                    await manager.connect()  # MultiParticipantManager doesn't need config arg
+                else:
+                    if config is None:
+                        self.logger.error("Cannot reconnect: config is None for single-participant session")
+                        raise RuntimeError("Configuration not initialized for single-participant session")
+                    await manager.connect(config)
                 stream_enabled = True
                 await enqueue_outbound(
                     {
@@ -321,7 +370,12 @@ class ProximaAgentWebSocketHandler:
 
                         if event["type"] in {"user_text", "text"} and event.get("text"):
                             # Store transcript message
-                            speaker = "rep" if event["type"] == "user_text" else "prospect"
+                            # For multi-participant sessions, use the speaker tag from the event
+                            if "speaker" in event:
+                                speaker = event["speaker"]
+                            else:
+                                speaker = "rep" if event["type"] == "user_text" else "prospect"
+                            
                             session_store.add_message(
                                 session_id=session_id,
                                 speaker=speaker,
@@ -332,6 +386,7 @@ class ProximaAgentWebSocketHandler:
                                 {
                                     "type": event["type"],
                                     "text": event["text"],
+                                    "speaker": speaker,  # Include speaker in outbound event
                                 }
                             )
                             continue
@@ -551,15 +606,31 @@ class ProximaAgentWebSocketHandler:
                     new_instruction = payload.get("instruction")
                     if new_instruction and new_instruction != system_instruction:
                         system_instruction = new_instruction
-                        config = build_live_config(system_instruction, mode, tools=live_tools)
-                        self.logger.info("System instruction updated from client")
+                        if is_multi_participant:
+                            # Update the prospect config on the multi-participant manager
+                            manager.prospect_config = build_live_config(
+                                system_instruction, mode, tools=live_tools
+                            )
+                            self.logger.info(
+                                "Prospect system instruction updated (multi-participant)"
+                            )
+                        else:
+                            config = build_live_config(system_instruction, mode, tools=live_tools)
+                            self.logger.info("System instruction updated from client")
                         # Reconnect with new system instruction
                         await reconnect_live_session("system instruction update")
                 elif msg_type in {"disconnect", "end_session"}:
                     return
 
         try:
-            await manager.connect(config)
+            # Connect based on manager type
+            if is_multi_participant:
+                await manager.connect()  # MultiParticipantManager doesn't need config arg
+            else:
+                if config is None:
+                    self.logger.error("Cannot initialize: config is None for single-participant session")
+                    raise RuntimeError("Configuration not initialized for single-participant session")
+                await manager.connect(config)
             self.logger.info("proxima-agent Gemini session connected")
             await enqueue_outbound({
                 "type": "session_ready",

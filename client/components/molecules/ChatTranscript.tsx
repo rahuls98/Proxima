@@ -16,7 +16,8 @@ export function ChatTranscript({ transcript }: ChatTranscriptProps) {
                         className={
                             entry.role === "user"
                                 ? "flex justify-end"
-                                : entry.role === "bot"
+                                : entry.role === "bot" ||
+                                    entry.role === "teammate"
                                   ? "flex justify-start"
                                   : "flex justify-center"
                         }
@@ -27,7 +28,9 @@ export function ChatTranscript({ transcript }: ChatTranscriptProps) {
                                     ? "max-w-[85%] rounded-2xl rounded-br-md bg-zinc-900 px-3 py-2 text-zinc-100"
                                     : entry.role === "bot"
                                       ? "max-w-[85%] rounded-2xl rounded-bl-md bg-zinc-100 px-3 py-2 text-zinc-900"
-                                      : "max-w-[90%] rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-700"
+                                      : entry.role === "teammate"
+                                        ? "max-w-[85%] rounded-2xl rounded-bl-md bg-indigo-50 px-3 py-2 text-indigo-900 border border-indigo-200"
+                                        : "max-w-[90%] rounded-full bg-zinc-100 px-3 py-1 text-xs text-zinc-700"
                             }
                         >
                             {entry.text}

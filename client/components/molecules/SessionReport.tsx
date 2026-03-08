@@ -1,7 +1,7 @@
-import type { SessionReport as SessionReportData } from "@/lib/api";
+import type { RealSessionReport } from "@/lib/api";
 
 type SessionReportProps = {
-    report: SessionReportData;
+    report: RealSessionReport;
     onClose: () => void;
 };
 

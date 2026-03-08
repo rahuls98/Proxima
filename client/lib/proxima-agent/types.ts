@@ -5,7 +5,7 @@ export type ProximaAgentConnectionState =
     | "muted"
     | "error";
 
-export type TranscriptRole = "user" | "bot" | "system";
+export type TranscriptRole = "user" | "bot" | "teammate" | "system";
 
 export type TranscriptItem = {
     id: number;
@@ -81,7 +81,7 @@ export type ProximaAgentEvent =
     | { type: "stream_stopped" }
     | { type: "file_uploaded"; fileId: string; fileName: string }
     | { type: "user_text"; text: string }
-    | { type: "text"; text: string }
+    | { type: "text"; text: string; speaker?: string }
     | { type: "turn_complete" }
     | { type: "waiting_for_input" }
     | { type: "interruption" }

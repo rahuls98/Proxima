@@ -33,6 +33,13 @@ class SessionMetrics(TypedDict):
     prospect_sentiment_trend: str  # "improving", "declining", "stable"
     key_moments: list[str]  # Notable moments from the session
     recommendations: list[str]  # Coaching recommendations
+    # Multi-participant session metrics (optional)
+    call_leadership_score: float | None  # 0-100 scale (only for multi-participant)
+    delegation_skill: float | None  # 0-10 scale
+    interruption_handling: float | None  # 0-10 scale
+    collaboration_score: float | None  # 0-10 scale
+    peer_leadership: float | None  # 0-10 scale
+    teammate_archetype: str | None  # The archetype used in multi-participant session
 
 
 # System prompt for session analysis
@@ -90,6 +97,92 @@ Return ONLY valid JSON matching this exact structure (no markdown, no code block
 }
 
 Be precise, objective, and specific in your analysis. Base all ratings on observable evidence in the transcript.
+"""
+
+
+# System prompt for multi-participant session analysis
+MULTI_PARTICIPANT_ANALYSIS_PROMPT = """You are an expert sales training analyst for an AI-powered sales coaching platform.
+
+Your task is to analyze a MULTI-PARTICIPANT training session transcript and extract structured performance metrics.
+
+The transcript contains THREE participants:
+- **Rep**: The sales representative being trained
+- **Prospect**: The AI-simulated customer
+- **Teammate**: An AI-simulated sales colleague (e.g., BDR, AE, Junior Rep)
+
+This session tests the rep's ability to:
+- Lead a multi-person sales call
+- Coordinate with a teammate
+- Handle interruptions and maintain control
+- Delegate effectively
+- Collaborate while staying in charge
+
+Analyze ALL standard dimensions from single-participant sessions PLUS additional team collaboration metrics:
+
+## Standard Metrics (same as single-participant):
+
+1. **Rep Confidence (Internal)**: 0-10 scale
+2. **On-Rep Confidence (External)**: 0-10 scale  
+3. **Prospect Sentiment**: 0-10 scale
+4. **Key Moments**: 3-5 critical moments
+5. **Coaching Recommendations**: 3-5 specific points
+
+## Additional Multi-Participant Metrics:
+
+6. **Call Leadership Score**: Did the rep maintain control of the call? (0-100%)
+   - 80-100%: Strong control, clear leader
+   - 60-79%: Adequate control with some slips
+   - 40-59%: Shared control, unclear leadership
+   - 0-39%: Lost control, teammate dominated
+
+7. **Delegation Skill**: Did the rep involve the teammate appropriately? (0-10)
+   - 8-10: Excellent handoffs, strategic involvement
+   - 5-7: Adequate delegation
+   - 0-4: Poor delegation (either ignored teammate or over-relied on them)
+
+8. **Interruption Handling**: How well did the rep handle teammate interruptions? (0-10)
+   - 8-10: Smoothly acknowledged and redirected
+   - 5-7: Adequate recovery
+   - 0-4: Lost momentum, became flustered
+
+9. **Collaboration Score**: Quality of teamwork and handoffs (0-10)
+   - 8-10: Seamless collaboration, felt like a unified team
+   - 5-7: Functional teamwork
+   - 0-4: Disconnected, conflicting messages
+
+10. **Peer Leadership**: Did the rep guide or correct the teammate when needed? (0-10)
+    - 8-10: Confident mentoring, tactful corrections
+    - 5-7: Some guidance
+    - 0-4: Failed to lead the teammate
+
+**Output Format**:
+Return ONLY valid JSON matching this exact structure (no markdown, no code blocks):
+
+{
+  "rep_confidence_avg": <number 0-10>,
+  "rep_confidence_trend": "<increasing|decreasing|stable>",
+  "on_rep_confidence_avg": <number 0-10>,
+  "on_rep_confidence_trend": "<increasing|decreasing|stable>",
+  "prospect_sentiment_avg": <number 0-10>,
+  "prospect_sentiment_trend": "<improving|declining|stable>",
+  "call_leadership_score": <number 0-100>,
+  "delegation_skill": <number 0-10>,
+  "interruption_handling": <number 0-10>,
+  "collaboration_score": <number 0-10>,
+  "peer_leadership": <number 0-10>,
+  "key_moments": [
+    "<moment 1>",
+    "<moment 2>",
+    "<moment 3>"
+  ],
+  "recommendations": [
+    "<recommendation 1>",
+    "<recommendation 2>",
+    "<recommendation 3>"
+  ]
+}
+
+Be precise and specific. Cite specific examples from the transcript in key_moments and recommendations.
 """
 
 
@@ -165,6 +258,7 @@ class SessionReportGenerator:
     async def generate_report(
         self,
         transcript: list[TranscriptEntry],
+        teammate_archetype: str | None = None,
     ) -> SessionMetrics:
         """
         Generate a structured performance report from a session transcript.
@@ -175,9 +269,11 @@ class SessionReportGenerator:
         - On-rep confidence (how the rep appears to the prospect)
         - Prospect sentiment metrics and trends
         - Key moments and coaching recommendations
+        - Team collaboration metrics (if multi-participant session)
 
         Args:
             transcript: List of transcript entries with speaker, text, and timestamp.
+            teammate_archetype: Optional teammate archetype (indicates multi-participant session)
 
         Returns:
             Structured metrics dictionary with all analysis results.
@@ -188,6 +284,10 @@ class SessionReportGenerator:
         if not transcript:
             raise SessionReportError("Cannot generate report from empty transcript")
 
+        # Detect if this is a multi-participant session
+        speakers = {entry["speaker"] for entry in transcript}
+        is_multi_participant = "teammate" in speakers or teammate_archetype is not None
+
         # Calculate session duration
         session_duration = transcript[-1]["timestamp"] if transcript else 0.0
         session_time_formatted = format_duration(session_duration)
@@ -195,13 +295,20 @@ class SessionReportGenerator:
         # Format transcript for Gemini
         formatted_transcript = format_transcript(transcript)
         
+        # Choose appropriate analysis prompt
+        analysis_prompt = MULTI_PARTICIPANT_ANALYSIS_PROMPT if is_multi_participant else SESSION_ANALYSIS_PROMPT
+        
         # Build the analysis prompt
         full_prompt = (
-            SESSION_ANALYSIS_PROMPT
+            analysis_prompt
             + "\n\n---\n\n"
             + "**SESSION TRANSCRIPT**:\n\n"
             + formatted_transcript
         )
+        
+        # Add teammate context if multi-participant
+        if is_multi_participant and teammate_archetype:
+            full_prompt += f"\n\n**TEAMMATE ARCHETYPE**: {teammate_archetype}"
 
         # Call Gemini with a fresh client instance
         client = genai.Client()
@@ -246,7 +353,7 @@ class SessionReportGenerator:
                 f"Gemini returned invalid JSON: {exc}"
             ) from exc
 
-        # Validate required fields
+        # Validate required fields (base metrics always required)
         required_fields = [
             "rep_confidence_avg",
             "rep_confidence_trend",
@@ -258,13 +365,33 @@ class SessionReportGenerator:
             "recommendations",
         ]
         
+        # Additional validation for multi-participant sessions
+        if is_multi_participant:
+            required_fields.extend([
+                "call_leadership_score",
+                "delegation_skill",
+                "interruption_handling",
+                "collaboration_score",
+                "peer_leadership",
+            ])
+        
         for field in required_fields:
             if field not in metrics:
                 raise SessionReportError(
                     f"Gemini response missing required field: {field}"
                 )
 
-        # Add session duration to metrics
+        # Add session duration and teammate archetype to metrics
         metrics["session_total_time"] = session_time_formatted
+        metrics["teammate_archetype"] = teammate_archetype
+        
+        # Set multi-participant fields to None for single-participant sessions
+        if not is_multi_participant:
+            metrics["call_leadership_score"] = None
+            metrics["delegation_skill"] = None
+            metrics["interruption_handling"] = None
+            metrics["collaboration_score"] = None
+            metrics["peer_leadership"] = None
+            metrics["teammate_archetype"] = None
 
         return metrics

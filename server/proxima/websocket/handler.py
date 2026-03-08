@@ -407,13 +407,15 @@ class ProximaAgentWebSocketHandler:
                     raise
                 except Exception as exc:
                     exc_str = str(exc)
-                    if "1000" in exc_str:
-                        # Normal close from reconnect - just sleep and retry
-                        await asyncio.sleep(0.1)
+                    # Normal close from reconnect (code 1000) or stream-end
+                    # during a reconnect that was already handled elsewhere.
+                    # Just sleep and retry — do NOT trigger another reconnect.
+                    if "1000" in exc_str or "stream ended" in exc_str.lower():
+                        await asyncio.sleep(0.2)
                         continue
                     self.logger.exception("receive_from_gemini failed")
                     await reconnect_live_session(f"receive failure: {exc}")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.2)
 
         # ============================================================================
         # Task 5: receive_from_client

@@ -1,9 +1,17 @@
 /**
  * Training history storage utilities
  * Manages storing and retrieving past training sessions in localStorage
+ *
+ * Note: Reports are now stored separately via training-report-storage.ts
+ * This allows for better separation of concerns and easier API migration.
  */
 
 import type { SessionReport } from "./api";
+import {
+    getTrainingReport,
+    saveTrainingReport,
+    deleteTrainingReport,
+} from "./training-report-storage";
 
 export interface TrainingSession {
     id: string; // session_id from backend
@@ -12,7 +20,7 @@ export interface TrainingSession {
     personaName?: string; // extracted from session context
     jobTitle?: string; // extracted from session context
     duration?: string; // if available
-    report?: SessionReport; // cached report data
+    scenario?: string; // scenario name/description
 }
 
 const TRAINING_HISTORY_KEY = "proxima_training_history";
@@ -71,4 +79,47 @@ export function deleteTrainingSession(id: string): void {
  */
 export function clearTrainingHistory(): void {
     localStorage.removeItem(TRAINING_HISTORY_KEY);
+}
+
+/**
+ * Save a training session WITH its report
+ * This is a convenience function that saves both the session metadata
+ * and the report data in their respective storage locations
+ */
+export async function saveTrainingSessionWithReport(
+    session: TrainingSession,
+    report: SessionReport
+): Promise<void> {
+    // Save session metadata
+    saveTrainingSession(session);
+
+    // Save report separately
+    await saveTrainingReport(session.id, report);
+}
+
+/**
+ * Get a training session WITH its report
+ * Returns both session metadata and report data (if available)
+ */
+export async function getTrainingSessionWithReport(
+    sessionId: string
+): Promise<{ session: TrainingSession | null; report: SessionReport | null }> {
+    const session = getTrainingSessionById(sessionId);
+    const report = await getTrainingReport(sessionId);
+
+    return { session, report };
+}
+
+/**
+ * Delete a training session AND its report
+ * Removes both session metadata and report data
+ */
+export async function deleteTrainingSessionWithReport(
+    sessionId: string
+): Promise<void> {
+    // Delete session metadata
+    deleteTrainingSession(sessionId);
+
+    // Delete report
+    await deleteTrainingReport(sessionId);
 }

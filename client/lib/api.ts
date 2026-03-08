@@ -50,20 +50,78 @@ export async function generatePersonaInstruction(sessionContext: {
 }
 
 /**
- * Session report data structure
+ * Session report data structure - Comprehensive training analysis
  */
 export type SessionReport = {
-    session_id: string;
-    session_total_time: string;
-    rep_confidence_avg: number;
-    rep_confidence_trend: string;
-    on_rep_confidence_avg: number;
-    on_rep_confidence_trend: string;
-    prospect_sentiment_avg: number;
-    prospect_sentiment_trend: string;
-    key_moments: string[];
-    recommendations: string[];
-    transcript_length: number;
+    session_overview: {
+        session_id: string;
+        scenario: string;
+        prospect_persona: string;
+        difficulty: string;
+        session_duration_seconds: number;
+        session_start_time: string;
+    };
+    overall_score: {
+        score: number;
+        performance_level: string;
+        breakdown: {
+            discovery: number;
+            objection_handling: number;
+            value_communication: number;
+            conversation_control: number;
+            emotional_intelligence: number;
+        };
+    };
+    conversation_metrics: {
+        talk_ratio_rep: number;
+        talk_ratio_prospect: number;
+        questions_asked: number;
+        open_questions: number;
+        interruptions: number;
+        avg_response_latency_seconds: number;
+    };
+    discovery_signals: {
+        pain_identified: boolean;
+        current_tools_identified: boolean;
+        budget_discussed: boolean;
+        decision_process_identified: boolean;
+        timeline_discussed: string;
+    };
+    objection_handling: {
+        objections_detected: number;
+        acknowledgment_quality: string;
+        evidence_used: string;
+        follow_up_questions: string;
+    };
+    value_communication: {
+        value_clarity: string;
+        feature_vs_benefit_balance: string;
+        roi_quantified: boolean;
+        personalization: string;
+    };
+    emotional_intelligence: {
+        empathy: string;
+        listening_signals: string;
+        rapport_building: string;
+        tone_adaptation: string;
+    };
+    prospect_engagement: {
+        trust_change: number;
+        engagement_level: string;
+        objection_frequency: number;
+        conversation_momentum: string;
+    };
+    deal_progression: {
+        buying_interest: string;
+        next_step_clarity: string;
+        commitment_secured: boolean;
+    };
+    top_feedback: string[];
+    strengths: string[];
+    practice_recommendations: {
+        focus_area: string;
+        recommended_exercise: string;
+    };
 };
 
 /**

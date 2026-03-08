@@ -445,6 +445,33 @@ class ProximaAgentWebSocketHandler:
 
                 if message.get("bytes"):
                     if stream_enabled:
+                        # ---- Global Interruption (Doc 2, §1-2) ----
+                        # On every audio frame from the user, immediately:
+                        #   1. Drain any pending agent audio from outbound_queue so
+                        #      the user's speaker is cleared (Server-Side Audio Muting).
+                        #   2. Signal the manager to seize the floor, which explicitly
+                        #      interrupts the teammate session if it is mid-speech.
+                        #      (Prospect interruption is handled by its own VAD.)
+                        if is_multi_participant and isinstance(manager, MultiParticipantManager):
+                            # Drain audio chunks from outbound_queue, keeping
+                            # non-audio events (text, interruption, etc.) intact.
+                            _drained: list[dict] = []
+                            while not outbound_queue.empty():
+                                try:
+                                    _item = outbound_queue.get_nowait()
+                                    if _item.get("type") != "audio":
+                                        _drained.append(_item)
+                                except asyncio.QueueEmpty:
+                                    break
+                            for _item in _drained:
+                                outbound_queue.put_nowait(_item)
+
+                            # Signal agents (teammate needs explicit interrupt).
+                            try:
+                                await manager.user_interrupt_agents()
+                            except Exception:
+                                pass  # non-fatal; user audio still forwarded below
+
                         await enqueue_audio(message["bytes"])
                     continue
 

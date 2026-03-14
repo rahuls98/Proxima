@@ -18,7 +18,7 @@ export function TextContextItem({
     onRemove,
 }: TextContextItemProps) {
     return (
-        <div className="grid grid-cols-[180px_1fr_auto] gap-2 items-start">
+        <div className="grid grid-cols-[180px_1fr_auto] gap-3 items-start bg-surface-panel border border-border-subtle rounded-xl p-3">
             <Input
                 type="text"
                 placeholder="key"
@@ -34,7 +34,7 @@ export function TextContextItem({
             <button
                 type="button"
                 onClick={onRemove}
-                className="mt-1 border border-zinc-300 rounded-md text-zinc-700 hover:text-red-600 hover:border-red-300 px-2 py-2 text-sm transition-colors"
+                className="mt-1 border border-border-subtle rounded-lg text-text-main hover:text-danger hover:border-danger/30 px-2 py-2 text-sm transition-colors"
             >
                 ✕
             </button>

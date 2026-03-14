@@ -7,6 +7,7 @@ export interface SavedPersona {
     id: string;
     name: string;
     createdAt: string;
+    isPriority?: boolean;
     sessionContext: {
         [key: string]: unknown;
     };
@@ -96,5 +97,50 @@ export function deletePersona(id: string): void {
 export function updatePersonaName(id: string, name: string): void {
     const personas = getSavedPersonas();
     const updated = personas.map((p) => (p.id === id ? { ...p, name } : p));
+    localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updated));
+}
+
+/**
+ * Toggle a persona's priority status.
+ * Keeps at most 2 priority personas at a time.
+ */
+export function togglePersonaPriority(id: string): void {
+    const personas = getSavedPersonas();
+    const target = personas.find((p) => p.id === id);
+    if (!target) {
+        return;
+    }
+
+    const nextIsPriority = !Boolean(target.isPriority);
+
+    let updated = personas.map((persona) => ({ ...persona }));
+
+    if (nextIsPriority) {
+        const existingPriority = updated.filter(
+            (persona) => persona.id !== id && Boolean(persona.isPriority)
+        );
+
+        if (existingPriority.length >= 2) {
+            const idsToDemote = existingPriority
+                .sort(
+                    (a, b) =>
+                        new Date(a.createdAt).getTime() -
+                        new Date(b.createdAt).getTime()
+                )
+                .slice(0, existingPriority.length - 1)
+                .map((persona) => persona.id);
+
+            updated = updated.map((persona) =>
+                idsToDemote.includes(persona.id)
+                    ? { ...persona, isPriority: false }
+                    : persona
+            );
+        }
+    }
+
+    updated = updated.map((persona) =>
+        persona.id === id ? { ...persona, isPriority: nextIsPriority } : persona
+    );
+
     localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updated));
 }

@@ -1,0 +1,709 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Session Report - Proxima Obsidian</title>
+        <!-- Google Fonts: Manrope -->
+        <link href="https://fonts.googleapis.com" rel="preconnect" />
+        <link
+            crossorigin=""
+            href="https://fonts.gstatic.com"
+            rel="preconnect"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap"
+            rel="stylesheet"
+        />
+        <!-- Material Symbols -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0"
+            rel="stylesheet"
+        />
+        <!-- Tailwind CSS CDN -->
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <!-- Tailwind Config -->
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: "#0db9f2",
+                            "surface-base": "#0c1215",
+                            "surface-panel": "#141c21",
+                            "surface-hover": "#1a252b",
+                            "border-subtle": "#22313a",
+                            "text-main": "#cbd5e1",
+                            "text-muted": "#64748b",
+                            success: "#10b981",
+                            warning: "#f59e0b",
+                            danger: "#ef4444",
+                        },
+                        fontFamily: {
+                            display: ["Manrope", "sans-serif"],
+                        },
+                        borderRadius: {
+                            eight: "8px",
+                        },
+                    },
+                },
+            };
+        </script>
+        <style data-purpose="custom-scrollbar">
+            ::-webkit-scrollbar {
+                width: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #0c1215;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #22313a;
+                border-radius: 10px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #1a252b;
+            }
+        </style>
+    </head>
+    <body
+        class="bg-surface-base text-text-main font-display antialiased min-h-screen flex overflow-x-hidden"
+    >
+        <!-- BEGIN: Left Sidebar -->
+        <aside
+            class="w-64 border-r border-border-subtle flex flex-col fixed inset-y-0 left-0 bg-surface-base z-50"
+            data-purpose="sidebar"
+        >
+            <div class="p-6 flex items-center gap-3">
+                <div
+                    class="w-8 h-8 bg-primary rounded flex items-center justify-center"
+                >
+                    <span class="material-symbols-outlined text-surface-base"
+                        >psychology</span
+                    >
+                </div>
+                <span class="text-xl font-bold tracking-tight text-white"
+                    >Proxima AI</span
+                >
+            </div>
+            <nav class="flex-1 px-4 space-y-1 mt-4">
+                <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-eight text-text-muted hover:bg-surface-hover hover:text-white transition-colors group"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-eight text-text-muted hover:bg-surface-hover hover:text-white transition-colors"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">play_circle</span>
+                    <span class="font-medium">Sessions</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-eight text-text-muted hover:bg-surface-hover hover:text-white transition-colors"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">groups</span>
+                    <span class="font-medium">Personas</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-eight text-text-muted hover:bg-surface-hover hover:text-white transition-colors"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">construction</span>
+                    <span class="font-medium">Context Builder</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-eight bg-surface-hover text-primary font-semibold"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">analytics</span>
+                    <span class="font-medium">Reports</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-3 py-2.5 rounded-eight text-text-muted hover:bg-surface-hover hover:text-white transition-colors"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">settings</span>
+                    <span class="font-medium">Settings</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-border-subtle">
+                <button
+                    class="w-full bg-primary hover:bg-opacity-90 text-surface-base font-bold py-3 rounded-eight flex items-center justify-center gap-2 transition-all"
+                >
+                    <span class="material-symbols-outlined">add</span>
+                    New Training
+                </button>
+            </div>
+        </aside>
+        <!-- END: Left Sidebar -->
+        <!-- BEGIN: Main Content Area -->
+        <main class="flex-1 ml-64 flex flex-col min-h-screen">
+            <!-- BEGIN: Top Navigation Bar -->
+            <header
+                class="h-16 border-b border-border-subtle flex items-center justify-between px-8 sticky top-0 bg-surface-base/80 backdrop-blur-md z-40"
+            >
+                <div
+                    class="text-sm font-semibold text-text-muted tracking-wide uppercase"
+                >
+                    Report Explorer
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="relative">
+                        <span
+                            class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+                            >search</span
+                        >
+                        <input
+                            class="bg-surface-panel border-border-subtle rounded-full pl-10 pr-4 py-1.5 text-sm w-64 focus:ring-primary focus:border-primary"
+                            placeholder="Search sessions..."
+                            type="text"
+                        />
+                    </div>
+                    <button class="text-text-muted hover:text-white relative">
+                        <span class="material-symbols-outlined"
+                            >notifications</span
+                        >
+                        <span
+                            class="absolute top-0 right-0 w-2 h-2 bg-primary rounded-full border-2 border-surface-base"
+                        ></span>
+                    </button>
+                    <div
+                        class="flex items-center gap-3 border-l border-border-subtle pl-6"
+                    >
+                        <div class="text-right">
+                            <div
+                                class="text-sm font-bold text-white leading-tight"
+                            >
+                                Alex Rivera
+                            </div>
+                        </div>
+                        <img
+                            alt="Profile"
+                            class="w-8 h-8 rounded-full border border-border-subtle"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCqm64P514mvQ-J0_YKgCV-CSNZrUYDCNdMkntMB2sEIWPNpJJXm0VI_62yizZYIbPgQ3kVptnPhsxb6gS56vkpGXoOVbpOZIe2OZqd0e10HVXSwnavArROOjXi4t7JrAdvUkGLroHoHKbz9eZ5NV3DjL09-oQx1RJGPhXZssBo_csEtZ4LqQH3eK_tqjhllPoA8-mgwbFLGSnrtgHSeYYZIs8PZUL_ubMZnIaDiwjuFQyEmwHstWBfqJLtsbiuMVx1KXpSYFR9bdQu"
+                        />
+                    </div>
+                </div>
+            </header>
+            <!-- END: Top Navigation Bar -->
+            <!-- BEGIN: Report Content Container -->
+            <div class="p-8 space-y-8">
+                <!-- BEGIN: Report Title & Actions -->
+                <section
+                    class="flex flex-col md:flex-row md:items-end justify-between gap-4"
+                >
+                    <div>
+                        <h1
+                            class="text-4xl font-extrabold text-white tracking-tight mb-2"
+                        >
+                            Session Report
+                        </h1>
+                        <div class="flex items-center gap-4 text-text-muted">
+                            <div class="flex items-center gap-1.5">
+                                <span
+                                    class="material-symbols-outlined text-[18px]"
+                                    >person</span
+                                >
+                                <span
+                                    >Rehearsal with
+                                    <span class="text-text-main font-medium"
+                                        >Sarah Jenkins</span
+                                    ></span
+                                >
+                            </div>
+                            <div
+                                class="w-1 h-1 bg-border-subtle rounded-full"
+                            ></div>
+                            <div class="flex items-center gap-1.5">
+                                <span
+                                    class="material-symbols-outlined text-[18px]"
+                                    >calendar_today</span
+                                >
+                                <span>Oct 24, 2023</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button
+                            class="flex items-center gap-2 px-4 py-2.5 bg-surface-panel hover:bg-surface-hover border border-border-subtle rounded-eight text-sm font-bold transition-colors"
+                        >
+                            <span class="material-symbols-outlined"
+                                >picture_as_pdf</span
+                            >
+                            Export PDF
+                        </button>
+                        <button
+                            class="flex items-center gap-2 px-4 py-2.5 bg-surface-panel hover:bg-surface-hover border border-border-subtle rounded-eight text-sm font-bold transition-colors"
+                        >
+                            <span class="material-symbols-outlined"
+                                >play_circle</span
+                            >
+                            Replay
+                        </button>
+                        <button
+                            class="flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-opacity-90 text-surface-base rounded-eight text-sm font-bold shadow-lg shadow-primary/10 transition-all"
+                        >
+                            <span class="material-symbols-outlined"
+                                >restart_alt</span
+                            >
+                            Start Similar
+                        </button>
+                    </div>
+                </section>
+                <!-- END: Report Title & Actions -->
+                <!-- BEGIN: Bento Grid (Top Metrics) -->
+                <section
+                    class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
+                    data-purpose="metrics-grid"
+                >
+                    <!-- Metric Card 1 -->
+                    <div
+                        class="bg-surface-panel p-5 rounded-eight border border-border-subtle"
+                    >
+                        <div
+                            class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4"
+                        >
+                            Duration
+                        </div>
+                        <div class="text-3xl font-extrabold text-white mb-1">
+                            14m 32s
+                        </div>
+                        <div
+                            class="text-[11px] font-bold text-success uppercase"
+                        >
+                            Optimized
+                        </div>
+                    </div>
+                    <!-- Metric Card 2 -->
+                    <div
+                        class="bg-surface-panel p-5 rounded-eight border border-border-subtle"
+                    >
+                        <div
+                            class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4"
+                        >
+                            Confidence
+                        </div>
+                        <div class="text-3xl font-extrabold text-white mb-3">
+                            88%
+                        </div>
+                        <div
+                            class="w-full h-1 bg-border-subtle rounded-full overflow-hidden"
+                        >
+                            <div class="bg-primary h-full w-[88%]"></div>
+                        </div>
+                    </div>
+                    <!-- Metric Card 3 -->
+                    <div
+                        class="bg-surface-panel p-5 rounded-eight border border-border-subtle"
+                    >
+                        <div
+                            class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4"
+                        >
+                            Sentiment
+                        </div>
+                        <div class="text-3xl font-extrabold text-white mb-1">
+                            72%
+                        </div>
+                        <div
+                            class="text-[11px] font-bold text-primary uppercase"
+                        >
+                            Positive Bias
+                        </div>
+                    </div>
+                    <!-- Metric Card 4 -->
+                    <div
+                        class="bg-surface-panel p-5 rounded-eight border border-border-subtle"
+                    >
+                        <div
+                            class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4"
+                        >
+                            Script Adherence
+                        </div>
+                        <div class="text-3xl font-extrabold text-white mb-3">
+                            91%
+                        </div>
+                        <div
+                            class="w-full h-1 bg-border-subtle rounded-full overflow-hidden"
+                        >
+                            <div class="bg-success h-full w-[91%]"></div>
+                        </div>
+                    </div>
+                    <!-- Metric Card 5 -->
+                    <div
+                        class="bg-surface-panel p-5 rounded-eight border border-border-subtle"
+                    >
+                        <div
+                            class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4"
+                        >
+                            Objections
+                        </div>
+                        <div class="text-3xl font-extrabold text-danger mb-1">
+                            4
+                        </div>
+                        <div
+                            class="text-[11px] font-bold text-text-muted uppercase"
+                        >
+                            Neutralized: 3
+                        </div>
+                    </div>
+                    <!-- Metric Card 6 -->
+                    <div
+                        class="bg-surface-panel p-5 rounded-eight border border-border-subtle"
+                    >
+                        <div
+                            class="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-4"
+                        >
+                            Talk Ratio
+                        </div>
+                        <div class="text-3xl font-extrabold text-white mb-1">
+                            54:46
+                        </div>
+                        <div
+                            class="text-[11px] font-bold text-text-muted uppercase"
+                        >
+                            Balanced Flow
+                        </div>
+                    </div>
+                </section>
+                <!-- END: Bento Grid -->
+                <!-- BEGIN: Performance Charts Row -->
+                <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Confidence Trend -->
+                    <div
+                        class="bg-surface-panel p-6 rounded-eight border border-border-subtle flex flex-col h-80"
+                    >
+                        <div
+                            class="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-8"
+                        >
+                            Confidence Trend
+                        </div>
+                        <div class="flex-1 flex items-end gap-2 px-2">
+                            <!-- CSS Step Bar Chart Simulation -->
+                            <div
+                                class="flex-1 bg-primary/20 hover:bg-primary/40 transition-all rounded-t-sm"
+                                style="height: 40%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/30 hover:bg-primary/40 transition-all rounded-t-sm"
+                                style="height: 55%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/60 hover:bg-primary/70 transition-all rounded-t-sm"
+                                style="height: 80%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/50 hover:bg-primary/60 transition-all rounded-t-sm"
+                                style="height: 70%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/55 hover:bg-primary/60 transition-all rounded-t-sm"
+                                style="height: 75%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/40 hover:bg-primary/50 transition-all rounded-t-sm"
+                                style="height: 60%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/50 hover:bg-primary/60 transition-all rounded-t-sm"
+                                style="height: 68%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/80 hover:bg-primary/90 transition-all rounded-t-sm"
+                                style="height: 85%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-primary/90 hover:bg-primary/100 transition-all rounded-t-sm"
+                                style="height: 95%"
+                            ></div>
+                        </div>
+                    </div>
+                    <!-- Sentiment Fluctuation -->
+                    <div
+                        class="bg-surface-panel p-6 rounded-eight border border-border-subtle flex flex-col h-80"
+                    >
+                        <div
+                            class="text-[11px] font-bold text-text-muted uppercase tracking-widest mb-8"
+                        >
+                            Sentiment Fluctuation
+                        </div>
+                        <div class="flex-1 flex items-end gap-3 px-2">
+                            <!-- Mixed Bar Chart Success/Warning -->
+                            <div
+                                class="flex-1 bg-success/40 rounded-t-sm"
+                                style="height: 50%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-success/60 rounded-t-sm"
+                                style="height: 70%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-warning/60 rounded-t-sm"
+                                style="height: 40%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-success/50 rounded-t-sm"
+                                style="height: 65%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-warning/50 rounded-t-sm"
+                                style="height: 45%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-success/70 rounded-t-sm"
+                                style="height: 75%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-success/80 rounded-t-sm"
+                                style="height: 85%"
+                            ></div>
+                            <div
+                                class="flex-1 bg-warning/60 rounded-t-sm"
+                                style="height: 55%"
+                            ></div>
+                        </div>
+                    </div>
+                </section>
+                <!-- END: Performance Charts Row -->
+                <!-- BEGIN: Split Layout (Timeline & Insights) -->
+                <section class="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
+                    <!-- BEGIN: Left Column - Key Moments -->
+                    <div class="lg:col-span-1 space-y-6">
+                        <h2 class="text-xl font-bold text-white mb-6">
+                            Key Moments
+                        </h2>
+                        <div
+                            class="relative space-y-8 pl-8 border-l border-border-subtle ml-2"
+                        >
+                            <!-- Moment 1 -->
+                            <div class="relative">
+                                <div
+                                    class="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-surface-base border-2 border-primary flex items-center justify-center"
+                                >
+                                    <div
+                                        class="w-1 h-1 bg-primary rounded-full"
+                                    ></div>
+                                </div>
+                                <div
+                                    class="text-sm font-bold text-primary mb-1"
+                                >
+                                    02:14 - Coaching Visibility
+                                </div>
+                                <p
+                                    class="text-sm text-text-muted leading-relaxed"
+                                >
+                                    Addressed concern regarding manager
+                                    visibility effectively. Responded with clear
+                                    data governance points.
+                                </p>
+                            </div>
+                            <!-- Moment 2 -->
+                            <div class="relative">
+                                <div
+                                    class="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-surface-base border-2 border-border-subtle"
+                                ></div>
+                                <div
+                                    class="text-sm font-bold text-text-main mb-1"
+                                >
+                                    05:45 - Budget Discussion
+                                </div>
+                                <p
+                                    class="text-sm text-text-muted leading-relaxed"
+                                >
+                                    Responded with multi-tiered pricing model
+                                    successfully. Pivot to value-based ROI was
+                                    well timed.
+                                </p>
+                            </div>
+                            <!-- Moment 3 -->
+                            <div class="relative">
+                                <div
+                                    class="absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-surface-base border-2 border-success flex items-center justify-center"
+                                >
+                                    <div
+                                        class="w-1 h-1 bg-success rounded-full"
+                                    ></div>
+                                </div>
+                                <div
+                                    class="text-sm font-bold text-success mb-1"
+                                >
+                                    09:12 - ROI Validation
+                                </div>
+                                <p
+                                    class="text-sm text-text-muted leading-relaxed"
+                                >
+                                    Prospect verbalized agreement on 3x
+                                    efficiency gain. Significant buying signal
+                                    captured here.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- END: Left Column -->
+                    <!-- BEGIN: Right Column - AI Insights -->
+                    <div class="lg:col-span-2 space-y-6">
+                        <!-- Strengths Card -->
+                        <div
+                            class="bg-surface-panel p-6 rounded-eight border border-border-subtle"
+                            data-purpose="strengths-panel"
+                        >
+                            <div class="flex items-center gap-2 mb-6">
+                                <span
+                                    class="material-symbols-outlined text-success"
+                                    >verified</span
+                                >
+                                <h3 class="font-bold text-white">
+                                    AI Insights: Strengths
+                                </h3>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div class="space-y-2">
+                                    <div
+                                        class="flex items-center gap-2 text-sm font-bold text-text-main"
+                                    >
+                                        <span
+                                            class="material-symbols-outlined text-[16px] text-success"
+                                            >check_circle</span
+                                        >
+                                        Dynamic Questioning
+                                    </div>
+                                    <p
+                                        class="text-sm text-text-muted leading-relaxed pl-6"
+                                    >
+                                        4 open-ended questions led to
+                                        high-quality responses from the persona.
+                                    </p>
+                                </div>
+                                <div class="space-y-2">
+                                    <div
+                                        class="flex items-center gap-2 text-sm font-bold text-text-main"
+                                    >
+                                        <span
+                                            class="material-symbols-outlined text-[16px] text-success"
+                                            >check_circle</span
+                                        >
+                                        Mirroring Technique
+                                    </div>
+                                    <p
+                                        class="text-sm text-text-muted leading-relaxed pl-6"
+                                    >
+                                        Exceptional tone matching when
+                                        discussing technical hurdles.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Improvement Areas Card -->
+                        <div
+                            class="bg-surface-panel p-6 rounded-eight border border-border-subtle"
+                            data-purpose="improvements-panel"
+                        >
+                            <div class="flex items-center gap-2 mb-6">
+                                <span
+                                    class="material-symbols-outlined text-warning"
+                                    >trending_up</span
+                                >
+                                <h3 class="font-bold text-white">
+                                    Improvement Areas
+                                </h3>
+                            </div>
+                            <div class="space-y-6">
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <div
+                                            class="text-sm font-bold text-text-main mb-1"
+                                        >
+                                            Filler Phrases
+                                        </div>
+                                        <p class="text-sm text-text-muted">
+                                            Frequent use of "basically" reduces
+                                            perceived authority.
+                                        </p>
+                                    </div>
+                                    <div
+                                        class="bg-warning/10 text-warning px-2 py-1 rounded text-[10px] font-bold border border-warning/20"
+                                    >
+                                        12 INSTANCES
+                                    </div>
+                                </div>
+                                <div class="h-px bg-border-subtle w-full"></div>
+                                <div class="flex items-start justify-between">
+                                    <div>
+                                        <div
+                                            class="text-sm font-bold text-text-main mb-1"
+                                        >
+                                            Feature Dumping
+                                        </div>
+                                        <p class="text-sm text-text-muted">
+                                            Spent 3 minutes on integrations
+                                            before confirming needs.
+                                        </p>
+                                    </div>
+                                    <div
+                                        class="bg-danger/10 text-danger px-2 py-1 rounded text-[10px] font-bold border border-danger/20"
+                                    >
+                                        HIGH IMPACT
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Objection Breakdown -->
+                        <div
+                            class="bg-surface-panel p-6 rounded-eight border border-border-subtle"
+                        >
+                            <div class="flex items-center gap-2 mb-6">
+                                <span
+                                    class="material-symbols-outlined text-primary"
+                                    >analytics</span
+                                >
+                                <h3 class="font-bold text-white">
+                                    Objection Breakdown
+                                </h3>
+                            </div>
+                            <div class="space-y-4">
+                                <div class="flex flex-col gap-2">
+                                    <div
+                                        class="flex justify-between text-xs font-bold text-text-muted uppercase"
+                                    >
+                                        <span>Price Resistance</span>
+                                        <span>Managed (80%)</span>
+                                    </div>
+                                    <div
+                                        class="h-2 bg-border-subtle rounded-full overflow-hidden"
+                                    >
+                                        <div
+                                            class="h-full bg-primary w-[80%]"
+                                        ></div>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col gap-2">
+                                    <div
+                                        class="flex justify-between text-xs font-bold text-text-muted uppercase"
+                                    >
+                                        <span>Implementation Speed</span>
+                                        <span>Managed (40%)</span>
+                                    </div>
+                                    <div
+                                        class="h-2 bg-border-subtle rounded-full overflow-hidden"
+                                    >
+                                        <div
+                                            class="h-full bg-warning w-[40%]"
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- END: Right Column -->
+                </section>
+                <!-- END: Split Layout -->
+            </div>
+            <!-- END: Report Content Container -->
+        </main>
+        <!-- END: Main Content Area -->
+    </body>
+</html>

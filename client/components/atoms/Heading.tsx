@@ -7,9 +7,9 @@ type HeadingProps = {
 
 export function Heading({ children, size = "md" }: HeadingProps) {
     const sizeClass = {
-        sm: "text-sm font-medium",
-        md: "text-base font-semibold",
-        lg: "text-xl font-semibold",
+        sm: "text-lg font-bold tracking-tight text-white",
+        md: "text-xl font-bold tracking-tight text-white",
+        lg: "text-3xl font-extrabold tracking-tight text-white",
     }[size];
 
     return <h2 className={sizeClass}>{children}</h2>;

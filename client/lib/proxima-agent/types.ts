@@ -5,12 +5,13 @@ export type ProximaAgentConnectionState =
     | "muted"
     | "error";
 
-export type TranscriptRole = "user" | "bot" | "system";
+export type TranscriptRole = "user" | "bot" | "system" | "coach";
 
 export type TranscriptItem = {
     id: number;
     role: TranscriptRole;
     text: string;
+    createdAt?: string;
 };
 
 export type CoachingInterventionType =

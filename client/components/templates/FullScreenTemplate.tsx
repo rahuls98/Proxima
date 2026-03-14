@@ -3,5 +3,5 @@ export default function FullScreenTemplate({
 }: {
     children: React.ReactNode;
 }) {
-    return <div className="min-h-screen w-full bg-white">{children}</div>;
+    return <div className="h-full w-full bg-surface-base">{children}</div>;
 }

@@ -17,7 +17,7 @@ export function FileContextItem({
     onRemove,
 }: FileContextItemProps) {
     return (
-        <div className="grid grid-cols-[180px_1fr_auto] gap-2 items-center">
+        <div className="grid grid-cols-[180px_1fr_auto] gap-3 items-center bg-surface-panel border border-border-subtle rounded-xl p-3">
             <Input
                 type="text"
                 placeholder="key"
@@ -32,14 +32,14 @@ export function FileContextItem({
                     className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                     aria-label="Select file"
                 />
-                <div className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 pointer-events-none bg-white">
+                <div className="rounded-xl border border-border-subtle px-4 py-3 text-sm text-text-main pointer-events-none bg-surface-base">
                     {fileName || "Choose file..."}
                 </div>
             </div>
             <button
                 type="button"
                 onClick={onRemove}
-                className="border border-zinc-300 rounded-md text-zinc-700 hover:text-red-600 hover:border-red-300 px-2 py-2 text-sm transition-colors"
+                className="border border-border-subtle rounded-lg text-text-main hover:text-danger hover:border-danger/30 px-2 py-2 text-sm transition-colors"
             >
                 ✕
             </button>

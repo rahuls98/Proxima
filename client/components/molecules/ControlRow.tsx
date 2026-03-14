@@ -16,7 +16,7 @@ export function ControlRow({
     onDisconnect,
 }: ControlRowProps) {
     return (
-        <div className="flex gap-3">
+        <div className="flex gap-3 rounded-2xl border border-border-subtle bg-surface-panel p-3">
             <Button
                 variant="primary"
                 onClick={onConnect}
@@ -35,6 +35,7 @@ export function ControlRow({
                 {state === "muted" ? "Unmute" : "Mute"}
             </Button>
             <Button
+                variant="danger"
                 onClick={onDisconnect}
                 disabled={state === "disconnected" || state === "connecting"}
             >

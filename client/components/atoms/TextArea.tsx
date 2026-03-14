@@ -6,7 +6,7 @@ export function TextArea({ ...props }: TextAreaProps) {
     return (
         <textarea
             {...props}
-            className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-100 resize-y"
+            className={`w-full bg-surface-base border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-main placeholder:text-text-placeholder focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all resize-none disabled:cursor-not-allowed disabled:opacity-60 ${props.className ?? ""}`}
         />
     );
 }

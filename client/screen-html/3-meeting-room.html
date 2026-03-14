@@ -1,0 +1,488 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Proxima AI - Meeting Room</title>
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+            rel="stylesheet"
+        />
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: "#0db9f2",
+                            "surface-base": "#0c1215",
+                            "surface-panel": "#141c21",
+                            "surface-hover": "#1a252b",
+                            "border-subtle": "#22313a",
+                            "text-main": "#cbd5e1",
+                            "text-muted": "#64748b",
+                            success: "#10b981",
+                            warning: "#f59e0b",
+                            danger: "#ef4444",
+                        },
+                        fontFamily: {
+                            display: ["Manrope", "sans-serif"],
+                            body: ["Manrope", "sans-serif"],
+                        },
+                        borderRadius: {
+                            DEFAULT: "0.25rem",
+                            lg: "0.5rem",
+                            xl: "0.75rem",
+                            "2xl": "1rem",
+                            full: "9999px",
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            .material-symbols-outlined {
+                font-variation-settings:
+                    "FILL" 0,
+                    "wght" 400,
+                    "GRAD" 0,
+                    "opsz" 24;
+                font-size: 20px !important;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .waveform-bar {
+                width: 3px;
+                background-color: #0db9f2;
+                border-radius: 1px;
+            }
+            .glow-primary {
+                box-shadow: 0 0 20px -2px rgba(13, 185, 242, 0.5);
+            }
+            ::-webkit-scrollbar {
+                width: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #22313a;
+                border-radius: 10px;
+            }
+        </style>
+    </head>
+    <body
+        class="h-screen w-full flex flex-col overflow-hidden bg-surface-base text-text-main font-body antialiased"
+    >
+        <!-- Top Header -->
+        <header
+            class="h-16 px-6 bg-surface-panel/50 border-b border-border-subtle flex items-center justify-between z-50 backdrop-blur-md"
+        >
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
+                    >
+                        <span
+                            class="material-symbols-outlined text-surface-base text-[20px]"
+                            style="font-variation-settings: &quot;FILL&quot; 1"
+                            >psychology</span
+                        >
+                    </div>
+                    <span
+                        class="text-text-main font-bold text-lg tracking-tight font-display"
+                        >Proxima AI</span
+                    >
+                </div>
+                <div class="h-4 w-px bg-border-subtle"></div>
+                <span class="text-text-muted font-medium text-sm"
+                    >Enterprise Discovery</span
+                >
+            </div>
+            <div class="flex items-center gap-4">
+                <div
+                    class="flex items-center gap-2 px-3 py-1 bg-danger/10 rounded-full border border-danger/20"
+                >
+                    <span
+                        class="w-2 h-2 rounded-full bg-danger animate-pulse"
+                    ></span>
+                    <span
+                        class="text-danger font-bold text-xs tracking-widest uppercase"
+                        >LIVE 04:18</span
+                    >
+                </div>
+                <div class="flex items-center gap-3 pl-2">
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-text-main font-semibold">
+                            Alex Rivera
+                        </p>
+                        <p
+                            class="text-[10px] text-text-muted uppercase tracking-tighter"
+                        >
+                            Enterprise Pro
+                        </p>
+                    </div>
+                    <img
+                        alt="Alex Rivera"
+                        class="w-9 h-9 rounded-full border border-border-subtle object-cover"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMcYs_3OfGP5-waEepPctAcUYBGsryceqTZqYk-nI3VeSXekYY3E_GigeflI9G3L1LE6LxWeheOVw2HszUAKuymajhkMnldv5VlWuMgdiRTgy4NcbWnGQwn5sSMNQcZkLCKbCHMvlvpLo31hZtMnFIlh_Fi2OJpBLCkNJ8irYzl-hyWl9b6rAt5edUzZAajCs_KCWOhiA8gaGki18krz4_gbDOjjvAi8DD-I_yS2bCWrSws37ys-FpLzjw4cfDXyasFZcsB-loGxRd"
+                    />
+                </div>
+            </div>
+        </header>
+        <main class="flex-1 flex min-h-0 w-full">
+            <!-- Video Stage -->
+            <section
+                class="flex-1 min-w-0 p-8 flex flex-col relative overflow-hidden items-center justify-center"
+            >
+                <!-- 16:9 Aspect Ratio Container -->
+                <div
+                    class="w-full max-w-6xl aspect-video grid grid-cols-2 gap-6"
+                >
+                    <!-- Sarah Jenkins (AI Persona) -->
+                    <div
+                        class="relative group rounded-2xl overflow-hidden border-2 border-primary glow-primary bg-surface-panel"
+                    >
+                        <img
+                            alt="Sarah Jenkins"
+                            class="w-full h-full object-cover"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuA20Lx1kl65x_P3w-m9OGKEuB16zbNG7Woz806UMAJrl8zZoKzumoLN7YZBAzgvj6WJNXHrA8oZVI7Gr0rtOOeOgE418lz8LyjBGODCIpT3-a3rUBy4w3HVrTLQPkxqrOhq_4aPfOGa8L7v5GHLoA1sdpRUDyOR1zw8lC_QETfPCcraSv1Am7yS8Edrt1ul8j4QwP385Vwmmd1IQN6vwVttMwJlNYUQxESSwLnYHpJwYYxhXKbaZIlhE9hkakJiZUX_w9wmIQeSUcPu"
+                        />
+                        <div
+                            class="absolute bottom-4 left-4 flex items-center gap-3 bg-surface-base/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10"
+                        >
+                            <div class="flex items-center gap-1 h-4">
+                                <div
+                                    class="waveform-bar h-2 animate-[bounce_1s_infinite_0.1s]"
+                                ></div>
+                                <div
+                                    class="waveform-bar h-4 animate-[bounce_1.2s_infinite_0.3s]"
+                                ></div>
+                                <div
+                                    class="waveform-bar h-3 animate-[bounce_0.8s_infinite_0.2s]"
+                                ></div>
+                            </div>
+                            <span class="text-text-main text-sm font-bold"
+                                >Sarah Jenkins</span
+                            >
+                            <span
+                                class="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-md font-bold uppercase"
+                                >AI</span
+                            >
+                        </div>
+                        <div
+                            class="absolute top-4 right-4 flex items-center gap-2 bg-success/20 border border-success/30 px-3 py-1.5 rounded-full backdrop-blur-md"
+                        >
+                            <div class="w-2 h-2 rounded-full bg-success"></div>
+                            <span
+                                class="text-success text-[10px] font-bold uppercase"
+                                >Tone: Engaged</span
+                            >
+                        </div>
+                    </div>
+                    <!-- You (Alex Rivera) -->
+                    <div
+                        class="relative rounded-2xl overflow-hidden border border-border-subtle bg-surface-panel"
+                    >
+                        <img
+                            alt="Alex Rivera"
+                            class="w-full h-full object-cover"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAS_2EwPB95IMY1MWe4QFGS-0Kbna7Hw3Sc5mrzaoHcLZaeznHoxEnTzFpmw5uJCVKQuc3cCb4gPpmplEDIJlnSCWtW_wQNYXg8qDs7WvKNO4abUx3Dp2MfUtObGkRgyZj0gJ5v28tHyUL6YAutFZybw4cLrXN1g6LYcIRwlrXRzEcuEVOjXlCit6R1_qlVPSMSGMSAs3Yglibm2sQ1WLJ3PDKCfGqo6BVtMAH_SYD3GqbLb27w8zTeZqGCJk3fa8iFrwDd7vVVFHQ-"
+                        />
+                        <div
+                            class="absolute bottom-4 left-4 flex items-center gap-3 bg-surface-base/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10"
+                        >
+                            <span
+                                class="material-symbols-outlined text-text-muted text-[18px]"
+                                >mic</span
+                            >
+                            <span class="text-text-main text-sm font-bold"
+                                >You (Alex Rivera)</span
+                            >
+                        </div>
+                    </div>
+                </div>
+                <!-- Floating Controls and Coaching -->
+                <div
+                    class="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 w-full max-w-2xl px-6"
+                >
+                    <!-- AI Context Insight Banner -->
+                    <div
+                        class="w-full max-w-lg bg-surface-panel/95 backdrop-blur-xl border border-warning/50 rounded-2xl p-4 flex items-center justify-between shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-500"
+                    >
+                        <div class="flex items-center gap-4">
+                            <div
+                                class="w-10 h-10 rounded-xl bg-warning/20 flex items-center justify-center"
+                            >
+                                <span
+                                    class="material-symbols-outlined text-warning"
+                                    style="
+                                        font-variation-settings: &quot;FILL&quot;
+                                            1;
+                                    "
+                                    >auto_awesome</span
+                                >
+                            </div>
+                            <div>
+                                <p
+                                    class="text-[10px] text-warning font-bold uppercase tracking-widest"
+                                >
+                                    AI Context Insight
+                                </p>
+                                <p class="text-text-main text-sm">
+                                    Sarah seems skeptical about the pricing
+                                    tier. Try mentioning the ROI case study.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            class="text-text-muted hover:text-text-main transition-colors"
+                        >
+                            <span class="material-symbols-outlined">close</span>
+                        </button>
+                    </div>
+                    <!-- Control Bar Pill -->
+                    <div
+                        class="bg-surface-panel/80 backdrop-blur-2xl px-6 py-3 rounded-full border border-border-subtle flex items-center gap-6 shadow-2xl"
+                    >
+                        <div class="flex items-center gap-3">
+                            <button
+                                class="w-11 h-11 rounded-full bg-surface-hover hover:bg-border-subtle transition-all flex items-center justify-center text-text-main"
+                            >
+                                <span class="material-symbols-outlined"
+                                    >mic</span
+                                >
+                            </button>
+                            <button
+                                class="w-11 h-11 rounded-full bg-surface-hover hover:bg-border-subtle transition-all flex items-center justify-center text-text-main"
+                            >
+                                <span class="material-symbols-outlined"
+                                    >videocam</span
+                                >
+                            </button>
+                            <button
+                                class="w-11 h-11 rounded-full bg-surface-hover hover:bg-border-subtle transition-all flex items-center justify-center text-text-main"
+                            >
+                                <span class="material-symbols-outlined"
+                                    >present_to_all</span
+                                >
+                            </button>
+                            <button
+                                class="w-11 h-11 rounded-full bg-surface-hover hover:bg-border-subtle transition-all flex items-center justify-center text-text-main"
+                            >
+                                <span class="material-symbols-outlined"
+                                    >more_horiz</span
+                                >
+                            </button>
+                        </div>
+                        <div class="h-8 w-px bg-border-subtle"></div>
+                        <button
+                            class="px-6 h-11 rounded-full bg-danger/20 hover:bg-danger/30 text-danger font-bold flex items-center gap-2 transition-all border border-danger/30"
+                        >
+                            <span class="material-symbols-outlined"
+                                >call_end</span
+                            >
+                            <span class="text-sm">End Session</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+            <!-- Transcript Panel -->
+            <aside
+                class="w-[400px] flex-shrink-0 border-l border-border-subtle bg-surface-panel/40 flex flex-col min-h-0"
+            >
+                <!-- Panel Header -->
+                <div
+                    class="h-16 px-6 border-b border-border-subtle flex items-center justify-between bg-surface-panel/60"
+                >
+                    <h2 class="text-text-main font-bold font-display">
+                        Live Transcript
+                    </h2>
+                    <div
+                        class="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20"
+                    >
+                        <span
+                            class="w-1.5 h-1.5 rounded-full bg-primary animate-pulse"
+                        ></span>
+                        <span
+                            class="text-primary text-[10px] font-bold uppercase tracking-widest"
+                            >Analyzing</span
+                        >
+                    </div>
+                </div>
+                <!-- Streaming Messages -->
+                <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+                    <!-- Sarah's Msg (Agent) -->
+                    <div class="flex flex-col gap-1 max-w-[85%] self-start">
+                        <div class="flex items-center gap-2 px-1">
+                            <span
+                                class="text-primary font-bold text-[10px] uppercase"
+                                >Sarah Jenkins</span
+                            >
+                            <span class="text-[9px] text-text-muted"
+                                >14:02:11</span
+                            >
+                        </div>
+                        <div
+                            class="bg-surface-panel p-3 rounded-2xl rounded-tl-none border border-border-subtle shadow-sm"
+                        >
+                            <p class="text-sm text-text-main leading-relaxed">
+                                I appreciate the overview, Alex. But honestly,
+                                we've looked at similar solutions and the
+                                integration overhead was just too significant
+                                for our mid-sized teams.
+                            </p>
+                        </div>
+                    </div>
+                    <!-- Your Msg (Trainee) -->
+                    <div
+                        class="flex flex-col gap-1 max-w-[85%] self-end items-end"
+                    >
+                        <div class="flex items-center gap-2 px-1">
+                            <span class="text-[9px] text-text-muted"
+                                >14:02:25</span
+                            >
+                            <span
+                                class="text-text-main font-bold text-[10px] uppercase"
+                                >You</span
+                            >
+                        </div>
+                        <div
+                            class="bg-primary/20 p-3 rounded-2xl rounded-tr-none border border-primary/20 shadow-sm"
+                        >
+                            <p class="text-sm text-text-main leading-relaxed">
+                                That's a very fair concern. Proxima was actually
+                                built with a 'zero-config' philosophy
+                                specifically to address that friction point.
+                            </p>
+                        </div>
+                    </div>
+                    <!-- Inline AI Coaching -->
+                    <div
+                        class="bg-success/5 rounded-xl p-4 border-l-4 border-success"
+                    >
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <span
+                                class="material-symbols-outlined text-success text-sm"
+                                style="
+                                    font-variation-settings: &quot;FILL&quot; 1;
+                                "
+                                >check_circle</span
+                            >
+                            <span
+                                class="text-[10px] text-success font-bold uppercase tracking-widest"
+                                >AI Coaching Insight</span
+                            >
+                        </div>
+                        <p class="text-xs text-text-muted italic">
+                            Validating her concern before pivot was effective.
+                            Engagement metrics improving.
+                        </p>
+                    </div>
+                    <!-- More Sarah -->
+                    <div class="flex flex-col gap-1 max-w-[85%] self-start">
+                        <div class="flex items-center gap-2 px-1">
+                            <span
+                                class="text-primary font-bold text-[10px] uppercase"
+                                >Sarah Jenkins</span
+                            >
+                            <span class="text-[9px] text-text-muted"
+                                >14:03:45</span
+                            >
+                        </div>
+                        <div
+                            class="bg-surface-panel p-3 rounded-2xl rounded-tl-none border border-border-subtle shadow-sm"
+                        >
+                            <p class="text-sm text-text-main leading-relaxed">
+                                Interesting. Can you show me how that works for
+                                our specific CRM setup?
+                            </p>
+                        </div>
+                        <!-- File Chip -->
+                        <div
+                            class="mt-2 flex items-center gap-2 bg-surface-hover px-3 py-1.5 rounded-lg border border-border-subtle w-fit cursor-pointer hover:bg-border-subtle transition-colors"
+                        >
+                            <span
+                                class="material-symbols-outlined text-primary text-sm"
+                                >description</span
+                            >
+                            <span class="text-[11px] text-text-main font-medium"
+                                >ROI_Case_Study.pdf</span
+                            >
+                            <span
+                                class="material-symbols-outlined text-text-muted text-[14px] ml-1"
+                                >download</span
+                            >
+                        </div>
+                    </div>
+                </div>
+                <!-- Input Area -->
+                <div
+                    class="p-4 bg-surface-panel/80 border-t border-border-subtle"
+                >
+                    <div
+                        class="bg-surface-base rounded-xl border border-border-subtle focus-within:border-primary/50 transition-all p-3"
+                    >
+                        <textarea
+                            class="w-full bg-transparent border-none focus:ring-0 text-sm text-text-main placeholder:text-text-muted p-0 resize-none h-16"
+                            placeholder="Type a manual note or AI prompt..."
+                        ></textarea>
+                        <div class="flex items-center justify-between mt-2">
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >attach_file</span
+                                    >
+                                </button>
+                                <button
+                                    class="w-8 h-8 flex items-center justify-center rounded-lg text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >auto_awesome</span
+                                    >
+                                </button>
+                            </div>
+                            <button
+                                class="bg-primary hover:bg-primary/90 text-surface-base rounded-lg px-4 py-1.5 flex items-center gap-2 transition-all group"
+                            >
+                                <span
+                                    class="text-xs font-bold uppercase tracking-wide"
+                                    >Send</span
+                                >
+                                <span
+                                    class="material-symbols-outlined text-[16px] group-hover:translate-x-0.5 transition-transform"
+                                    >send</span
+                                >
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between px-1">
+                        <span class="text-[10px] text-text-muted italic"
+                            >Command + Enter to send</span
+                        >
+                        <div class="flex gap-1.5">
+                            <span
+                                class="w-1 h-1 rounded-full bg-primary/40"
+                            ></span>
+                            <span
+                                class="w-1 h-1 rounded-full bg-primary/40"
+                            ></span>
+                            <span
+                                class="w-1 h-1 rounded-full bg-primary/40"
+                            ></span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </body>
+</html>

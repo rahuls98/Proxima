@@ -1,0 +1,459 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Proxima AI | Dashboard</title>
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700&amp;display=swap"
+            rel="stylesheet"
+        />
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: "#0db9f2",
+                            "surface-base": "#0c1215",
+                            "surface-panel": "#141c21",
+                            "surface-hover": "#1a252b",
+                            "border-subtle": "#22313a",
+                            "text-main": "#cbd5e1",
+                            "text-muted": "#64748b",
+                            success: "#10b981",
+                            warning: "#f59e0b",
+                        },
+                        fontFamily: {
+                            display: ["Manrope", "sans-serif"],
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            .material-symbols-outlined {
+                font-variation-settings:
+                    "FILL" 0,
+                    "wght" 400,
+                    "GRAD" 0,
+                    "opsz" 20;
+                vertical-align: middle;
+            }
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        </style>
+    </head>
+    <body
+        class="h-screen w-full flex overflow-hidden bg-surface-base text-text-main font-display antialiased"
+    >
+        <!-- Left Sidebar -->
+        <aside
+            class="w-64 h-full flex-shrink-0 flex flex-col bg-surface-base border-r border-border-subtle z-20"
+        >
+            <div class="p-8 pb-4">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
+                    >
+                        <span
+                            class="material-symbols-outlined text-surface-base text-xl"
+                            data-icon="psychology"
+                            >psychology</span
+                        >
+                    </div>
+                    <span class="font-bold text-lg tracking-tight"
+                        >Proxima AI</span
+                    >
+                </div>
+            </div>
+            <nav class="flex-1 px-4 mt-8 space-y-1">
+                <a
+                    class="flex items-center gap-3 px-4 py-3 bg-surface-panel text-primary rounded-xl"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="dashboard"
+                        >dashboard</span
+                    >
+                    <span class="text-sm font-medium">Dashboard</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 text-text-muted hover:bg-surface-hover hover:text-text-main transition-colors rounded-xl group"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="video_library"
+                        >video_library</span
+                    >
+                    <span class="text-sm font-medium">Sessions</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 text-text-muted hover:bg-surface-hover hover:text-text-main transition-colors rounded-xl group"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="groups"
+                        >groups</span
+                    >
+                    <span class="text-sm font-medium">Personas</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 text-text-muted hover:bg-surface-hover hover:text-text-main transition-colors rounded-xl group"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="psychology"
+                        >psychology</span
+                    >
+                    <span class="text-sm font-medium">Context Builder</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 text-text-muted hover:bg-surface-hover hover:text-text-main transition-colors rounded-xl group"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="bar_chart"
+                        >bar_chart</span
+                    >
+                    <span class="text-sm font-medium">Reports</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 text-text-muted hover:bg-surface-hover hover:text-text-main transition-colors rounded-xl group"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="settings"
+                        >settings</span
+                    >
+                    <span class="text-sm font-medium">Settings</span>
+                </a>
+            </nav>
+            <div class="p-6">
+                <button
+                    class="w-full bg-primary text-surface-base font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-primary/10"
+                >
+                    <span
+                        class="material-symbols-outlined text-lg"
+                        data-icon="add"
+                        >add</span
+                    >
+                    <span>New Training</span>
+                </button>
+            </div>
+        </aside>
+        <!-- Main Content (Expanded) -->
+        <main class="flex-1 h-full min-w-0 flex flex-col bg-surface-base">
+            <!-- Header -->
+            <header
+                class="h-20 flex-shrink-0 flex items-center justify-between px-8 border-b border-border-subtle bg-surface-base z-10"
+            >
+                <h1 class="text-2xl font-semibold">Dashboard</h1>
+                <div class="flex items-center gap-6">
+                    <button
+                        class="relative p-2 text-text-muted hover:bg-surface-hover rounded-full transition-colors flex items-center justify-center"
+                    >
+                        <span
+                            class="material-symbols-outlined"
+                            data-icon="notifications"
+                            >notifications</span
+                        >
+                        <span
+                            class="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full"
+                        ></span>
+                    </button>
+                    <div
+                        class="flex items-center gap-3 ml-2 border-l border-border-subtle pl-6"
+                    >
+                        <div class="text-right">
+                            <p class="text-xs font-medium">Alex Rivera</p>
+                            <p class="text-[10px] text-primary">
+                                Enterprise Pro
+                            </p>
+                        </div>
+                        <img
+                            alt="Alex Rivera Profile"
+                            class="w-10 h-10 rounded-full object-cover border border-border-subtle"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHpsw-nuUHl3j0e9JxnsSe9YBDdfI_9Xv4y4gA4PqOsF8DdUjhVH4Yk1LU_Y5dgRBpoANUJSgDxKUBnjlaTLFC3jX6wU88F_3YCJl204uG8w8qGdOGCR3PddmP3QOobXUYxulAanHCcKewW8B_RTNvTxpTU2ucv7w9Hw0OZbifaSse3sEaDb-a-l5aIpOwCkjxNY0kQWGpxSGTsFZ9-iHcRA-_5iYJF7J8E55pYuH2Qzb9CGF31D46RCKcYvaEKu60l4-DFx_biht5"
+                        />
+                    </span>
+                </div>
+            </header>
+            <!-- Content Wrapper -->
+            <div
+                class="flex-1 overflow-y-auto p-8 space-y-8 no-scrollbar max-w-7xl mx-auto w-full"
+            >
+                <!-- Analytics Row -->
+                <section
+                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6"
+                >
+                    <!-- Total Time -->
+                    <div
+                        class="bg-surface-panel p-6 rounded-2xl border border-border-subtle flex flex-col justify-between h-48 group hover:border-primary/30 transition-all duration-300"
+                    >
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-text-muted font-medium text-sm">
+                                Total Time
+                            </h3>
+                            <span
+                                class="material-symbols-outlined text-text-muted"
+                                data-icon="timer"
+                                >timer</span
+                            >
+                        </div>
+                        <div>
+                            <p class="text-4xl font-bold">12.4h</p>
+                            <div
+                                class="flex items-end gap-1.5 h-12 border-b border-border-subtle pb-1 mt-4"
+                            >
+                                <div
+                                    class="flex-1 bg-primary/20 rounded-t h-[40%]"
+                                ></div>
+                                <div
+                                    class="flex-1 bg-primary/20 rounded-t h-[60%]"
+                                ></div>
+                                <div
+                                    class="flex-1 bg-primary/20 rounded-t h-[55%]"
+                                ></div>
+                                <div
+                                    class="flex-1 bg-primary rounded-t h-[100%] shadow-[0_0_12px_rgba(13,185,242,0.3)]"
+                                ></div>
+                                <div
+                                    class="flex-1 bg-primary/20 rounded-t h-[80%]"
+                                ></div>
+                                <div
+                                    class="flex-1 bg-primary/20 rounded-t h-[65%]"
+                                ></div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Confidence Trend -->
+                    <div
+                        class="bg-surface-panel p-6 rounded-2xl border border-border-subtle flex flex-col justify-between h-48 group hover:border-primary/30 transition-all duration-300"
+                    >
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-text-muted font-medium text-sm">
+                                Confidence Trend
+                            </h3>
+                            <span
+                                class="bg-success/10 text-success px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                >+18%</span
+                            >
+                        </div>
+                        <div>
+                            <p class="text-4xl font-bold">
+                                84<span class="text-xl opacity-40 ml-1">%</span>
+                            </p>
+                            <div class="mt-4 space-y-2">
+                                <div
+                                    class="h-1.5 bg-surface-hover rounded-full overflow-hidden"
+                                >
+                                    <div
+                                        class="h-full bg-success w-[84%]"
+                                    ></div>
+                                </div>
+                                <div
+                                    class="flex justify-between text-[10px] text-text-muted font-medium uppercase tracking-tighter"
+                                >
+                                    <span>Current: 84%</span>
+                                    <span>Target: 90%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Sentiment Trend -->
+                    <div
+                        class="bg-surface-panel p-6 rounded-2xl border border-border-subtle flex flex-col justify-between h-48 group hover:border-primary/30 transition-all duration-300 md:col-span-2 xl:col-span-1"
+                    >
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-text-muted font-medium text-sm">
+                                Sentiment Trend
+                            </h3>
+                            <span
+                                class="material-symbols-outlined text-primary"
+                                data-icon="insights"
+                                >insights</span
+                            >
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-3">
+                                <p class="text-4xl font-bold">Stable</p>
+                                <span
+                                    class="text-primary material-symbols-outlined text-3xl"
+                                    data-icon="sentiment_satisfied"
+                                    >sentiment_satisfied</span
+                                >
+                            </div>
+                            <p class="text-xs text-text-muted mt-2 font-medium">
+                                Neutral-Positive bias
+                            </p>
+                        </div>
+                    </div>
+                </section>
+                <!-- Personas Section -->
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-xl font-bold">Priority Personas</h2>
+                        <a
+                            class="text-sm font-semibold text-primary hover:text-primary/80 transition-colors flex items-center"
+                            href="#"
+                            >View All Personas</a
+                        >
+                    </div>
+                    <section
+                        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                    >
+                        <!-- Sarah Jenkins -->
+                        <div
+                            class="bg-surface-panel rounded-2xl border border-border-subtle overflow-hidden flex flex-col h-full group hover:border-primary/30 transition-all duration-300"
+                        >
+                            <div class="h-48 w-full overflow-hidden">
+                                <img
+                                    alt="Sarah Jenkins"
+                                    class="w-full h-full object-cover flex-shrink-0"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuCL2gOKBkc8wZkGWqEX1jSBWUWqk8QLafI2HZlsCkxgll8J1O7wMntTZG-np1BiH_0SxQ0EJdohNXBIjv7Gg50DMEBrkqEKn2_tItSWwc7snfefUWmjJgEaopF5N2NDZHviaFfB9ATwXSL0Y7rD3VWKmg5evaaQKN-_K043Hm4PjFFIZCYhIQ2sKuwt-WAK_FtmqRGemkwV6j5prFUbNPNslcLluJC4z6fPgYXw1FvB3B5EAlbPVB9Ou7KfQQCzirGqjK0RKrLOxwi_"
+                                />
+                            </div>
+                            <div
+                                class="p-6 flex flex-col justify-between flex-1"
+                            >
+                                <div>
+                                    <h4 class="text-lg font-bold mb-1">
+                                        Sarah Jenkins
+                                    </h4>
+                                    <div
+                                        class="inline-block bg-surface-hover text-primary px-3 py-1 rounded-full text-[10px] font-bold tracking-widest mb-4"
+                                    >
+                                        SKEPTIC TECH BUYER
+                                    </div>
+                                    <p
+                                        class="text-sm text-text-muted leading-relaxed mb-6"
+                                    >
+                                        High resistance to new budgets. Focus on
+                                        ROI and risk mitigation strategies.
+                                    </p>
+                                </div>
+                                <button
+                                    class="w-full py-2.5 rounded-xl border border-border-subtle text-text-main text-xs font-bold hover:bg-surface-hover hover:text-primary transition-all flex items-center justify-center"
+                                >
+                                    Start Session
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Marcus Chen -->
+                        <div
+                            class="bg-surface-panel rounded-2xl border border-border-subtle overflow-hidden flex flex-col h-full group hover:border-primary/30 transition-all duration-300"
+                        >
+                            <div class="h-48 w-full overflow-hidden">
+                                <img
+                                    alt="Marcus Chen"
+                                    class="w-full h-full object-cover flex-shrink-0"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDeczkoA9EOvF8hXAwJHq-e404zK1rxKjitr8IV68DUXYrZyooysbN1JO8Cj3y8bG4S_u3Pwxwx9ieROhr8XXIrDfM9e1xS8Dq-qShEnsSW4BluQVmVRnAhGKpx3k0vR6fYxZWh7fAyhFLHhnifItF1jL-bh1F_s5DjQY6e8S6bWSPUSAJArQlIyiaIBwJ4iRIvSkMM470n8S5CO37eaRqgzseZWfIt78E2VzJOtJlVOaGVGBKNO9yapy1YKV1dPMuzxMmf-3EyoBj9"
+                                />
+                            </div>
+                            <div
+                                class="p-6 flex flex-col justify-between flex-1"
+                            >
+                                <div>
+                                    <h4 class="text-lg font-bold mb-1">
+                                        Marcus Chen
+                                    </h4>
+                                    <div
+                                        class="inline-block bg-surface-hover text-primary px-3 py-1 rounded-full text-[10px] font-bold tracking-widest mb-4"
+                                    >
+                                        TECHNICAL GATEKEEPER
+                                    </div>
+                                    <p
+                                        class="text-sm text-text-muted leading-relaxed mb-6"
+                                    >
+                                        Deeply technical. Focus on API
+                                        documentation, security, and integration
+                                        depth.
+                                    </p>
+                                </div>
+                                <button
+                                    class="w-full py-2.5 rounded-xl border border-border-subtle text-text-main text-xs font-bold hover:bg-surface-hover hover:text-primary transition-all flex items-center justify-center"
+                                >
+                                    Start Session
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Elena Rodriguez -->
+                        <div
+                            class="bg-surface-panel rounded-2xl border border-border-subtle overflow-hidden flex flex-col h-full group hover:border-primary/30 transition-all duration-300"
+                        >
+                            <div class="h-48 w-full overflow-hidden">
+                                <img
+                                    alt="Elena Rodriguez"
+                                    class="w-full h-full object-cover flex-shrink-0"
+                                    src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDu0qEAGzKXefiwHxeXLLQgAh5tQb11SNhV0mFBG2VCI8CLM5aF1yfoJmknNEi_CuynQLnysDCfPuasuwDeXjxs4PNh4kc_vdzd5DjQbf4kDNMdjcGuzHbdnSGqmozxR5xN-0Hz6kzW49aTF0qactLVhOYQewyf7C_6BeGMOSO0G2v7j44riIZqMmaKe2-HgHORFNXmkNnjcXCtIcYdFpLd7zh8K8sruRIjdTrsv2o2r1qGgUuQJhqM5NmtswbzkCxv1Yj2MoaU4Eg"
+                                />
+                            </div>
+                            <div
+                                class="p-6 flex flex-col justify-between flex-1"
+                            >
+                                <div>
+                                    <h4 class="text-lg font-bold mb-1">
+                                        Elena Rodriguez
+                                    </h4>
+                                    <div
+                                        class="inline-block bg-surface-hover text-primary px-3 py-1 rounded-full text-[10px] font-bold tracking-widest mb-4"
+                                    >
+                                        GROWTH CHAMPION
+                                    </div>
+                                    <p
+                                        class="text-sm text-text-muted leading-relaxed mb-6"
+                                    >
+                                        Visionary and fast-paced. Value
+                                        scalability and immediate impact on
+                                        revenue.
+                                    </p>
+                                </div>
+                                <button
+                                    class="w-full py-2.5 rounded-xl border border-border-subtle text-text-main text-xs font-bold hover:bg-surface-hover hover:text-primary transition-all flex items-center justify-center"
+                                >
+                                    Start Session
+                                </button>
+                            </div>
+                        </div>
+                        <!-- Quick New Training Card -->
+                        <div
+                            class="bg-surface-panel rounded-2xl border-2 border-dashed border-border-subtle overflow-hidden flex flex-col items-center justify-center h-full group hover:border-primary/50 transition-all duration-300 p-8 text-center cursor-pointer"
+                        >
+                            <div
+                                class="w-16 h-16 rounded-full bg-surface-hover flex items-center justify-center mb-4 group-hover:bg-primary/10 transition-colors"
+                            >
+                                <span
+                                    class="material-symbols-outlined text-text-muted text-3xl group-hover:text-primary"
+                                    data-icon="add_circle"
+                                    >add_circle</span
+                                >
+                            </div>
+                            <h4 class="text-sm font-bold mb-1">New Persona</h4>
+                            <p class="text-xs text-text-muted">
+                                Create a custom training scenario
+                            </p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </main>
+    </body>
+</html>

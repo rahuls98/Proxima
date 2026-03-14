@@ -1,5 +1,5 @@
-import { MeetingRoom } from "@/components/organisms/MeetingRoom";
+import { redirect } from "next/navigation";
 
 export default function ProximaAgentPage() {
-    return <MeetingRoom />;
+    redirect("/training/context-builder");
 }

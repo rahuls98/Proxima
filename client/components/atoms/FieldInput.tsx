@@ -7,6 +7,9 @@ interface FieldInputProps {
 }
 
 export function FieldInput({ field, value, onChange }: FieldInputProps) {
+    const baseInputClass =
+        "w-full bg-surface-base border border-border-subtle rounded-xl px-4 py-3 text-sm text-text-main placeholder:text-text-placeholder focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all";
+
     if (field.type === "text") {
         return (
             <input
@@ -18,7 +21,7 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
                 }
                 value={(value as string) || ""}
                 onChange={(e) => onChange(e.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-100"
+                className={baseInputClass}
             />
         );
     }
@@ -28,7 +31,7 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
             <select
                 value={(value as string) || ""}
                 onChange={(e) => onChange(e.target.value)}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-100 bg-white"
+                className={baseInputClass}
             >
                 <option value="">Select {field.label}</option>
                 {field.options?.map((opt) => (
@@ -43,7 +46,7 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
     if (field.type === "multi-select") {
         const selectedValues = (value as string[]) || [];
         return (
-            <div className="space-y-2 border border-zinc-300 rounded-md p-3 bg-white max-h-48 overflow-y-auto">
+            <div className="space-y-2 border border-border-subtle rounded-xl p-4 bg-surface-base max-h-48 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#22313a_#141c21] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-surface-panel [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-subtle [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-primary/70">
                 {field.options?.map((opt) => (
                     <label
                         key={opt}
@@ -61,9 +64,9 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
                                     );
                                 }
                             }}
-                            className="w-4 h-4 rounded border-zinc-300"
+                            className="h-4 w-4 rounded border border-border-subtle bg-surface-panel accent-primary focus:ring-1 focus:ring-primary focus:ring-offset-0"
                         />
-                        <span className="text-sm text-zinc-700">{opt}</span>
+                        <span className="text-sm text-text-main">{opt}</span>
                     </label>
                 ))}
             </div>
@@ -81,11 +84,11 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
                     step="0.01"
                     value={numValue}
                     onChange={(e) => onChange(parseFloat(e.target.value))}
-                    className="w-full"
+                    className="w-full accent-primary"
                 />
-                <div className="flex justify-between text-xs text-zinc-600">
+                <div className="flex justify-between text-xs text-text-muted">
                     <span>0.0</span>
-                    <span className="font-semibold text-zinc-900">
+                    <span className="font-semibold text-text-main">
                         {numValue.toFixed(2)}
                     </span>
                     <span>1.0</span>
@@ -105,11 +108,11 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
                     step="1"
                     value={numValue}
                     onChange={(e) => onChange(parseInt(e.target.value))}
-                    className="w-full"
+                    className="w-full accent-primary"
                 />
-                <div className="flex justify-between text-xs text-zinc-600">
+                <div className="flex justify-between text-xs text-text-muted">
                     <span>1</span>
-                    <span className="font-semibold text-zinc-900">
+                    <span className="font-semibold text-text-main">
                         {numValue}
                     </span>
                     <span>5</span>
@@ -125,7 +128,7 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
             <select
                 value={selectedIdx}
                 onChange={(e) => onChange(options[parseInt(e.target.value)])}
-                className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 disabled:cursor-not-allowed disabled:bg-zinc-100 bg-white"
+                className={baseInputClass}
             >
                 {options.map((opt, idx) => (
                     <option key={opt} value={idx}>
@@ -137,15 +140,23 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
     }
 
     if (field.type === "boolean") {
+        const checked = (value as boolean) || false;
         return (
-            <label className="flex items-center gap-3 cursor-pointer">
-                <input
-                    type="checkbox"
-                    checked={(value as boolean) || false}
-                    onChange={(e) => onChange(e.target.checked)}
-                    className="w-5 h-5 rounded border-zinc-300"
-                />
-                <span className="text-sm text-zinc-700">Enabled</span>
+            <label className="flex items-center gap-2 cursor-pointer w-fit">
+                <span className="text-sm text-text-muted">Script Mode</span>
+                <span
+                    className={`w-12 h-6 rounded-full relative p-1 transition-colors ${checked ? "bg-primary" : "bg-surface-hover border border-border-subtle"}`}
+                >
+                    <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={(e) => onChange(e.target.checked)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <span
+                        className={`block w-4 h-4 bg-white rounded-full transition-transform ${checked ? "translate-x-6" : "translate-x-0"}`}
+                    />
+                </span>
             </label>
         );
     }
@@ -153,16 +164,27 @@ export function FieldInput({ field, value, onChange }: FieldInputProps) {
     if (field.type === "file") {
         return (
             <div className="space-y-2">
-                <input
-                    type="file"
-                    onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        onChange(file ? file.name : null);
-                    }}
-                    className="block w-full text-sm text-zinc-500 file:mr-3 file:py-2 file:px-3 file:border file:border-zinc-300 file:rounded-md file:text-sm file:font-semibold file:bg-zinc-50 hover:file:bg-zinc-100"
-                />
+                <label className="border-2 border-dashed border-border-subtle rounded-xl p-8 flex flex-col items-center justify-center bg-surface-base hover:bg-surface-hover transition-colors cursor-pointer group">
+                    <input
+                        type="file"
+                        onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            onChange(file ? file.name : null);
+                        }}
+                        className="hidden"
+                    />
+                    <span className="material-symbols-outlined text-text-muted group-hover:text-primary !text-[40px] mb-2">
+                        upload
+                    </span>
+                    <p className="text-text-main font-medium text-sm">
+                        Drop training scripts or PDFs here
+                    </p>
+                    <p className="text-xs text-text-muted mt-1">
+                        Supports PDF, DOCX, TXT (Max 25MB)
+                    </p>
+                </label>
                 {value && (
-                    <p className="text-xs text-zinc-600">
+                    <p className="text-xs text-text-muted">
                         Selected: <span className="font-medium">{value}</span>
                     </p>
                 )}

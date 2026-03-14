@@ -1,0 +1,534 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Proxima AI - Meeting Room</title>
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+            rel="stylesheet"
+        />
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: "#0db9f2",
+                            "surface-base": "#0c1215",
+                            "surface-panel": "#141c21",
+                            "surface-hover": "#1a252b",
+                            "border-subtle": "#22313a",
+                            "text-main": "#cbd5e1",
+                            "text-muted": "#64748b",
+                            success: "#10b981",
+                            warning: "#f59e0b",
+                            danger: "#ef4444",
+                        },
+                        fontFamily: {
+                            display: ["Manrope", "sans-serif"],
+                            body: ["Manrope", "sans-serif"],
+                        },
+                        borderRadius: {
+                            DEFAULT: "0.25rem",
+                            lg: "0.5rem",
+                            xl: "0.75rem",
+                            "2xl": "1rem",
+                            "3xl": "1.5rem",
+                            full: "9999px",
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            body {
+                font-family: "Manrope", sans-serif;
+                overflow: hidden;
+                height: 100vh;
+            }
+            .material-symbols-outlined {
+                font-variation-settings:
+                    "FILL" 0,
+                    "wght" 400,
+                    "GRAD" 0,
+                    "opsz" 24;
+                font-size: 20px !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                width: 20px;
+                height: 20px;
+                vertical-align: middle;
+            }
+            .glow-primary {
+                box-shadow: 0 0 20px -2px rgba(13, 185, 242, 0.4);
+            }
+            ::-webkit-scrollbar {
+                width: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: transparent;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #22313a;
+                border-radius: 10px;
+            }
+        </style>
+    </head>
+    <body class="flex flex-col bg-surface-base text-text-main antialiased">
+        <!-- Header: Consistent with Rebuilt & Stable -->
+        <header
+            class="h-16 flex-shrink-0 border-b border-border-subtle px-6 bg-surface-panel/50 backdrop-blur-md flex items-center justify-between z-50"
+        >
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <div
+                        class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
+                    >
+                        <span
+                            class="material-symbols-outlined text-surface-base"
+                            style="font-variation-settings: &quot;FILL&quot; 1"
+                            >psychology</span
+                        >
+                    </div>
+                    <span
+                        class="text-text-main font-bold text-lg tracking-tight font-display"
+                        >Proxima AI</span
+                    >
+                </div>
+                <div class="h-4 w-px bg-border-subtle"></div>
+                <span class="text-text-muted font-medium text-sm"
+                    >Enterprise Discovery</span
+                >
+            </div>
+            <div class="flex items-center gap-4">
+                <div
+                    class="flex items-center gap-2 px-3 py-1 bg-danger/10 rounded-full border border-danger/20"
+                >
+                    <span
+                        class="w-2 h-2 rounded-full bg-danger animate-pulse"
+                    ></span>
+                    <span
+                        class="text-danger font-bold text-[10px] tracking-widest uppercase"
+                        >LIVE 08:20</span
+                    >
+                </div>
+                <div
+                    class="flex items-center gap-3 pl-2 border-l border-border-subtle"
+                >
+                    <div class="text-right hidden sm:block">
+                        <p class="text-xs text-text-main font-semibold">
+                            Alex Rivera
+                        </p>
+                        <p
+                            class="text-[10px] text-text-muted uppercase tracking-tighter"
+                        >
+                            Enterprise Pro
+                        </p>
+                    </div>
+                    <img
+                        alt="Alex Rivera"
+                        class="w-9 h-9 rounded-full border border-border-subtle object-cover"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgVjipQHpsheXAMtmQvDoSUH4RJk0VAWjtF987lno7aschZcR2E01Nb97lgEI_K5xmGtoseaHMjumgbEsG46GX2xpKRkz6RFXU9TlDBSkb1CY1TTyUU-1dZMkSzKbchwXSBvr_EtI-RDuf-N179VYCLqI_qHqKPgxpaxiFCNoeZfPq8kpxWaO3qENxZliXNvS5JV-je8g0s2qFe4zUOkIdewp6y6AhCPo0LzqEUck6KQg0ev6UOzf37Nv8V_xZroWa_y6KBxRL4Lfu"
+                    />
+                </div>
+            </div>
+        </header>
+        <main class="flex-1 flex min-h-0 w-full overflow-hidden">
+            <!-- Left Side: Stage (Shared Screen & Tiles) -->
+            <section
+                class="flex-1 min-w-0 p-8 flex flex-col relative overflow-hidden bg-surface-base"
+            >
+                <!-- Top Participant Tiles: Centered -->
+                <div class="flex justify-center gap-6 mb-8 flex-shrink-0">
+                    <!-- Sarah Jenkins (CFO) -->
+                    <div
+                        class="w-64 h-36 relative overflow-hidden rounded-2xl border-2 border-primary glow-primary bg-surface-panel shadow-2xl"
+                    >
+                        <img
+                            alt="Sarah Jenkins"
+                            class="w-full h-full object-cover"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuChV9jQz8_Pm7OM3q3speYVoOyImwDMp4Pz53QhnyaeEX3M7KPtNkbIUUca7HyzYetRgGJz5RJT0HggY_x7p3anY_rM4_EHAZgkuyqs_2gead5CoW137bUhNJeLiW6uWLmMq5TViSRyqYHwPe15psFMIIX_GRPeIxEs-hYc9WUEOV2aM1u_bafHjUE5nCFqqAznRjYafFW9chDKXgaL1YorjV-e0rCw6CC4zLISQGmbYqt2tGbB9hZ61EK_YUFzJXw553s-o_-apbg3"
+                        />
+                        <div
+                            class="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-surface-base/80 backdrop-blur-md border border-white/10 flex items-center gap-2"
+                        >
+                            <span class="text-xs font-bold text-text-main"
+                                >Sarah Jenkins</span
+                            >
+                            <span
+                                class="text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded font-bold uppercase"
+                                >CFO</span
+                            >
+                        </div>
+                        <div class="absolute top-3 right-3">
+                            <span
+                                class="material-symbols-outlined text-primary"
+                                data-icon="mic"
+                                >mic</span
+                            >
+                        </div>
+                    </div>
+                    <!-- You -->
+                    <div
+                        class="w-64 h-36 relative overflow-hidden rounded-2xl border border-border-subtle bg-surface-panel shadow-xl"
+                    >
+                        <img
+                            alt="Alex Rivera"
+                            class="w-full h-full object-cover"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQFji3CpBratPguEWP9t6oqxx3TsFxOVYvVZnE-AjP2RZ92ZuQy_5AmGUD30sSgRnggb6FqjZqRqR9HiC-ItOyAAhO3o6XQ5_dBXh036cCPG02yi2rxbbuIuXULWXr2rZxD6erMeGc9KuWKJnQvgX0zSm4Uf7z0oZd2EtbyNRyY2ypWJbdw0NmqWsmHcDEHWAGgxltxjrxsVpmsD-BkyEefT2-iYFVr1qVQ-_qJ-nimptOeqLCLwbiiMBo-6a9IotnV2or9ZuHWN_0"
+                        />
+                        <div
+                            class="absolute bottom-3 left-3 px-3 py-1 rounded-lg bg-surface-base/80 backdrop-blur-md border border-white/10"
+                        >
+                            <span class="text-xs font-bold text-text-main"
+                                >You (Alex)</span
+                            >
+                        </div>
+                    </div>
+                </div>
+                <!-- Shared Content: ROI Framework Stage -->
+                <div
+                    class="flex-1 w-full rounded-3xl border border-border-subtle bg-surface-panel flex flex-col p-10 overflow-y-auto mb-16"
+                >
+                    <div
+                        class="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-center"
+                    >
+                        <div class="text-center mb-12">
+                            <h2
+                                class="text-text-main text-4xl font-extrabold mb-4 tracking-tight"
+                            >
+                                Proxima Pilot ROI Framework
+                            </h2>
+                            <p
+                                class="text-primary text-lg font-medium opacity-90 uppercase tracking-widest text-sm"
+                            >
+                                Strategic Value Realization Phase 01
+                            </p>
+                        </div>
+                        <div class="grid grid-cols-3 gap-6">
+                            <!-- ROI Block 1 -->
+                            <div
+                                class="bg-surface-hover/50 p-6 rounded-2xl border border-border-subtle flex flex-col h-full hover:bg-surface-hover transition-colors"
+                            >
+                                <div
+                                    class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-primary !text-2xl"
+                                        >speed</span
+                                    >
+                                </div>
+                                <h3
+                                    class="text-text-main text-lg font-bold mb-3"
+                                >
+                                    Time-to-Value
+                                </h3>
+                                <p
+                                    class="text-sm text-text-muted leading-relaxed mb-6 flex-1"
+                                >
+                                    Reducing onboarding cycle from 6 weeks to 11
+                                    days via AI-assisted persona mapping.
+                                </p>
+                                <div class="text-2xl font-bold text-primary">
+                                    74% reduction
+                                </div>
+                            </div>
+                            <!-- ROI Block 2 -->
+                            <div
+                                class="bg-surface-hover/50 p-6 rounded-2xl border border-border-subtle flex flex-col h-full hover:bg-surface-hover transition-colors"
+                            >
+                                <div
+                                    class="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center mb-6"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-success !text-2xl"
+                                        >query_stats</span
+                                    >
+                                </div>
+                                <h3
+                                    class="text-text-main text-lg font-bold mb-3"
+                                >
+                                    Efficiency Gain
+                                </h3>
+                                <p
+                                    class="text-sm text-text-muted leading-relaxed mb-6 flex-1"
+                                >
+                                    Automation of context building for
+                                    multi-regional enterprise sales plays.
+                                </p>
+                                <div class="text-2xl font-bold text-success">
+                                    3.2x Scale
+                                </div>
+                            </div>
+                            <!-- ROI Block 3 -->
+                            <div
+                                class="bg-surface-hover/50 p-6 rounded-2xl border border-border-subtle flex flex-col h-full hover:bg-surface-hover transition-colors"
+                            >
+                                <div
+                                    class="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6"
+                                >
+                                    <span
+                                        class="material-symbols-outlined text-primary !text-2xl"
+                                        >account_balance_wallet</span
+                                    >
+                                </div>
+                                <h3
+                                    class="text-text-main text-lg font-bold mb-3"
+                                >
+                                    Cost Optimization
+                                </h3>
+                                <p
+                                    class="text-sm text-text-muted leading-relaxed mb-6 flex-1"
+                                >
+                                    Consolidation of fragmented research tools
+                                    into a single intelligence layer.
+                                </p>
+                                <div class="text-2xl font-bold text-primary">
+                                    $120k / Year
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Floating Control Bar -->
+                <div
+                    class="absolute bottom-8 left-1/2 -translate-x-1/2 bg-surface-panel/90 backdrop-blur-2xl px-6 py-3 rounded-full border border-border-subtle flex items-center gap-4 shadow-2xl z-40 whitespace-nowrap w-max"
+                >
+                    <div class="flex items-center gap-2">
+                        <button
+                            class="w-12 h-12 rounded-full bg-surface-hover hover:bg-border-subtle flex items-center justify-center text-text-main transition-all"
+                        >
+                            <span class="material-symbols-outlined">mic</span>
+                        </button>
+                        <button
+                            class="w-12 h-12 rounded-full bg-surface-hover hover:bg-border-subtle flex items-center justify-center text-text-main transition-all"
+                        >
+                            <span class="material-symbols-outlined"
+                                >videocam</span
+                            >
+                        </button>
+                        <button
+                            class="w-12 h-12 rounded-full bg-surface-hover hover:bg-border-subtle flex items-center justify-center text-text-main transition-all"
+                        >
+                            <span class="material-symbols-outlined"
+                                >grid_view</span
+                            >
+                        </button>
+                    </div>
+                    <div class="w-px h-8 bg-border-subtle mx-2"></div>
+                    <div class="flex items-center gap-3">
+                        <button
+                            class="px-6 h-12 rounded-full bg-primary text-surface-base font-bold flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-primary/20"
+                        >
+                            <span
+                                class="material-symbols-outlined !text-[18px]"
+                                style="
+                                    font-variation-settings: &quot;FILL&quot; 1;
+                                "
+                                >present_to_all</span
+                            >
+                            <span class="text-xs uppercase tracking-wider"
+                                >Stop Sharing</span
+                            >
+                        </button>
+                        <button
+                            class="px-6 h-12 rounded-full bg-danger/20 text-danger border border-danger/30 hover:bg-danger hover:text-white font-bold flex items-center gap-2 transition-all"
+                        >
+                            <span class="material-symbols-outlined !text-[18px]"
+                                >call_end</span
+                            >
+                            <span class="text-xs uppercase tracking-wider"
+                                >Leave Room</span
+                            >
+                        </button>
+                    </div>
+                </div>
+            </section>
+            <!-- Right Side: Transcript Panel (w-400px) -->
+            <aside
+                class="w-[400px] flex-shrink-0 border-l border-border-subtle bg-surface-panel/30 flex flex-col min-h-0"
+            >
+                <header
+                    class="h-16 px-6 border-b border-border-subtle flex items-center justify-between bg-surface-panel/50 z-10 flex-shrink-0"
+                >
+                    <h3
+                        class="text-sm font-bold uppercase tracking-widest text-text-main"
+                    >
+                        Live Transcript
+                    </h3>
+                    <div
+                        class="flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full border border-primary/20"
+                    >
+                        <span
+                            class="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse"
+                        ></span>
+                        <span
+                            class="text-[10px] text-primary font-bold uppercase tracking-widest"
+                            >Analyzing</span
+                        >
+                    </div>
+                </header>
+                <div class="flex-1 overflow-y-auto p-6 flex flex-col gap-6">
+                    <!-- Sarah Message (Left) -->
+                    <div class="flex flex-col items-start gap-1 max-w-[85%]">
+                        <div class="flex items-center gap-2 px-1">
+                            <span
+                                class="text-[10px] font-bold text-primary uppercase"
+                                >Sarah Jenkins</span
+                            >
+                            <span class="text-[9px] text-text-muted"
+                                >08:14 AM</span
+                            >
+                        </div>
+                        <div
+                            class="bg-surface-panel border border-border-subtle p-4 rounded-2xl rounded-tl-none shadow-sm"
+                        >
+                            <p class="text-sm text-text-main leading-relaxed">
+                                Looking at the ROI framework now. The cost
+                                optimization part is where we need to focus for
+                                the procurement team.
+                            </p>
+                        </div>
+                    </div>
+                    <!-- Trainee Message (Right) -->
+                    <div
+                        class="flex flex-col items-end gap-1 max-w-[85%] self-end"
+                    >
+                        <div class="flex items-center gap-2 px-1">
+                            <span class="text-[9px] text-text-muted"
+                                >08:16 AM</span
+                            >
+                            <span
+                                class="text-[10px] font-bold text-text-main uppercase"
+                                >You</span
+                            >
+                        </div>
+                        <div
+                            class="bg-primary/20 border border-primary/30 p-4 rounded-2xl rounded-tr-none shadow-sm"
+                        >
+                            <p class="text-sm leading-relaxed text-text-main">
+                                Understood. I've broken down the $120k savings
+                                based on the current tool sprawl they mentioned
+                                in the audit.
+                            </p>
+                        </div>
+                    </div>
+                    <!-- AI Coaching Insight: Exact styling from SCREEN_14 -->
+                    <div
+                        class="bg-success/5 border-l-4 border-success p-4 rounded-r-xl"
+                    >
+                        <div class="flex items-center gap-2 mb-2">
+                            <span
+                                class="material-symbols-outlined text-success text-[18px]"
+                                style="
+                                    font-variation-settings: &quot;FILL&quot; 1;
+                                "
+                                >check_circle</span
+                            >
+                            <span
+                                class="text-[10px] font-bold text-success uppercase tracking-widest"
+                                >AI Coaching Insight</span
+                            >
+                        </div>
+                        <p
+                            class="text-[12px] text-text-muted italic leading-relaxed"
+                        >
+                            Sarah seems concerned about "Procurement" —
+                            recommending you pivot to the security compliance
+                            slide after ROI.
+                        </p>
+                    </div>
+                    <!-- Sarah Message (Left) -->
+                    <div class="flex flex-col items-start gap-1 max-w-[85%]">
+                        <div class="flex items-center gap-2 px-1">
+                            <span
+                                class="text-[10px] font-bold text-primary uppercase"
+                                >Sarah Jenkins</span
+                            >
+                            <span class="text-[9px] text-text-muted"
+                                >08:19 AM</span
+                            >
+                        </div>
+                        <div
+                            class="bg-surface-panel border border-border-subtle p-4 rounded-2xl rounded-tl-none shadow-sm"
+                        >
+                            <p class="text-sm text-text-main leading-relaxed">
+                                Wait, let's go back to the efficiency gain. 3.2x
+                                scale... how are we measuring that specifically?
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Bottom Input Area: Clean flex layout -->
+                <div
+                    class="p-4 border-t border-border-subtle bg-surface-panel/60"
+                >
+                    <div
+                        class="bg-surface-base border border-border-subtle rounded-xl p-3 flex flex-col gap-3 focus-within:border-primary/50 transition-all"
+                    >
+                        <textarea
+                            class="w-full bg-transparent border-none text-text-main placeholder:text-text-muted text-sm resize-none outline-none focus:ring-0 min-h-[60px]"
+                            placeholder="Type a message or AI prompt..."
+                        ></textarea>
+                        <div
+                            class="flex items-center justify-between border-t border-border-subtle pt-3"
+                        >
+                            <div class="flex items-center gap-2">
+                                <button
+                                    class="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-text-main hover:bg-surface-hover transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >attach_file</span
+                                    >
+                                </button>
+                                <button
+                                    class="w-8 h-8 rounded-lg flex items-center justify-center text-text-muted hover:text-primary hover:bg-primary/10 transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >auto_awesome</span
+                                    >
+                                </button>
+                            </div>
+                            <button
+                                class="bg-primary hover:bg-primary/90 text-surface-base px-5 py-1.5 rounded-lg flex items-center gap-2 transition-all group"
+                            >
+                                <span
+                                    class="text-xs font-bold uppercase tracking-wider"
+                                    >Send</span
+                                >
+                                <span
+                                    class="material-symbols-outlined !text-[16px] group-hover:translate-x-0.5 transition-transform"
+                                    >send</span
+                                >
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex items-center justify-between px-1">
+                        <span class="text-[10px] text-text-muted italic"
+                            >Command + Enter to send</span
+                        >
+                        <div class="flex gap-1.5">
+                            <span
+                                class="w-1 h-1 rounded-full bg-primary/40"
+                            ></span>
+                            <span
+                                class="w-1 h-1 rounded-full bg-primary/40"
+                            ></span>
+                            <span
+                                class="w-1 h-1 rounded-full bg-primary/40"
+                            ></span>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+    </body>
+</html>

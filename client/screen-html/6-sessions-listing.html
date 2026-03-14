@@ -1,0 +1,689 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Proxima AI - Sessions</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+            rel="stylesheet"
+        />
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: "#0db9f2",
+                            "surface-base": "#0c1215",
+                            "surface-panel": "#141c21",
+                            "surface-hover": "#1a252b",
+                            "border-subtle": "#22313a",
+                            "text-main": "#cbd5e1",
+                            "text-muted": "#64748b",
+                            success: "#10b981",
+                            warning: "#f59e0b",
+                            danger: "#ef4444",
+                        },
+                        fontFamily: {
+                            display: ["Manrope", "sans-serif"],
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            body {
+                font-family: "Manrope", sans-serif;
+                -webkit-font-smoothing: antialiased;
+            }
+            .material-symbols-outlined {
+                font-variation-settings:
+                    "FILL" 0,
+                    "wght" 400,
+                    "GRAD" 0,
+                    "opsz" 24;
+                font-size: 20px !important;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .primary-gradient {
+                background: linear-gradient(135deg, #0db9f2 0%, #38d2f4 100%);
+            }
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        </style>
+    </head>
+    <body
+        class="h-screen w-full flex overflow-hidden bg-surface-base text-text-main font-display antialiased"
+    >
+        <!-- Shared Component: SideNavBar -->
+        <aside
+            class="w-64 flex-shrink-0 bg-surface-base border-r border-border-subtle flex flex-col h-screen"
+        >
+            <div class="px-6 py-8 flex items-center gap-3">
+                <div
+                    class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center"
+                >
+                    <span
+                        class="material-symbols-outlined text-surface-base"
+                        style="font-variation-settings: &quot;FILL&quot; 1"
+                        >psychology</span
+                    >
+                </div>
+                <span
+                    class="text-xl font-extrabold tracking-tight text-text-main"
+                    >Proxima AI</span
+                >
+            </div>
+            <nav class="flex-1 px-4 space-y-2 mt-4">
+                <a
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-text-muted hover:bg-surface-panel hover:text-text-main"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined"
+                        data-icon="dashboard"
+                        >dashboard</span
+                    >
+                    <span class="font-medium">Dashboard</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors bg-surface-panel text-primary"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined"
+                        data-icon="video_library"
+                        >video_library</span
+                    >
+                    <span class="font-medium">Sessions</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-text-muted hover:bg-surface-panel hover:text-text-main"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined" data-icon="groups"
+                        >groups</span
+                    >
+                    <span class="font-medium">Personas</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-text-muted hover:bg-surface-panel hover:text-text-main"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined"
+                        data-icon="psychology"
+                        >psychology</span
+                    >
+                    <span class="font-medium">Context Builder</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-text-muted hover:bg-surface-panel hover:text-text-main"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined"
+                        data-icon="bar_chart"
+                        >bar_chart</span
+                    >
+                    <span class="font-medium">Reports</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-text-muted hover:bg-surface-panel hover:text-text-main"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined" data-icon="settings"
+                        >settings</span
+                    >
+                    <span class="font-medium">Settings</span>
+                </a>
+            </nav>
+            <div class="p-6">
+                <button
+                    class="w-full py-4 px-4 rounded-xl primary-gradient text-surface-base font-bold shadow-lg shadow-primary/10 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                >
+                    <span
+                        class="material-symbols-outlined"
+                        data-icon="add_circle"
+                        >add_circle</span
+                    >
+                    New Training
+                </button>
+            </div>
+        </aside>
+        <!-- Main Content Area -->
+        <main class="flex-1 h-full min-w-0 flex flex-col bg-surface-base">
+            <!-- Shared Component: TopNavBar -->
+            <header
+                class="h-20 flex items-center justify-between px-10 bg-surface-base/80 backdrop-blur-md sticky top-0 z-10 border-b border-border-subtle"
+            >
+                <div class="flex flex-col">
+                    <h1
+                        class="text-2xl font-bold text-text-main tracking-tight"
+                    >
+                        Sessions
+                    </h1>
+                    <p class="text-sm text-text-muted">
+                        Manage and analyze your sales rehearsal history
+                    </p>
+                </div>
+                <div class="flex items-center gap-6">
+                    <div class="relative flex items-center">
+                        <span
+                            class="material-symbols-outlined absolute left-4 text-text-muted"
+                            data-icon="search"
+                            >search</span
+                        >
+                        <input
+                            class="bg-surface-panel border-border-subtle rounded-xl pl-12 pr-4 py-2.5 w-64 text-sm focus:ring-2 focus:ring-primary/50 text-text-main placeholder:text-text-muted/50"
+                            placeholder="Search sessions..."
+                            type="text"
+                        />
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button
+                            class="p-2.5 rounded-xl bg-surface-panel text-text-muted hover:bg-surface-hover transition-colors border border-border-subtle"
+                        >
+                            <span
+                                class="material-symbols-outlined"
+                                data-icon="notifications"
+                                >notifications</span
+                            >
+                        </button>
+                        <div
+                            class="flex items-center gap-3 pl-4 border-l border-border-subtle"
+                        >
+                            <div class="text-right">
+                                <p class="text-xs font-bold text-text-main">
+                                    Alex Rivera
+                                </p>
+                                <p
+                                    class="text-[10px] text-primary uppercase tracking-wider font-bold"
+                                >
+                                    Enterprise Pro
+                                </p>
+                            </div>
+                            <img
+                                alt="Alex Rivera Profile"
+                                class="w-10 h-10 rounded-xl object-cover"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBMA98S1oBLrrFMyT2_T8HMlE7Hj_D2BUCEbKN-tF02_UeuGqF7bZa7jIj_DBSQom_-Ah2ocs3UbzATOed3AFHlTj8WU5Pi-VlQ1Yt4PzT8_F9o2778grNUuUi_Kx0RBPgat7ZbgqhUvw94wZzm5Sy7STXv4A6sOlFKTYGskTfDKVBCGgRjqZZHnl7qpYM1xmJ0dR3JPYe1ZgKIGoorcRT3SMD9gZSdhqam4eN_6pPX9n-btvLizDFuKOiTCHCX3PQACm3LknkbhE_c"
+                            />
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <!-- Page Content Scroll Area -->
+            <div class="flex-1 overflow-y-auto p-10 space-y-8 no-scrollbar">
+                <!-- Performance Summary Card (1st block) -->
+                <div
+                    class="w-full p-8 bg-surface-panel border border-border-subtle rounded-2xl flex items-center justify-between"
+                >
+                    <div class="max-w-xl">
+                        <h3 class="text-xl font-bold text-text-main mb-2">
+                            Performance Summary
+                        </h3>
+                        <p class="text-text-muted text-sm leading-relaxed">
+                            Your confidence score has increased by 12% compared
+                            to last week. Focus more on 'Objection Handling' to
+                            reach your goal.
+                        </p>
+                    </div>
+                    <div class="flex items-center gap-12">
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl font-extrabold text-primary"
+                                >82.4%</span
+                            >
+                            <span
+                                class="text-[10px] text-text-muted uppercase font-bold tracking-widest mt-1"
+                                >Average Confidence</span
+                            >
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl font-extrabold text-primary"
+                                >91%</span
+                            >
+                            <span
+                                class="text-[10px] text-text-muted uppercase font-bold tracking-widest mt-1"
+                                >Positive Sentiment</span
+                            >
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span class="text-3xl font-extrabold text-primary"
+                                >4.2h</span
+                            >
+                            <span
+                                class="text-[10px] text-text-muted uppercase font-bold tracking-widest mt-1"
+                                >Practice Time</span
+                            >
+                        </div>
+                    </div>
+                </div>
+                <!-- Filters Bar (2nd block) -->
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button
+                            class="px-6 py-2 rounded-full bg-primary text-surface-base font-bold text-sm"
+                        >
+                            All
+                        </button>
+                        <button
+                            class="px-6 py-2 rounded-full bg-surface-panel text-text-main font-medium text-sm hover:bg-surface-hover transition-colors border border-border-subtle"
+                        >
+                            Completed
+                        </button>
+                        <button
+                            class="px-6 py-2 rounded-full bg-surface-panel text-text-main font-medium text-sm hover:bg-surface-hover transition-colors border border-border-subtle"
+                        >
+                            In Progress
+                        </button>
+                        <button
+                            class="px-6 py-2 rounded-full bg-surface-panel text-text-main font-medium text-sm hover:bg-surface-hover transition-colors border border-border-subtle"
+                        >
+                            Drafts
+                        </button>
+                    </div>
+                    <button
+                        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-panel text-text-main border border-border-subtle text-sm font-semibold hover:bg-surface-hover transition-colors"
+                    >
+                        <span
+                            class="material-symbols-outlined text-lg"
+                            data-icon="filter_list"
+                            >filter_list</span
+                        >
+                        More Filters
+                    </button>
+                </div>
+                <!-- Data Table (3rd block) -->
+                <div
+                    class="bg-surface-panel rounded-2xl border border-border-subtle overflow-hidden"
+                >
+                    <table
+                        class="w-full text-left border-collapse whitespace-nowrap"
+                    >
+                        <thead
+                            class="bg-surface-hover/50 border-b border-border-subtle"
+                        >
+                            <tr>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4"
+                                >
+                                    Name
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4"
+                                >
+                                    Persona
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4"
+                                >
+                                    Date
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4 text-center"
+                                >
+                                    Duration
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4 text-center"
+                                >
+                                    Confidence
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4 text-center"
+                                >
+                                    Sentiment
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4"
+                                >
+                                    Status
+                                </th>
+                                <th
+                                    class="text-[11px] font-bold uppercase tracking-wider text-text-muted px-6 py-4 text-right"
+                                >
+                                    Action
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-subtle">
+                            <!-- Row 1 -->
+                            <tr
+                                class="border-b border-border-subtle hover:bg-surface-hover transition-colors group cursor-pointer"
+                            >
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"
+                                        >
+                                            <span
+                                                class="material-symbols-outlined text-primary"
+                                                data-icon="video_chat"
+                                                >video_chat</span
+                                            >
+                                        </div>
+                                        <span class="font-bold text-text-main"
+                                            >Enterprise Pitch Rehearsal</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Sarah Jenkins
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Mar 12, 2024
+                                </td>
+                                <td
+                                    class="px-6 py-4 text-sm text-text-main text-center"
+                                >
+                                    14m 32s
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2 py-1 rounded bg-surface-hover text-success font-bold text-xs"
+                                        >88%</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="material-symbols-outlined text-success"
+                                        data-icon="sentiment_very_satisfied"
+                                        style="
+                                            font-variation-settings: &quot;FILL&quot;
+                                                1;
+                                        "
+                                        >sentiment_very_satisfied</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="w-2 h-2 rounded-full bg-success"
+                                        ></span>
+                                        <span
+                                            class="text-xs font-bold text-text-main"
+                                            >Completed</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <button
+                                        class="text-primary text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        View Report
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 2 -->
+                            <tr
+                                class="border-b border-border-subtle hover:bg-surface-hover transition-colors group cursor-pointer"
+                            >
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-text-muted/10 flex items-center justify-center"
+                                        >
+                                            <span
+                                                class="material-symbols-outlined text-text-muted"
+                                                data-icon="mic"
+                                                >mic</span
+                                            >
+                                        </div>
+                                        <span class="font-bold text-text-main"
+                                            >Objection Handling Prep</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Marcus Chen
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Mar 11, 2024
+                                </td>
+                                <td
+                                    class="px-6 py-4 text-sm text-text-main text-center"
+                                >
+                                    08m 15s
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2 py-1 rounded bg-surface-hover text-primary font-bold text-xs"
+                                        >72%</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="material-symbols-outlined text-text-main"
+                                        data-icon="sentiment_satisfied"
+                                        style="
+                                            font-variation-settings: &quot;FILL&quot;
+                                                1;
+                                        "
+                                        >sentiment_satisfied</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="w-2 h-2 rounded-full bg-success"
+                                        ></span>
+                                        <span
+                                            class="text-xs font-bold text-text-main"
+                                            >Completed</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <button
+                                        class="text-primary text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        View Report
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 3 -->
+                            <tr
+                                class="border-b border-border-subtle hover:bg-surface-hover transition-colors group cursor-pointer"
+                            >
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-danger/10 flex items-center justify-center"
+                                        >
+                                            <span
+                                                class="material-symbols-outlined text-danger"
+                                                data-icon="warning"
+                                                >warning</span
+                                            >
+                                        </div>
+                                        <span class="font-bold text-text-main"
+                                            >Negotiation Strategy</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Elena Rodriguez
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Mar 10, 2024
+                                </td>
+                                <td
+                                    class="px-6 py-4 text-sm text-text-main text-center"
+                                >
+                                    21m 44s
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2 py-1 rounded bg-surface-hover text-danger font-bold text-xs"
+                                        >45%</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="material-symbols-outlined text-danger"
+                                        data-icon="sentiment_dissatisfied"
+                                        style="
+                                            font-variation-settings: &quot;FILL&quot;
+                                                1;
+                                        "
+                                        >sentiment_dissatisfied</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="w-2 h-2 rounded-full bg-danger"
+                                        ></span>
+                                        <span
+                                            class="text-xs font-bold text-text-main"
+                                            >Incomplete</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <button
+                                        class="text-primary text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        View Report
+                                    </button>
+                                </td>
+                            </tr>
+                            <!-- Row 4 -->
+                            <tr
+                                class="border-b border-border-subtle hover:bg-surface-hover transition-colors group cursor-pointer"
+                            >
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        <div
+                                            class="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center"
+                                        >
+                                            <span
+                                                class="material-symbols-outlined text-primary"
+                                                data-icon="call"
+                                                >call</span
+                                            >
+                                        </div>
+                                        <span class="font-bold text-text-main"
+                                            >Discovery Call Flow</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Sarah Jenkins
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-main">
+                                    Mar 09, 2024
+                                </td>
+                                <td
+                                    class="px-6 py-4 text-sm text-text-main text-center"
+                                >
+                                    12m 02s
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="px-2 py-1 rounded bg-surface-hover text-success font-bold text-xs"
+                                        >94%</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <span
+                                        class="material-symbols-outlined text-success"
+                                        data-icon="sentiment_very_satisfied"
+                                        style="
+                                            font-variation-settings: &quot;FILL&quot;
+                                                1;
+                                        "
+                                        >sentiment_very_satisfied</span
+                                    >
+                                </td>
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="w-2 h-2 rounded-full bg-success"
+                                        ></span>
+                                        <span
+                                            class="text-xs font-bold text-text-main"
+                                            >Completed</span
+                                        >
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-right">
+                                    <button
+                                        class="text-primary text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        View Report
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <!-- Pagination Area -->
+                    <div
+                        class="px-6 py-4 border-t border-border-subtle flex items-center justify-between bg-surface-panel"
+                    >
+                        <span class="text-xs text-text-muted font-medium"
+                            >Showing 1-10 of 48 sessions</span
+                        >
+                        <div class="flex items-center gap-2">
+                            <button
+                                class="p-2 rounded-lg bg-surface-hover text-text-muted hover:text-text-main transition-colors disabled:opacity-30 border border-border-subtle"
+                            >
+                                <span
+                                    class="material-symbols-outlined"
+                                    data-icon="chevron_left"
+                                    >chevron_left</span
+                                >
+                            </button>
+                            <div class="flex items-center gap-1">
+                                <button
+                                    class="w-8 h-8 rounded-lg bg-primary text-surface-base text-xs font-bold"
+                                >
+                                    1
+                                </button>
+                                <button
+                                    class="w-8 h-8 rounded-lg text-text-muted text-xs font-bold hover:bg-surface-hover transition-colors"
+                                >
+                                    2
+                                </button>
+                                <button
+                                    class="w-8 h-8 rounded-lg text-text-muted text-xs font-bold hover:bg-surface-hover transition-colors"
+                                >
+                                    3
+                                </button>
+                                <span class="px-1 text-text-muted">...</span>
+                                <button
+                                    class="w-8 h-8 rounded-lg text-text-muted text-xs font-bold hover:bg-surface-hover transition-colors"
+                                >
+                                    5
+                                </button>
+                            </div>
+                            <button
+                                class="p-2 rounded-lg bg-surface-hover text-text-muted hover:text-text-main transition-colors border border-border-subtle"
+                            >
+                                <span
+                                    class="material-symbols-outlined"
+                                    data-icon="chevron_right"
+                                    >chevron_right</span
+                                >
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </body>
+</html>

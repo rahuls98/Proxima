@@ -1,0 +1,712 @@
+<!doctype html>
+
+<html class="dark" lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+        <title>Proxima AI - Personas Library</title>
+        <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&amp;display=swap"
+            rel="stylesheet"
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+            rel="stylesheet"
+        />
+        <script id="tailwind-config">
+            tailwind.config = {
+                darkMode: "class",
+                theme: {
+                    extend: {
+                        colors: {
+                            primary: "#0db9f2",
+                            "surface-base": "#0c1215",
+                            "surface-panel": "#141c21",
+                            "surface-hover": "#1a252b",
+                            "border-subtle": "#22313a",
+                            "text-main": "#cbd5e1",
+                            "text-muted": "#64748b",
+                            success: "#10b981",
+                            warning: "#f59e0b",
+                            danger: "#ef4444",
+                        },
+                        fontFamily: {
+                            display: ["Manrope", "sans-serif"],
+                            body: ["Manrope", "sans-serif"],
+                        },
+                    },
+                },
+            };
+        </script>
+        <style>
+            body {
+                font-family: "Manrope", sans-serif;
+            }
+            .material-symbols-outlined {
+                font-variation-settings:
+                    "FILL" 0,
+                    "wght" 400,
+                    "GRAD" 0,
+                    "opsz" 24;
+                font-size: 20px !important;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            ::-webkit-scrollbar {
+                width: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #0c1215;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #22313a;
+                border-radius: 10px;
+            }
+        </style>
+    </head>
+    <body
+        class="h-screen w-full flex overflow-hidden bg-surface-base text-text-main font-display antialiased"
+    >
+        <!-- SideNavBar -->
+        <aside
+            class="w-64 bg-surface-base flex flex-col h-screen border-r border-border-subtle z-20"
+        >
+            <div class="p-8 flex items-center gap-3">
+                <div
+                    class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center"
+                >
+                    <span
+                        class="material-symbols-outlined text-surface-base"
+                        style="font-variation-settings: &quot;FILL&quot; 1"
+                        >deployed_code</span
+                    >
+                </div>
+                <h1
+                    class="font-display text-lg font-extrabold tracking-tight text-text-main"
+                >
+                    Proxima AI
+                </h1>
+            </div>
+            <nav class="flex-1 px-4 mt-2 space-y-1">
+                <a
+                    class="flex items-center gap-3 px-4 py-2.5 text-text-muted hover:bg-surface-panel hover:text-text-main rounded-xl transition-all duration-200"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">dashboard</span>
+                    <span class="text-sm font-medium">Dashboard</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-2.5 text-text-muted hover:bg-surface-panel hover:text-text-main rounded-xl transition-all duration-200"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">video_library</span>
+                    <span class="text-sm font-medium">Sessions</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-2.5 bg-surface-panel text-primary rounded-xl transition-all duration-200"
+                    href="#"
+                >
+                    <span
+                        class="material-symbols-outlined"
+                        style="font-variation-settings: &quot;FILL&quot; 1"
+                        >groups</span
+                    >
+                    <span class="text-sm font-bold">Personas</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-2.5 text-text-muted hover:bg-surface-panel hover:text-text-main rounded-xl transition-all duration-200"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">psychology</span>
+                    <span class="text-sm font-medium">Context Builder</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-2.5 text-text-muted hover:bg-surface-panel hover:text-text-main rounded-xl transition-all duration-200"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">bar_chart</span>
+                    <span class="text-sm font-medium">Reports</span>
+                </a>
+                <a
+                    class="flex items-center gap-3 px-4 py-2.5 text-text-muted hover:bg-surface-panel hover:text-text-main rounded-xl transition-all duration-200"
+                    href="#"
+                >
+                    <span class="material-symbols-outlined">settings</span>
+                    <span class="text-sm font-medium">Settings</span>
+                </a>
+            </nav>
+            <div class="p-4 border-t border-border-subtle">
+                <button
+                    class="w-full bg-primary text-surface-base font-bold py-3 rounded-xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                >
+                    <span class="material-symbols-outlined">add</span>
+                    New Training
+                </button>
+            </div>
+        </aside>
+        <!-- Main Content Area -->
+        <main class="flex-1 h-full min-w-0 flex flex-col bg-surface-base">
+            <!-- TopNavBar -->
+            <header
+                class="h-16 flex items-center justify-between px-8 border-b border-border-subtle bg-surface-base/80 backdrop-blur-md sticky top-0 z-10"
+            >
+                <h2 class="font-display text-xl font-bold text-text-main">
+                    Personas
+                </h2>
+                <div class="flex items-center gap-6">
+                    <div class="relative flex items-center">
+                        <span
+                            class="material-symbols-outlined absolute left-4 text-text-muted"
+                            >search</span
+                        >
+                        <input
+                            class="bg-surface-panel border border-border-subtle rounded-xl pl-12 pr-4 py-2 w-80 text-sm text-text-main focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all"
+                            placeholder="Search personas..."
+                            type="text"
+                        />
+                    </div>
+                    <button
+                        class="w-9 h-9 flex items-center justify-center bg-surface-panel border border-border-subtle hover:bg-surface-hover rounded-xl transition-colors"
+                    >
+                        <span class="material-symbols-outlined text-text-muted"
+                            >notifications</span
+                        >
+                    </button>
+                    <div
+                        class="flex items-center gap-3 ml-2 cursor-pointer group"
+                    >
+                        <div class="text-right">
+                            <p
+                                class="text-xs font-bold text-text-main leading-none"
+                            >
+                                Alex Rivera
+                            </p>
+                            <p
+                                class="text-[10px] text-text-muted uppercase tracking-wider"
+                            >
+                                Enterprise Pro
+                            </p>
+                        </div>
+                        <img
+                            class="w-9 h-9 rounded-lg object-cover ring-1 ring-border-subtle group-hover:ring-primary transition-all"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDtMzBJlU4Kys3YU9Ii5d8H8PQKWDWhWs4susiO9AhkKd7DGMNj2CTvEGl1kpEBerjhzjJwBxta8VK6X7WNLEQxz42N9s9s3ZMYc0PBvaKzqduselgvw4zdUNwK3qGAk3LN6SaobYBcqAnkyThchi_qX3oH2Q31oAzR04MuleGHesge7zcZDq2GB1tp4QO4gjVO9e2cyn5ZgrHuPWrnNFDHAUfNWy93-rS24LiPY7yYLSRa5jvbef3Q02G9xITOqycxV5KztwW7vBzL"
+                        />
+                    </div>
+                </div>
+            </header>
+            <!-- Content Body -->
+            <div class="flex-1 overflow-y-auto px-8 py-8">
+                <!-- Header Section with Actions -->
+                <div class="flex items-end justify-between mb-8">
+                    <div>
+                        <p class="text-text-muted text-sm font-medium mb-1">
+                            Library of 124 profiles
+                        </p>
+                        <h3
+                            class="font-display text-3xl font-extrabold tracking-tight"
+                        >
+                            Select simulation partner
+                        </h3>
+                    </div>
+                    <div class="flex gap-3">
+                        <button
+                            class="bg-surface-panel border border-border-subtle text-text-main font-semibold px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-surface-hover transition-colors"
+                        >
+                            <span class="material-symbols-outlined"
+                                >filter_list</span
+                            >
+                            Filter
+                        </button>
+                        <button
+                            class="bg-primary text-surface-base font-bold px-6 py-2.5 rounded-xl flex items-center gap-2 hover:opacity-90 transition-opacity"
+                        >
+                            <span class="material-symbols-outlined"
+                                >person_add</span
+                            >
+                            Create Persona
+                        </button>
+                    </div>
+                </div>
+                <!-- Bento Grid -->
+                <div
+                    class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 pb-20"
+                >
+                    <!-- Card 1: Sarah Jenkins -->
+                    <div
+                        class="group bg-surface-panel border border-border-subtle rounded-2xl p-6 transition-all hover:border-primary/50 flex flex-col h-[320px]"
+                    >
+                        <div class="flex items-start gap-4 mb-5">
+                            <img
+                                class="w-[64px] h-[64px] rounded-xl object-cover border border-border-subtle"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCO_ylUBGSQfDEAbnCeZ1-PYuNYgt8QKYbyUy-cU__kOJWDX4BYNx7mIiumVKpZBRDeZWZTCsfsotV8HTXSVccZFk0qTIGOHoEPMUZ_GLhAqdyBreOCZfaC20ksF9fNjk7fdUYvJMtiRkG7-OmQ083oA8QA5N4WH-hYIW0ogSiD8iq-nGbSiwM-3TtFflWWN-zCT8popp3WXlzUFixqI8_b8fP8TKFKwiRdyT3wBK9jh464Puk2sqLGT0nYfFZ_XHJfPtDXpk9hRL1s"
+                            />
+                            <div class="flex-1">
+                                <h4
+                                    class="text-lg font-bold text-text-main leading-tight"
+                                >
+                                    Sarah Jenkins
+                                </h4>
+                                <p class="text-sm text-primary font-medium">
+                                    VP of Operations
+                                </p>
+                                <p class="text-xs text-text-muted">
+                                    CloudSync Solutions
+                                </p>
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-text-muted cursor-pointer hover:text-text-main transition-colors"
+                                >more_horiz</span
+                            >
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >The Skeptic</span
+                            >
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >High Difficulty</span
+                            >
+                        </div>
+                        <p
+                            class="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto"
+                        >
+                            Analytical and ROI-focused. Sarah demands
+                            data-backed evidence before making any
+                            organizational shifts or technology investments.
+                        </p>
+                        <div
+                            class="pt-4 border-t border-border-subtle flex items-center justify-between mt-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-muted !text-sm"
+                                    >history</span
+                                >
+                                <span class="text-[11px] text-text-muted"
+                                    >Last used 2h ago</span
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-hover text-text-main border border-border-subtle hover:bg-surface-panel transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >visibility</span
+                                    >
+                                </button>
+                                <button
+                                    class="bg-primary/10 text-primary font-bold px-4 py-1.5 rounded-lg text-xs hover:bg-primary/20 transition-all"
+                                >
+                                    Quick Start
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 2: Marcus Chen -->
+                    <div
+                        class="group bg-surface-panel border border-border-subtle rounded-2xl p-6 transition-all hover:border-primary/50 flex flex-col h-[320px]"
+                    >
+                        <div class="flex items-start gap-4 mb-5">
+                            <img
+                                class="w-[64px] h-[64px] rounded-xl object-cover border border-border-subtle"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCunyjF_vzZj4gKDrhfbYAFUOBatB4SIEg7VPBYUULqzY--HIo7KXaGq8Y461sZRWOaeVMOcM4YDOa_k8fIddSRw1_9vLdFwgtd6ncToxn5TFEZZt4ckD2mJbh8Qanx2peASRsRxFwiVqxEv8nISNeKuulr9cKIkTZsweP2-PKMgN0yVBC1YHf9rCVQr_OqyIHUHtPOyoNQM89pwktIouAfEELkltPdDKDjulVCmhM7QRWv764r--ahGjOMhBAQQcFOZUakE3OatZUC"
+                            />
+                            <div class="flex-1">
+                                <h4
+                                    class="text-lg font-bold text-text-main leading-tight"
+                                >
+                                    Marcus Chen
+                                </h4>
+                                <p class="text-sm text-primary font-medium">
+                                    Director of Procurement
+                                </p>
+                                <p class="text-xs text-text-muted">
+                                    Stellar Manufacturing
+                                </p>
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-text-muted cursor-pointer hover:text-text-main transition-colors"
+                                >more_horiz</span
+                            >
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >The Negotiator</span
+                            >
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >Medium</span
+                            >
+                        </div>
+                        <p
+                            class="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto"
+                        >
+                            Focused exclusively on contract terms and scale
+                            discounts. Hard to read but logical in his demands
+                            during negotiation phases.
+                        </p>
+                        <div
+                            class="pt-4 border-t border-border-subtle flex items-center justify-between mt-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-muted !text-sm"
+                                    >history</span
+                                >
+                                <span class="text-[11px] text-text-muted"
+                                    >Never used</span
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-hover text-text-main border border-border-subtle hover:bg-surface-panel transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >visibility</span
+                                    >
+                                </button>
+                                <button
+                                    class="bg-primary/10 text-primary font-bold px-4 py-1.5 rounded-lg text-xs hover:bg-primary/20 transition-all"
+                                >
+                                    Quick Start
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 3: Elena Rodriguez -->
+                    <div
+                        class="group bg-surface-panel border border-border-subtle rounded-2xl p-6 transition-all hover:border-primary/50 flex flex-col h-[320px]"
+                    >
+                        <div class="flex items-start gap-4 mb-5">
+                            <img
+                                class="w-[64px] h-[64px] rounded-xl object-cover border border-border-subtle"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYJgi1P7VHZtUzjx31VszKy2FkHwZOrdfvQWFMyrV7syn9STm76E0XpNdfz0gz7VADV6CvQYJ6hYSZy29XoKefIEmA3bXeSzuWW_uQXE5TEvJ_bE9ZvqPccZPVw-RmM8AnRTwoGjvo-TnVMxXAn_9U0qvPGpyMuVREzIKf-v8BIYZuKgj8xhUUegMEkXL4nBBMKykdchJXO1jEEJs2qJS3QU53zlBYmLe0vupJCU-6IkRMaK8o8mRw40YzcNMKk9jAoQZtZgjH4Vw-"
+                            />
+                            <div class="flex-1">
+                                <h4
+                                    class="text-lg font-bold text-text-main leading-tight"
+                                >
+                                    Elena Rodriguez
+                                </h4>
+                                <p class="text-sm text-primary font-medium">
+                                    Chief Technology Officer
+                                </p>
+                                <p class="text-xs text-text-muted">
+                                    Nova Systems
+                                </p>
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-text-muted cursor-pointer hover:text-text-main transition-colors"
+                                >more_horiz</span
+                            >
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >The Visionary</span
+                            >
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >Low Difficulty</span
+                            >
+                        </div>
+                        <p
+                            class="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto"
+                        >
+                            Excited about future-proofing. She values
+                            integration and scalability above all other
+                            technical features.
+                        </p>
+                        <div
+                            class="pt-4 border-t border-border-subtle flex items-center justify-between mt-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-muted !text-sm"
+                                    >history</span
+                                >
+                                <span class="text-[11px] text-text-muted"
+                                    >Last used yesterday</span
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-hover text-text-main border border-border-subtle hover:bg-surface-panel transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >visibility</span
+                                    >
+                                </button>
+                                <button
+                                    class="bg-primary/10 text-primary font-bold px-4 py-1.5 rounded-lg text-xs hover:bg-primary/20 transition-all"
+                                >
+                                    Quick Start
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 4: Priya Nair -->
+                    <div
+                        class="group bg-surface-panel border border-border-subtle rounded-2xl p-6 transition-all hover:border-primary/50 flex flex-col h-[320px]"
+                    >
+                        <div class="flex items-start gap-4 mb-5">
+                            <img
+                                class="w-[64px] h-[64px] rounded-xl object-cover border border-border-subtle"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBihDp1qCtaFovpEQFKxWznW1l6cDGHQ3d2nPAlmZFYSUwJI94OCLDzY9yKLVBpYa6jlvb_pdT2tgW82cZQaNtifB2PbbX-_NJnuNtot3JUueJSHyrH7zq8zDqdbzF-C6h_Qu9FBx3qD1Jq88TGyE9DyeuiWJUDBOQvCsIKGQHfNts5Ag-XvihRC7EydBe1VnufAGMinoZWWYI9UwO-t8G8EZeYZXHU6pQV4TSEMUbkQEjOjHccNfxNgGeJOB68JQoMBwUkgiHj4dJm"
+                            />
+                            <div class="flex-1">
+                                <h4
+                                    class="text-lg font-bold text-text-main leading-tight"
+                                >
+                                    Priya Nair
+                                </h4>
+                                <p class="text-sm text-primary font-medium">
+                                    Head of Marketing
+                                </p>
+                                <p class="text-xs text-text-muted">GrowthHub</p>
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-text-muted cursor-pointer hover:text-text-main transition-colors"
+                                >more_horiz</span
+                            >
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >The Pragmatist</span
+                            >
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >Medium</span
+                            >
+                        </div>
+                        <p
+                            class="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto"
+                        >
+                            Priya cares about immediate impact. If it doesn't
+                            solve a current quarter problem or boost lead gen,
+                            she isn't interested.
+                        </p>
+                        <div
+                            class="pt-4 border-t border-border-subtle flex items-center justify-between mt-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-muted !text-sm"
+                                    >history</span
+                                >
+                                <span class="text-[11px] text-text-muted"
+                                    >Last used 5d ago</span
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-hover text-text-main border border-border-subtle hover:bg-surface-panel transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >visibility</span
+                                    >
+                                </button>
+                                <button
+                                    class="bg-primary/10 text-primary font-bold px-4 py-1.5 rounded-lg text-xs hover:bg-primary/20 transition-all"
+                                >
+                                    Quick Start
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 5: Daniel Brooks -->
+                    <div
+                        class="group bg-surface-panel border border-border-subtle rounded-2xl p-6 transition-all hover:border-primary/50 flex flex-col h-[320px]"
+                    >
+                        <div class="flex items-start gap-4 mb-5">
+                            <img
+                                class="w-[64px] h-[64px] rounded-xl object-cover border border-border-subtle"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuAg-H6mtpVoJngh6lm-V76VLcGphXjih-FuB6XaRBobnpZRKWk8G7wpg7ND2GIrQx2bBMFhw35xBZHv1Bhmb4uqCfgK7k8tR9P-Vain6daYA1mHLqxhSiYecNOk7F1VX9zDWFXV5RpHb7yhq2rJcA1gNANhOck_5VB4os8erLH9VjBv28WLir7pPpfwtN5zUUfQJDsXA_hVDM2ezht1btKDKaK9_clnf6dm6jtHtmJ-2ogZRcJlRUJSuLzVr7JQzwxwC1R22HQpOpzc"
+                            />
+                            <div class="flex-1">
+                                <h4
+                                    class="text-lg font-bold text-text-main leading-tight"
+                                >
+                                    Daniel Brooks
+                                </h4>
+                                <p class="text-sm text-primary font-medium">
+                                    General Counsel
+                                </p>
+                                <p class="text-xs text-text-muted">
+                                    SecureVault Inc.
+                                </p>
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-text-muted cursor-pointer hover:text-text-main transition-colors"
+                                >more_horiz</span
+                            >
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >The Gatekeeper</span
+                            >
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >High Difficulty</span
+                            >
+                        </div>
+                        <p
+                            class="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto"
+                        >
+                            Conservative and risk-averse. Every pitch must
+                            address security, compliance, and liability head-on
+                            with zero ambiguity.
+                        </p>
+                        <div
+                            class="pt-4 border-t border-border-subtle flex items-center justify-between mt-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-muted !text-sm"
+                                    >history</span
+                                >
+                                <span class="text-[11px] text-text-muted"
+                                    >Last used 2w ago</span
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-hover text-text-main border border-border-subtle hover:bg-surface-panel transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >visibility</span
+                                    >
+                                </button>
+                                <button
+                                    class="bg-primary/10 text-primary font-bold px-4 py-1.5 rounded-lg text-xs hover:bg-primary/20 transition-all"
+                                >
+                                    Quick Start
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Card 6: Lisa Gomez -->
+                    <div
+                        class="group bg-surface-panel border border-border-subtle rounded-2xl p-6 transition-all hover:border-primary/50 flex flex-col h-[320px]"
+                    >
+                        <div class="flex items-start gap-4 mb-5">
+                            <img
+                                class="w-[64px] h-[64px] rounded-xl object-cover border border-border-subtle"
+                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuBexdP89Oxure9_a_5oWvD9xS09v_uQXKOXKI030dd10EWqe-qhFMIcfTwi8S-icLH3TLiKmfYk5GJX7fyyE5zil7_BypT0Xf6Pz26coRdwy-DjXuc6VLXW41dYI2gp-IoyQ1eNPguV8hpJeL-IIU7ANu3tkMn6LNLiSc6EWdhT-Jefsv-HFaHqb1z6T6xUcn1mdECuBIAfPIH2Wyl8RxvKYk9dS0dtNrwixjTLEXJ2tZIU6FCxuBlJ8da-7pTtC3zOYPeZD0I05UxS"
+                            />
+                            <div class="flex-1">
+                                <h4
+                                    class="text-lg font-bold text-text-main leading-tight"
+                                >
+                                    Lisa Gomez
+                                </h4>
+                                <p class="text-sm text-primary font-medium">
+                                    HR Operations Director
+                                </p>
+                                <p class="text-xs text-text-muted">
+                                    Global Connect
+                                </p>
+                            </div>
+                            <span
+                                class="material-symbols-outlined text-text-muted cursor-pointer hover:text-text-main transition-colors"
+                                >more_horiz</span
+                            >
+                        </div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >The Advocate</span
+                            >
+                            <span
+                                class="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider"
+                                >Low Difficulty</span
+                            >
+                        </div>
+                        <p
+                            class="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto"
+                        >
+                            Highly empathetic and focused on employee
+                            experience. She buys into stories and human impact
+                            before looking at the spec sheet.
+                        </p>
+                        <div
+                            class="pt-4 border-t border-border-subtle flex items-center justify-between mt-4"
+                        >
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="material-symbols-outlined text-text-muted !text-sm"
+                                    >history</span
+                                >
+                                <span class="text-[11px] text-text-muted"
+                                    >Never used</span
+                                >
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    class="w-9 h-9 flex items-center justify-center rounded-lg bg-surface-hover text-text-main border border-border-subtle hover:bg-surface-panel transition-colors"
+                                >
+                                    <span class="material-symbols-outlined"
+                                        >visibility</span
+                                    >
+                                </button>
+                                <button
+                                    class="bg-primary/10 text-primary font-bold px-4 py-1.5 rounded-lg text-xs hover:bg-primary/20 transition-all"
+                                >
+                                    Quick Start
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Pagination -->
+                <div class="mt-8 flex justify-center pb-12">
+                    <nav
+                        class="bg-surface-panel border border-border-subtle p-1.5 rounded-xl flex items-center gap-1"
+                    >
+                        <button
+                            class="w-9 h-9 flex items-center justify-center hover:bg-surface-hover rounded-lg transition-colors"
+                        >
+                            <span class="material-symbols-outlined"
+                                >chevron_left</span
+                            >
+                        </button>
+                        <button
+                            class="w-9 h-9 flex items-center justify-center bg-primary text-surface-base font-bold rounded-lg text-sm"
+                        >
+                            1
+                        </button>
+                        <button
+                            class="w-9 h-9 flex items-center justify-center hover:bg-surface-hover rounded-lg transition-colors text-sm"
+                        >
+                            2
+                        </button>
+                        <button
+                            class="w-9 h-9 flex items-center justify-center hover:bg-surface-hover rounded-lg transition-colors text-sm"
+                        >
+                            3
+                        </button>
+                        <span class="px-2 text-text-muted text-xs">...</span>
+                        <button
+                            class="w-9 h-9 flex items-center justify-center hover:bg-surface-hover rounded-lg transition-colors text-sm"
+                        >
+                            12
+                        </button>
+                        <button
+                            class="w-9 h-9 flex items-center justify-center hover:bg-surface-hover rounded-lg transition-colors"
+                        >
+                            <span class="material-symbols-outlined"
+                                >chevron_right</span
+                            >
+                        </button>
+                    </nav>
+                </div>
+            </div>
+        </main>
+    </body>
+</html>

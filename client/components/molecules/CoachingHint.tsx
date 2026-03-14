@@ -16,32 +16,32 @@ const CATEGORY_CONFIG: Record<
     MONOLOGUE: {
         emoji: "⏸️",
         label: "Pause & Ask",
-        color: "text-amber-900",
-        bgColor: "bg-amber-50 border-amber-200",
+        color: "text-warning",
+        bgColor: "bg-warning/10 border-warning/20",
     },
     STUMBLING: {
         emoji: "🧘",
         label: "Composure",
-        color: "text-blue-900",
-        bgColor: "bg-blue-50 border-blue-200",
+        color: "text-primary",
+        bgColor: "bg-primary/10 border-primary/20",
     },
     RESPONSE_ASSIST: {
         emoji: "💡",
         label: "Try This",
-        color: "text-emerald-900",
-        bgColor: "bg-emerald-50 border-emerald-200",
+        color: "text-success",
+        bgColor: "bg-success/10 border-success/20",
     },
     OBJECTION_RECOVERY: {
         emoji: "🔄",
         label: "Pivot Strategy",
-        color: "text-purple-900",
-        bgColor: "bg-purple-50 border-purple-200",
+        color: "text-primary",
+        bgColor: "bg-primary/10 border-primary/20",
     },
     INTERRUPTING: {
         emoji: "✋",
         label: "Active Listen",
-        color: "text-rose-900",
-        bgColor: "bg-rose-50 border-rose-200",
+        color: "text-danger",
+        bgColor: "bg-danger/10 border-danger/20",
     },
 };
 
@@ -81,7 +81,7 @@ export function CoachingHint({ category, hint, onDismiss }: CoachingHintProps) {
             <div
                 className={`
                     ${config.bgColor} ${config.color}
-                    rounded-xl border-2 shadow-2xl
+                    rounded-2xl border shadow-2xl
                     backdrop-blur-sm
                 `}
             >
@@ -115,25 +115,7 @@ export function CoachingHint({ category, hint, onDismiss }: CoachingHintProps) {
                         <p className="text-sm leading-relaxed">{hint}</p>
                     </div>
                 </div>
-                <div className="h-1 bg-current opacity-20 rounded-b-lg">
-                    <div
-                        className="h-full bg-current opacity-50 rounded-b-lg"
-                        style={{
-                            animation: "shrink 8s linear forwards",
-                        }}
-                    />
-                </div>
             </div>
-            <style jsx>{`
-                @keyframes shrink {
-                    from {
-                        width: 100%;
-                    }
-                    to {
-                        width: 0%;
-                    }
-                }
-            `}</style>
         </div>
     );
 }

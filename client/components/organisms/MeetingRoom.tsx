@@ -12,14 +12,12 @@ import { useRouter } from "next/navigation";
 import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
 import { ChatTranscript } from "@/components/molecules/ChatTranscript";
-import { CoachingHint } from "@/components/molecules/CoachingHint";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import { saveTrainingSession } from "@/lib/training-history";
 import { generateSessionReport } from "@/lib/api";
 import type {
-    CoachingInterventionType,
     ProximaAgentConnectionState,
     ProximaAgentEvent,
     TranscriptItem,
@@ -43,13 +41,11 @@ function mergeTextWithOverlap(existing: string, incoming: string): string {
     return existing + incoming;
 }
 
-type CoachingHintData = {
-    id: number;
-    category: CoachingInterventionType;
-    hint: string;
+type MeetingRoomProps = {
+    initialSessionId?: string;
 };
 
-export function MeetingRoom() {
+export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     const router = useRouter();
     const [state, setState] =
         useState<ProximaAgentConnectionState>("disconnected");
@@ -61,14 +57,21 @@ export function MeetingRoom() {
     const [screenShareStream, setScreenShareStream] =
         useState<MediaStream | null>(null);
     const [isUploadingFile, setIsUploadingFile] = useState(false);
-    const [coachingHints, setCoachingHints] = useState<CoachingHintData[]>([]);
-    const [sessionId, setSessionId] = useState<string | null>(null);
+    const [pendingAttachment, setPendingAttachment] = useState<File | null>(
+        null
+    );
+    const [sessionId, setSessionId] = useState<string | null>(
+        initialSessionId ?? null
+    );
+    const [sessionStartedAt, setSessionStartedAt] = useState<number | null>(
+        null
+    );
+    const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
     const stateRef = useRef<ProximaAgentConnectionState>("disconnected");
     const transcriptIdRef = useRef(0);
-    const coachingHintIdRef = useRef(0);
     const currentBotMessageIdRef = useRef<number | null>(null);
     const currentUserMessageIdRef = useRef<number | null>(null);
     const speakerTimeoutRef = useRef<number | null>(null);
@@ -91,7 +94,15 @@ export function MeetingRoom() {
         (role: TranscriptItem["role"], text: string) => {
             transcriptIdRef.current += 1;
             const id = transcriptIdRef.current;
-            setTranscript((prev) => [...prev, { id, role, text }]);
+            setTranscript((prev) => [
+                ...prev,
+                {
+                    id,
+                    role,
+                    text,
+                    createdAt: new Date().toISOString(),
+                },
+            ]);
             return id;
         },
         []
@@ -203,15 +214,7 @@ export function MeetingRoom() {
                     setActiveSpeaker("user");
                     return;
                 case "coach_intervention":
-                    coachingHintIdRef.current += 1;
-                    setCoachingHints((prev) => [
-                        ...prev,
-                        {
-                            id: coachingHintIdRef.current,
-                            category: event.category,
-                            hint: event.hint,
-                        },
-                    ]);
+                    appendTranscript("coach", `Coaching Tip: ${event.hint}`);
                     return;
                 case "warning":
                     appendTranscript("system", event.message);
@@ -279,6 +282,25 @@ export function MeetingRoom() {
         screenShareVideoRef.current.srcObject = screenShareStream;
     }, [screenShareStream]);
 
+    useEffect(() => {
+        if (sessionStartedAt === null) {
+            setElapsedSeconds(0);
+            return;
+        }
+
+        const interval = window.setInterval(() => {
+            const next = Math.max(
+                0,
+                Math.floor((Date.now() - sessionStartedAt) / 1000)
+            );
+            setElapsedSeconds(next);
+        }, 1000);
+
+        return () => {
+            window.clearInterval(interval);
+        };
+    }, [sessionStartedAt]);
+
     const connect = async () => {
         if (!serviceRef.current) {
             return;
@@ -289,6 +311,7 @@ export function MeetingRoom() {
             stateRef.current = "connecting";
             setMessage("Connecting...");
             await serviceRef.current.connect();
+            setSessionStartedAt(Date.now());
             appendTranscript("system", "Session joined.");
         } catch (error) {
             const errorMessage =
@@ -338,10 +361,13 @@ export function MeetingRoom() {
     };
 
     const endSession = async () => {
+        const activeSessionId = sessionId ?? initialSessionId ?? null;
+
         stopScreenShare(false);
         serviceRef.current?.disconnect();
         setState("disconnected");
         stateRef.current = "disconnected";
+        setSessionStartedAt(null);
         setMessage("Session ended.");
         appendTranscript("system", "Session ended.");
         currentBotMessageIdRef.current = null;
@@ -349,7 +375,7 @@ export function MeetingRoom() {
         setActiveSpeaker(null);
 
         // Save session to training history if we have a session ID and transcript
-        if (sessionId && transcript.length > 0) {
+        if (activeSessionId && transcript.length > 0) {
             // Extract persona info from session context
             const sessionContextStr = localStorage.getItem(
                 "proxima_session_context"
@@ -369,10 +395,10 @@ export function MeetingRoom() {
 
             // Generate and cache the report
             try {
-                const report = await generateSessionReport(sessionId);
+                const report = await generateSessionReport(activeSessionId);
 
                 saveTrainingSession({
-                    id: sessionId,
+                    id: activeSessionId,
                     timestamp: new Date().toISOString(),
                     transcriptLength: transcript.length,
                     personaName,
@@ -383,7 +409,7 @@ export function MeetingRoom() {
                 console.error("Failed to generate report:", error);
                 // Still save the session without the report
                 saveTrainingSession({
-                    id: sessionId,
+                    id: activeSessionId,
                     timestamp: new Date().toISOString(),
                     transcriptLength: transcript.length,
                     personaName,
@@ -392,38 +418,45 @@ export function MeetingRoom() {
             }
 
             // Navigate to session report page
-            router.push(`/training/session-report?session_id=${sessionId}`);
+            router.push(`/training/${activeSessionId}/report`);
+            return;
         }
-    };
 
-    const notImplemented = (name: string) => {
-        window.alert(`${name} is not implemented yet.`);
+        router.push("/training/context-builder");
     };
 
     const onAttach = () => {
         fileInputRef.current?.click();
     };
-    const onSendText = (text: string) => {
-        if (!serviceRef.current) {
-            return;
-        }
-        serviceRef.current.sendTextMessage(text);
-        appendTranscript("user", text);
-        currentUserMessageIdRef.current = null;
-    };
-
     const onFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
         const selectedFile = event.target.files?.[0];
         event.target.value = "";
 
-        if (!selectedFile || !serviceRef.current) {
+        if (!selectedFile) {
+            return;
+        }
+
+        setPendingAttachment(selectedFile);
+    };
+
+    const sendPendingAttachment = async () => {
+        if (!pendingAttachment) {
+            return;
+        }
+
+        if (!serviceRef.current) {
             return;
         }
 
         try {
             setIsUploadingFile(true);
-            appendTranscript("system", `Uploading ${selectedFile.name}...`);
-            await serviceRef.current.uploadFile(selectedFile);
+            appendTranscript(
+                "system",
+                `Uploading ${pendingAttachment.name}...`
+            );
+            await serviceRef.current.uploadFile(pendingAttachment);
+            appendTranscript("system", `Attached: ${pendingAttachment.name}`);
+            setPendingAttachment(null);
         } catch (error) {
             const errorMessage =
                 error instanceof Error
@@ -491,192 +524,242 @@ export function MeetingRoom() {
     };
 
     return (
-        <section className="grid h-[calc(100vh-4rem)] w-full grid-cols-[minmax(0,2fr)_minmax(320px,1fr)] gap-4 rounded-2xl bg-zinc-100 p-4">
-            {/* Coaching Hint Overlays */}
-            <div className="pointer-events-none fixed inset-0 z-50 flex flex-col items-end gap-3 p-6">
-                {coachingHints.map((hint) => (
-                    <div key={hint.id} className="pointer-events-auto">
-                        <CoachingHint
-                            category={hint.category}
-                            hint={hint.hint}
-                            onDismiss={() => {
-                                setCoachingHints((prev) =>
-                                    prev.filter((h) => h.id !== hint.id)
-                                );
-                            }}
-                        />
+        <div className="h-full w-full flex flex-col overflow-hidden bg-surface-base text-text-main">
+            <header className="h-20 px-8 bg-surface-base border-b border-border-subtle flex items-center justify-between z-50">
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                            <span
+                                className="material-symbols-outlined text-surface-base"
+                                style={{ fontVariationSettings: '"FILL" 1' }}
+                            >
+                                psychology
+                            </span>
+                        </div>
+                        <span className="text-text-main font-bold text-lg tracking-tight">
+                            Proxima AI
+                        </span>
                     </div>
-                ))}
-            </div>
+                    <div className="h-4 w-px bg-border-subtle" />
+                    <span className="text-text-muted font-medium text-sm">
+                        Live Training Session
+                    </span>
+                </div>
+                <div className="flex items-center gap-3 ml-2 border-l border-border-subtle pl-6">
+                    <div className="text-right">
+                        <p className="text-xs font-medium text-text-main">
+                            Alex Rivera
+                        </p>
+                        <p className="text-[10px] text-primary">
+                            Enterprise Pro
+                        </p>
+                    </div>
+                    <img
+                        alt="Alex Rivera Profile"
+                        className="w-10 h-10 rounded-full object-cover border border-border-subtle"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHpsw-nuUHl3j0e9JxnsSe9YBDdfI_9Xv4y4gA4PqOsF8DdUjhVH4Yk1LU_Y5dgRBpoANUJSgDxKUBnjlaTLFC3jX6wU88F_3YCJl204uG8w8qGdOGCR3PddmP3QOobXUYxulAanHCcKewW8B_RTNvTxpTU2ucv7w9Hw0OZbifaSse3sEaDb-a-l5aIpOwCkjxNY0kQWGpxSGTsFZ9-iHcRA-_5iYJF7J8E55pYuH2Qzb9CGF31D46RCKcYvaEKu60l4-DFx_biht5"
+                    />
+                </div>
+            </header>
 
-            <div className="flex min-w-0 flex-col gap-4">
-                <div
-                    className={`min-h-0 flex flex-1 ${
-                        isScreenShareActive
-                            ? "items-stretch justify-stretch"
-                            : "items-center justify-center"
-                    }`}
-                >
+            <main className="flex-1 min-h-0 grid grid-cols-[minmax(0,1fr)_400px] gap-4 bg-surface-base p-4 md:p-6">
+                <div className="flex min-w-0 flex-col gap-4">
                     <div
-                        className={`flex w-full flex-col gap-4 ${
+                        className={`min-h-0 flex flex-1 ${
                             isScreenShareActive
-                                ? "max-w-none"
-                                : "max-w-[1200px]"
+                                ? "items-stretch justify-stretch"
+                                : "items-center justify-center"
                         }`}
                     >
-                        {isScreenShareActive ? (
-                            <div className="flex min-h-0 flex-1 flex-col gap-3">
-                                <div className="flex shrink-0 justify-center">
-                                    <div className="grid w-full max-w-[430px] grid-cols-2 gap-3">
-                                        <ParticipantTile
-                                            name="You"
-                                            subtitle={
-                                                state === "muted"
-                                                    ? "Muted"
-                                                    : "Microphone live"
-                                            }
-                                            isSpeaking={
-                                                activeSpeaker === "user"
-                                            }
-                                            compact
-                                            className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
-                                        />
-                                        <ParticipantTile
-                                            name="Agent"
-                                            subtitle="Training Agent"
-                                            isSpeaking={
-                                                activeSpeaker === "agent"
-                                            }
-                                            compact
-                                            className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
+                        <div
+                            className={`flex w-full flex-col gap-4 ${
+                                isScreenShareActive
+                                    ? "max-w-none"
+                                    : "max-w-[1200px]"
+                            }`}
+                        >
+                            {isScreenShareActive ? (
+                                <div className="flex min-h-0 flex-1 flex-col gap-3">
+                                    <div className="flex shrink-0 justify-center">
+                                        <div className="grid w-full max-w-[430px] grid-cols-2 gap-3">
+                                            <ParticipantTile
+                                                name="You"
+                                                subtitle={
+                                                    state === "muted"
+                                                        ? "Muted"
+                                                        : "Microphone live"
+                                                }
+                                                isSpeaking={
+                                                    activeSpeaker === "user"
+                                                }
+                                                compact
+                                                className="aspect-[16/9] bg-surface-panel"
+                                            />
+                                            <ParticipantTile
+                                                name="Agent"
+                                                subtitle="Training Agent"
+                                                isSpeaking={
+                                                    activeSpeaker === "agent"
+                                                }
+                                                compact
+                                                className="aspect-[16/9] bg-surface-panel"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-border-subtle bg-surface-panel">
+                                        <video
+                                            ref={screenShareVideoRef}
+                                            className="h-full w-full object-contain"
+                                            autoPlay
+                                            muted
+                                            playsInline
                                         />
                                     </div>
                                 </div>
-                                <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-zinc-800 bg-black">
-                                    <video
-                                        ref={screenShareVideoRef}
-                                        className="h-full w-full object-contain"
-                                        autoPlay
-                                        muted
-                                        playsInline
+                            ) : (
+                                <div className="grid min-h-[320px] w-full max-w-6xl grid-cols-2 gap-6">
+                                    <ParticipantTile
+                                        name="You"
+                                        subtitle={
+                                            state === "muted"
+                                                ? "Muted"
+                                                : "Microphone live"
+                                        }
+                                        isSpeaking={activeSpeaker === "user"}
+                                    />
+                                    <ParticipantTile
+                                        name="Agent"
+                                        subtitle="Training Agent"
+                                        isSpeaking={activeSpeaker === "agent"}
                                     />
                                 </div>
-                            </div>
-                        ) : (
-                            <div className="grid min-h-[260px] grid-cols-2 gap-4">
-                                <ParticipantTile
-                                    name="You"
-                                    subtitle={
-                                        state === "muted"
-                                            ? "Muted"
-                                            : "Microphone live"
-                                    }
-                                    isSpeaking={activeSpeaker === "user"}
-                                />
-                                <ParticipantTile
-                                    name="Agent"
-                                    subtitle="Training Agent"
-                                    isSpeaking={activeSpeaker === "agent"}
-                                />
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                <div className="flex justify-center">
-                    <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 shadow-sm">
-                        {state === "disconnected" ||
-                        state === "error" ||
-                        state === "connecting" ? (
+                    <div className="flex justify-center">
+                        <div className="flex items-center gap-3 rounded-full border border-border-subtle bg-surface-panel/95 px-4 py-3 backdrop-blur-md shadow-2xl">
+                            {state === "disconnected" ||
+                            state === "error" ||
+                            state === "connecting" ? (
+                                <IconButton
+                                    label="Join Session"
+                                    icon={
+                                        <span
+                                            className="material-symbols-outlined"
+                                            style={{
+                                                fontVariationSettings:
+                                                    '"FILL" 1',
+                                            }}
+                                        >
+                                            login
+                                        </span>
+                                    }
+                                    onClick={connect}
+                                    disabled={state === "connecting"}
+                                    showLabel
+                                />
+                            ) : null}
                             <IconButton
-                                label="Join"
+                                label={
+                                    state === "connected"
+                                        ? "Mute Microphone"
+                                        : "Unmute Microphone"
+                                }
                                 icon={
-                                    <span className="text-[10px] font-bold">
-                                        Join
+                                    <span className="material-symbols-outlined">
+                                        {state === "connected"
+                                            ? "mic"
+                                            : "mic_off"}
                                     </span>
                                 }
-                                onClick={connect}
-                                disabled={state === "connecting"}
+                                onClick={toggleMute}
+                                disabled={
+                                    state !== "connected" && state !== "muted"
+                                }
+                                showLabel
                             />
-                        ) : null}
-                        <IconButton
-                            label={state === "connected" ? "Mute" : "Unmute"}
-                            icon={<span>🎤</span>}
-                            onClick={toggleMute}
-                            disabled={
-                                state !== "connected" && state !== "muted"
-                            }
-                        />
-                        <IconButton
-                            label={
-                                isScreenShareActive
-                                    ? "Stop Share"
-                                    : "Share Screen"
-                            }
-                            icon={<span>🖥️</span>}
-                            onClick={toggleScreenShare}
-                            disabled={
-                                state === "disconnected" ||
-                                state === "connecting"
-                            }
-                        />
-                        <IconButton
-                            label="Camera"
-                            icon={<span>📷</span>}
-                            onClick={() => notImplemented("Camera control")}
-                            disabled={
-                                state === "disconnected" ||
-                                state === "connecting"
-                            }
-                        />
-                        <IconButton
-                            label="More"
-                            icon={<span>⋯</span>}
-                            onClick={() => notImplemented("More actions")}
-                            disabled={
-                                state === "disconnected" ||
-                                state === "connecting"
-                            }
-                        />
-                        <IconButton
-                            label="End Session"
-                            icon={<span>⏹</span>}
-                            onClick={endSession}
-                            disabled={
-                                state === "disconnected" ||
-                                state === "connecting"
-                            }
-                            danger
-                        />
+                            <IconButton
+                                label={
+                                    isScreenShareActive
+                                        ? "Stop Screen Share"
+                                        : "Start Screen Share"
+                                }
+                                icon={
+                                    <span className="material-symbols-outlined">
+                                        present_to_all
+                                    </span>
+                                }
+                                onClick={toggleScreenShare}
+                                disabled={
+                                    state === "disconnected" ||
+                                    state === "connecting"
+                                }
+                                showLabel
+                            />
+                            <IconButton
+                                label="End Session"
+                                icon={
+                                    <span className="material-symbols-outlined">
+                                        call_end
+                                    </span>
+                                }
+                                onClick={endSession}
+                                disabled={state === "connecting"}
+                                danger
+                                showLabel
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            <section className="flex min-w-[320px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white">
-                <header className="border-b border-zinc-200 px-4 py-3">
-                    <h2 className="text-sm font-semibold">Chat</h2>
-                    <p className="mt-1 text-xs text-zinc-700">{message}</p>
-                </header>
-                <div className="min-h-0 flex-1 overflow-auto p-3">
-                    <ChatTranscript transcript={transcript} />
-                </div>
-                <ChatComposer
-                    onAttach={onAttach}
-                    onSend={onSendText}
-                    disabled={
-                        state === "disconnected" ||
-                        state === "connecting" ||
-                        isUploadingFile
-                    }
-                />
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    onChange={onFileChange}
-                    accept="image/*,application/pdf,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                />
-            </section>
-        </section>
+                <section className="flex min-w-[320px] flex-col overflow-hidden rounded-2xl border border-border-subtle bg-surface-panel/30">
+                    <header className="h-16 px-6 border-b border-border-subtle flex items-center justify-between bg-surface-panel/50">
+                        <h2 className="text-sm font-bold uppercase tracking-widest text-white">
+                            Live Transcript
+                        </h2>
+                        <div className="flex items-center gap-2 px-3 py-1 bg-danger/10 rounded-full border border-danger/20">
+                            <span className="w-1.5 h-1.5 rounded-full bg-danger animate-pulse" />
+                            <span className="text-[10px] text-danger font-bold uppercase tracking-widest">
+                                LIVE{" "}
+                                {Math.floor(elapsedSeconds / 60)
+                                    .toString()
+                                    .padStart(2, "0")}
+                                :
+                                {(elapsedSeconds % 60)
+                                    .toString()
+                                    .padStart(2, "0")}
+                            </span>
+                        </div>
+                    </header>
+                    <div className="px-4 py-2 border-b border-border-subtle/60 bg-surface-panel/30">
+                        <p className="text-xs text-text-muted">{message}</p>
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-auto p-3 bg-surface-base themed-scrollbar">
+                        <ChatTranscript
+                            transcript={transcript}
+                            sessionStartedAt={sessionStartedAt}
+                        />
+                    </div>
+                    <ChatComposer
+                        onAttach={onAttach}
+                        attachmentName={pendingAttachment?.name ?? null}
+                        onSendAttachment={sendPendingAttachment}
+                        disabled={
+                            state === "disconnected" ||
+                            state === "connecting" ||
+                            isUploadingFile
+                        }
+                    />
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        className="hidden"
+                        onChange={onFileChange}
+                        accept="image/*,application/pdf,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    />
+                </section>
+            </main>
+        </div>
     );
 }

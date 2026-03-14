@@ -94,9 +94,9 @@ export async function clearMockData(): Promise<void> {
 export function getMockReportLinks(): string[] {
     const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
     return [
-        `${baseUrl}/training/session-report?session_id=sess_avg_001`,
-        `${baseUrl}/training/session-report?session_id=sess_high_002`,
-        `${baseUrl}/training/session-report?session_id=sess_low_003`,
+        `${baseUrl}/training/sess_avg_001/report`,
+        `${baseUrl}/training/sess_high_002/report`,
+        `${baseUrl}/training/sess_low_003/report`,
     ];
 }
 
@@ -118,9 +118,9 @@ export function logDevHelp(): void {
     console.log("  import { clearMockData } from '@/lib/dev-utils'");
     console.log("  clearMockData()");
     console.log("\nView reports:");
-    console.log("  /training/session-report?session_id=sess_avg_001");
-    console.log("  /training/session-report?session_id=sess_high_002");
-    console.log("  /training/session-report?session_id=sess_low_003\n");
+    console.log("  /training/sess_avg_001/report");
+    console.log("  /training/sess_high_002/report");
+    console.log("  /training/sess_low_003/report\n");
 }
 
 /**

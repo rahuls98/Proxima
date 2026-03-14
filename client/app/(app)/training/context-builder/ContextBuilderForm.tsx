@@ -5,8 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { SESSION_CONTEXT_BUILDER_SCHEMA } from "./schema";
 import { Button } from "@/components/atoms/Button";
 import { ContextSection } from "@/components/molecules/ContextSection";
-import { AdditionalTextContext } from "@/components/molecules/AdditionalTextContext";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
+import { PersonaConfiguringOverlay } from "@/components/molecules/PersonaConfiguringOverlay";
 import { generatePersonaInstruction } from "@/lib/api";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
 
@@ -23,12 +23,8 @@ interface AdditionalTextItem {
 interface AdditionalFileItem {
     id: number;
     key: string;
+    value: string;
     file: File | null;
-}
-
-interface PersonaInstructionResponse {
-    persona_instruction: string;
-    source_fields_count: number;
 }
 
 export function ContextBuilderForm() {
@@ -50,8 +46,7 @@ export function ContextBuilderForm() {
     ]);
     const [additionalFiles, setAdditionalFiles] = useState<
         AdditionalFileItem[]
-    >([{ id: 1, key: "", file: null }]);
-    const [textCounter, setTextCounter] = useState(2);
+    >([{ id: 1, key: "", value: "", file: null }]);
     const [fileCounter, setFileCounter] = useState(2);
 
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -75,11 +70,6 @@ export function ContextBuilderForm() {
                     | undefined;
                 if (additionalTextContext && additionalTextContext.length > 0) {
                     setAdditionalText(additionalTextContext);
-                    setTextCounter(
-                        Math.max(
-                            ...additionalTextContext.map((item) => item.id)
-                        ) + 1
-                    );
                 }
 
                 // Set the existing persona instruction
@@ -108,34 +98,10 @@ export function ContextBuilderForm() {
         }));
     }
 
-    function addAdditionalText() {
-        setAdditionalText((prev) => [
-            ...prev,
-            { id: textCounter, key: "", value: "" },
-        ]);
-        setTextCounter((c) => c + 1);
-    }
-
-    function removeAdditionalText(id: number) {
-        setAdditionalText((prev) => prev.filter((item) => item.id !== id));
-    }
-
-    function updateAdditionalText(
-        id: number,
-        field: "key" | "value",
-        value: string
-    ) {
-        setAdditionalText((prev) =>
-            prev.map((item) =>
-                item.id === id ? { ...item, [field]: value } : item
-            )
-        );
-    }
-
     function addAdditionalFile() {
         setAdditionalFiles((prev) => [
             ...prev,
-            { id: fileCounter, key: "", file: null },
+            { id: fileCounter, key: "", value: "", file: null },
         ]);
         setFileCounter((c) => c + 1);
     }
@@ -153,6 +119,14 @@ export function ContextBuilderForm() {
     function updateAdditionalFile(id: number, file: File | null) {
         setAdditionalFiles((prev) =>
             prev.map((item) => (item.id === id ? { ...item, file } : item))
+        );
+    }
+
+    function updateAdditionalFileValue(id: number, value: string) {
+        setAdditionalFiles((prev) =>
+            prev.map((item) =>
+                item.id === id ? { ...item, value, file: null } : item
+            )
         );
     }
 
@@ -191,10 +165,12 @@ export function ContextBuilderForm() {
                     (t) => t.key && t.value
                 ),
                 additional_files_context: additionalFiles
-                    .filter((f) => f.key && f.file)
+                    .filter((f) => f.key && (f.file || f.value.trim()))
                     .map((f) => ({
                         key: f.key,
+                        source_type: f.file ? "file" : "text",
                         filename: f.file?.name || "",
+                        value: f.value || "",
                     })),
             };
 
@@ -225,12 +201,16 @@ export function ContextBuilderForm() {
     }
 
     return (
-        <div className="space-y-8">
+        <div className="space-y-8 relative">
+            {isSubmitting && (
+                <PersonaConfiguringOverlay message="Processing uploaded CRM data and documents to build a highly accurate, context-aware simulation..." />
+            )}
+
             {/* Error Messages */}
             {error && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-md">
-                    <p className="text-red-800 text-sm font-medium">Error</p>
-                    <p className="text-red-700 text-sm mt-1">{error}</p>
+                <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl">
+                    <p className="text-danger text-sm font-medium">Error</p>
+                    <p className="text-danger text-sm mt-1">{error}</p>
                 </div>
             )}
 
@@ -244,68 +224,60 @@ export function ContextBuilderForm() {
                 />
             ))}
 
-            <hr className="border-zinc-200" />
-
-            {/* Additional Context Section */}
-            <section className="space-y-4">
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-900 border-b border-zinc-200 pb-3">
-                    Additional Context
-                </h3>
+            {/* Knowledge Inputs Section */}
+            <section className="bg-surface-panel rounded-2xl border border-border-subtle p-6 space-y-6">
+                <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                            <span className="material-symbols-outlined !text-[20px]">
+                                menu_book
+                            </span>
+                        </div>
+                        <h3 className="text-lg font-bold text-white uppercase tracking-wider">
+                            7. Knowledge Inputs
+                        </h3>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={addAdditionalFile}
+                        className="px-4 py-2 bg-surface-hover border border-border-subtle rounded-lg text-xs font-bold text-white hover:border-primary transition-all"
+                    >
+                        + ADD SOURCE
+                    </button>
+                </div>
 
                 <div className="space-y-6">
-                    <AdditionalTextContext
-                        items={additionalText}
-                        onAdd={addAdditionalText}
-                        onRemove={removeAdditionalText}
-                        onUpdateKey={(id, key) =>
-                            updateAdditionalText(id, "key", key)
-                        }
-                        onUpdateValue={(id, value) =>
-                            updateAdditionalText(id, "value", value)
-                        }
-                    />
-
                     <AdditionalFileContext
                         items={additionalFiles}
                         onAdd={addAdditionalFile}
                         onRemove={removeAdditionalFile}
                         onUpdateKey={updateAdditionalFileKey}
+                        onUpdateValue={updateAdditionalFileValue}
                         onUpdateFile={updateAdditionalFile}
+                        showHeader={false}
+                        showAddButton={false}
                     />
                 </div>
             </section>
 
-            {/* Submit Button */}
-            <div className="flex gap-3">
-                <Button
-                    onClick={handleSubmit}
-                    variant="primary"
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting
-                        ? "Generating Persona..."
-                        : "Save Session Context"}
-                </Button>
-            </div>
-
             {/* Generated Persona Instruction */}
             {generatedPersona && (
                 <div className="space-y-4">
-                    <hr className="border-zinc-200" />
+                    <hr className="border-border-subtle" />
                     <section className="space-y-4">
-                        <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-900 border-b border-zinc-200 pb-3">
+                        <h3 className="text-sm font-bold uppercase tracking-widest text-white border-b border-border-subtle pb-3">
                             Generated Persona System Instruction
                         </h3>
-                        <div className="p-4 bg-green-50 border border-green-200 rounded-md">
-                            <p className="text-green-800 text-sm font-medium mb-3">
+                        <div className="p-4 bg-success/10 border border-success/20 rounded-xl">
+                            <p className="text-success text-sm font-medium mb-3">
                                 ✓ Persona instruction successfully generated
                             </p>
-                            <div className="bg-white p-4 rounded border border-zinc-200 max-h-96 overflow-y-auto">
-                                <p className="text-zinc-700 text-sm whitespace-pre-wrap font-mono">
+                            <div className="bg-surface-base p-4 rounded-xl border border-border-subtle max-h-96 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:#22313a_#141c21] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-surface-panel [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-subtle [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-primary/70">
+                                <p className="text-text-main text-sm whitespace-pre-wrap font-mono">
                                     {generatedPersona}
                                 </p>
                             </div>
-                            <p className="text-green-700 text-xs mt-3">
+                            <p className="text-success text-xs mt-3">
                                 This instruction is saved and will be used for
                                 your live training session.
                             </p>

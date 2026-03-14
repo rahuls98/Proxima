@@ -1,108 +1,244 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Heading } from "@/components/atoms/Heading";
 import { Button } from "@/components/atoms/Button";
 import {
-    getSavedPersonas,
     deletePersona,
+    getSavedPersonas,
+    togglePersonaPriority,
     type SavedPersona,
 } from "@/lib/persona-storage";
+import { DUMMY_PERSONA_IMAGES, DUMMY_PERSONAS } from "@/lib/ui-dummy-data";
+import { PersonaLibraryCard } from "@/components/molecules/PersonaLibraryCard";
+import { AppPageHeader } from "@/components/molecules/AppPageHeader";
+
+const subscribeNoop = () => () => {};
+const PERSONAS_STORAGE_KEY = "proxima_saved_personas";
+let cachedPersonasRaw: string | null = null;
+let cachedPersonasSnapshot: SavedPersona[] = [];
+
+function getCachedPersistedPersonasSnapshot(): SavedPersona[] {
+    if (typeof window === "undefined") {
+        return [];
+    }
+
+    const raw = localStorage.getItem(PERSONAS_STORAGE_KEY) ?? "[]";
+    if (raw === cachedPersonasRaw) {
+        return cachedPersonasSnapshot;
+    }
+
+    cachedPersonasRaw = raw;
+    try {
+        const parsed = JSON.parse(raw);
+        cachedPersonasSnapshot = Array.isArray(parsed)
+            ? (parsed as SavedPersona[])
+            : [];
+    } catch {
+        cachedPersonasSnapshot = [];
+    }
+
+    return cachedPersonasSnapshot;
+}
+
+function getCardsPerRow(viewportWidth: number) {
+    const SIDE_NAV_WIDTH = 256;
+    const CONTENT_HORIZONTAL_PADDING = 64;
+    const GRID_GAP = 24;
+    const MIN_CARD_WIDTH = 350;
+
+    const usableWidth = Math.max(
+        viewportWidth - SIDE_NAV_WIDTH - CONTENT_HORIZONTAL_PADDING,
+        MIN_CARD_WIDTH
+    );
+
+    const fitted = Math.floor(
+        (usableWidth + GRID_GAP) / (MIN_CARD_WIDTH + GRID_GAP)
+    );
+    return Math.min(4, Math.max(1, fitted));
+}
+
+function getPageSizeForCardsPerRow(cardsPerRow: number) {
+    if (cardsPerRow === 4) {
+        return 8;
+    }
+    if (cardsPerRow === 3) {
+        return 9;
+    }
+    if (cardsPerRow === 2) {
+        return 8;
+    }
+    return 6;
+}
 
 export default function PersonasPage() {
     const router = useRouter();
     const [personas, setPersonas] = useState<SavedPersona[]>([]);
+    const [currentPage, setCurrentPage] = useState(1);
+    const persistedPersonas = useSyncExternalStore(
+        subscribeNoop,
+        getCachedPersistedPersonasSnapshot,
+        () => []
+    );
+    const cardsPerRow = useSyncExternalStore(
+        (onStoreChange) => {
+            if (typeof window === "undefined") {
+                return () => {};
+            }
 
-    useEffect(() => {
-        // Load personas from localStorage
-        setPersonas(getSavedPersonas());
-    }, []);
+            window.addEventListener("resize", onStoreChange);
+            return () => window.removeEventListener("resize", onStoreChange);
+        },
+        () => getCardsPerRow(window.innerWidth),
+        () => 1
+    );
+    const pageSize = getPageSizeForCardsPerRow(cardsPerRow);
+
+    const effectivePersonas =
+        personas.length > 0 ? personas : persistedPersonas;
+
+    const activePersonas = useMemo(
+        () =>
+            effectivePersonas.length > 0 ? effectivePersonas : DUMMY_PERSONAS,
+        [effectivePersonas]
+    );
+
+    const usingDummyData = effectivePersonas.length === 0;
+
+    const totalPages = Math.max(1, Math.ceil(activePersonas.length / pageSize));
+
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+
+    const paginatedPersonas = useMemo(() => {
+        const startIndex = (safeCurrentPage - 1) * pageSize;
+        return activePersonas.slice(startIndex, startIndex + pageSize);
+    }, [activePersonas, safeCurrentPage, pageSize]);
+
+    const rangeStart =
+        activePersonas.length === 0 ? 0 : (safeCurrentPage - 1) * pageSize + 1;
+    const rangeEnd = Math.min(
+        safeCurrentPage * pageSize,
+        activePersonas.length
+    );
 
     const handleNewTraining = (personaId: string) => {
         router.push(`/training/context-builder?personaId=${personaId}`);
     };
 
     const handleDelete = (id: string) => {
+        if (usingDummyData) {
+            return;
+        }
+
         if (confirm("Are you sure you want to delete this persona?")) {
             deletePersona(id);
             setPersonas(getSavedPersonas());
         }
     };
 
-    const formatDate = (isoString: string) => {
-        const date = new Date(isoString);
-        return date.toLocaleDateString("en-US", {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-        });
+    const handleViewDetails = (personaId: string) => {
+        router.push(`/personas/${personaId}`);
+    };
+
+    const handleTogglePriority = (personaId: string) => {
+        if (usingDummyData) {
+            return;
+        }
+
+        togglePersonaPriority(personaId);
+        setPersonas(getSavedPersonas());
     };
 
     return (
-        <div className="flex-1 p-8">
-            <div className="mb-6">
-                <Heading size="lg">Saved Personas</Heading>
-                <p className="text-zinc-600 text-sm mt-2">
-                    View and reuse your training personas for new sessions
-                </p>
-            </div>
+        <div className="flex-1 h-full min-w-0 flex flex-col bg-surface-base">
+            <AppPageHeader title="Personas" />
 
-            {personas.length === 0 ? (
-                <div className="text-center py-12">
-                    <p className="text-zinc-500 mb-4">No personas saved yet</p>
+            <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
+                <section className="flex justify-end mb-8">
                     <Button
-                        onClick={() => router.push("/training/context-builder")}
                         variant="primary"
+                        onClick={() => router.push("/training/context-builder")}
                     >
-                        Create Your First Persona
+                        <span className="material-symbols-outlined">
+                            person_add
+                        </span>
+                        Create Persona
                     </Button>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {personas.map((persona) => (
-                        <div
-                            key={persona.id}
-                            className="bg-white border border-zinc-200 rounded-lg p-6 hover:shadow-md transition-shadow"
-                        >
-                            <div className="mb-4">
-                                <h3 className="text-lg font-semibold text-zinc-900 mb-2">
-                                    {persona.name}
-                                </h3>
-                                {persona.jobTitle && (
-                                    <p className="text-sm text-zinc-600 mb-1">
-                                        {persona.jobTitle}
-                                        {persona.department &&
-                                            ` • ${persona.department}`}
-                                    </p>
-                                )}
-                                <p className="text-xs text-zinc-500 mt-2">
-                                    Created {formatDate(persona.createdAt)}
-                                </p>
-                            </div>
+                </section>
 
-                            <div className="border-t border-zinc-200 pt-4 space-y-2">
-                                <button
-                                    onClick={() =>
-                                        handleNewTraining(persona.id)
-                                    }
-                                    className="w-full px-4 py-2 text-sm rounded-md bg-black text-white hover:bg-zinc-800 transition-colors"
-                                >
-                                    New Training
-                                </button>
-                                <button
-                                    onClick={() => handleDelete(persona.id)}
-                                    className="w-full px-4 py-2 text-sm rounded-md border border-zinc-300 bg-white text-red-600 hover:bg-red-50 transition-colors"
-                                >
-                                    Delete
-                                </button>
-                            </div>
+                <section className="grid [grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))] gap-6 pb-12">
+                    {paginatedPersonas.length === 0 ? (
+                        <article className="col-span-full bg-surface-panel border border-border-subtle rounded-2xl p-10 flex flex-col items-center justify-center text-center">
+                            <span className="material-symbols-outlined text-text-muted !text-[30px] mb-3">
+                                groups
+                            </span>
+                            <h3 className="text-base font-bold text-text-main mb-1">
+                                No personas found
+                            </h3>
+                            <p className="text-sm text-text-muted max-w-md">
+                                Create your first persona to start running
+                                tailored training sessions.
+                            </p>
+                        </article>
+                    ) : (
+                        paginatedPersonas.map((persona) => (
+                            <PersonaLibraryCard
+                                key={persona.id}
+                                persona={persona}
+                                imageSrc={
+                                    DUMMY_PERSONA_IMAGES[persona.name] ||
+                                    DUMMY_PERSONA_IMAGES["Priya Nair"]
+                                }
+                                onQuickStart={handleNewTraining}
+                                onViewDetails={handleViewDetails}
+                                onTogglePriority={handleTogglePriority}
+                                onDelete={handleDelete}
+                                showDelete={!usingDummyData}
+                            />
+                        ))
+                    )}
+                </section>
+
+                {activePersonas.length > 0 ? (
+                    <section className="px-1 pb-6 flex items-center justify-between">
+                        <span className="text-xs text-text-muted font-medium">
+                            Showing {rangeStart}-{rangeEnd} of{" "}
+                            {activePersonas.length} personas
+                        </span>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() =>
+                                    setCurrentPage((page) =>
+                                        Math.max(1, page - 1)
+                                    )
+                                }
+                                disabled={safeCurrentPage === 1}
+                                className="p-2 rounded-lg bg-surface-hover text-text-muted hover:text-text-main transition-colors border border-border-subtle disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-outlined">
+                                    chevron_left
+                                </span>
+                            </button>
+                            <button className="h-8 min-w-8 px-2 rounded-lg bg-primary text-surface-base text-xs font-bold">
+                                {safeCurrentPage}
+                            </button>
+                            <button
+                                onClick={() =>
+                                    setCurrentPage((page) =>
+                                        Math.min(totalPages, page + 1)
+                                    )
+                                }
+                                disabled={safeCurrentPage >= totalPages}
+                                className="p-2 rounded-lg bg-surface-hover text-text-muted hover:text-text-main transition-colors border border-border-subtle disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                <span className="material-symbols-outlined">
+                                    chevron_right
+                                </span>
+                            </button>
                         </div>
-                    ))}
-                </div>
-            )}
+                    </section>
+                ) : null}
+            </div>
         </div>
     );
 }

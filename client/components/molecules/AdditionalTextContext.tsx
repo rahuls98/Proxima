@@ -1,4 +1,3 @@
-import { Button } from "@/components/atoms/Button";
 import { Input } from "@/components/atoms/Input";
 import { TextArea } from "@/components/atoms/TextArea";
 
@@ -24,15 +23,15 @@ export function AdditionalTextContext({
     onUpdateValue,
 }: AdditionalTextContextProps) {
     return (
-        <div className="space-y-3">
-            <h4 className="text-xs font-semibold uppercase tracking-widest text-zinc-700">
+        <div className="space-y-4">
+            <h4 className="text-xs font-bold uppercase tracking-widest text-text-muted">
                 Custom Text Context
             </h4>
-            <div className="space-y-2">
+            <div className="space-y-3">
                 {items.map((item) => (
                     <div
                         key={item.id}
-                        className="flex gap-2 items-start p-3 bg-zinc-50 rounded-md border border-zinc-200"
+                        className="flex gap-3 items-start p-4 bg-surface-panel rounded-xl border border-border-subtle"
                     >
                         <div className="flex-1 space-y-2">
                             <Input
@@ -55,7 +54,7 @@ export function AdditionalTextContext({
                         <button
                             type="button"
                             onClick={() => onRemove(item.id)}
-                            className="mt-2 px-2 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                            className="mt-2 px-2 py-1 text-xs bg-danger/10 text-danger rounded-lg hover:bg-danger/20 transition-colors"
                         >
                             Remove
                         </button>
@@ -65,7 +64,7 @@ export function AdditionalTextContext({
             <button
                 type="button"
                 onClick={onAdd}
-                className="w-full border border-dashed border-zinc-300 rounded-md text-zinc-700 hover:text-zinc-900 hover:border-zinc-400 text-sm py-2 transition-colors"
+                className="w-full border-2 border-dashed border-border-subtle rounded-lg text-text-muted hover:text-primary hover:border-primary/50 text-sm py-3 transition-colors"
             >
                 + Add Text Item
             </button>

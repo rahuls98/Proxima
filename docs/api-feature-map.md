@@ -1,6 +1,6 @@
 # API Feature Map
 
-All endpoints return the same dummy payloads as `client/lib/ui-dummy-data.ts`.
+Feature → API mapping for the current Firestore-backed implementation.
 
 **Pages**
 - `/dashboard` metrics aggregate: `GET /api/metrics/aggregate`
@@ -41,3 +41,6 @@ All endpoints return the same dummy payloads as `client/lib/ui-dummy-data.ts`.
 - `PersonaLibraryCard` deletes persona: `DELETE /api/personas/{persona_id}`
 - `SessionsTable` deletes session: `DELETE /api/sessions/{session_id}`
 
+**Notes**
+- Reports are cached server-side. Regeneration occurs when explicitly requested.
+- Session transcripts are persisted and used for LLM-powered key moments/insights.

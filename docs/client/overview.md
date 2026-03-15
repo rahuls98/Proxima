@@ -1,4 +1,4 @@
-# Proxima Client
+# Client Overview
 
 Next.js UI for persona setup, live training sessions, and performance reports.
 
@@ -26,11 +26,3 @@ Next.js UI for persona setup, live training sessions, and performance reports.
 - Bottom controls (mute, share screen, end)
 - Transcript + chat composer
 - Coaching hint popups (centered above controls)
-
-## Data Notes
-
-The client reads/writes via server APIs (no localStorage). Reports are cached server-side and re-generated when needed.
-
-## Environment
-
-- `NEXT_PUBLIC_PROXIMA_AGENT_WS_URL` (optional WebSocket override)

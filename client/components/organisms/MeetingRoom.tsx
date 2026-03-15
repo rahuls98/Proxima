@@ -13,6 +13,7 @@ import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
 import { ChatTranscript } from "@/components/molecules/ChatTranscript";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
+import { getUserName } from "@/lib/user-settings";
 import { PersonaConfiguringOverlay } from "@/components/molecules/PersonaConfiguringOverlay";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
@@ -75,6 +76,10 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         unknown
     > | null>(null);
     const [prospectName, setProspectName] = useState<string | null>(null);
+    const [userName, setUserName] = useState<string>("");
+    useEffect(() => {
+        setUserName(getUserName() || "You");
+    }, []);
     const [prospectTone, setProspectTone] = useState<string | null>(null);
     const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
     const [isPersonaReady, setIsPersonaReady] = useState(false);
@@ -787,17 +792,12 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                 <div className="flex items-center gap-3 ml-2 border-l border-border-subtle pl-6">
                     <div className="text-right">
                         <p className="text-xs font-medium text-text-main">
-                            Alex Rivera
+                            {userName}
                         </p>
                         <p className="text-[10px] text-primary">
                             Enterprise Pro
                         </p>
                     </div>
-                    <img
-                        alt="Alex Rivera Profile"
-                        className="w-10 h-10 rounded-full object-cover border border-border-subtle"
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAHpsw-nuUHl3j0e9JxnsSe9YBDdfI_9Xv4y4gA4PqOsF8DdUjhVH4Yk1LU_Y5dgRBpoANUJSgDxKUBnjlaTLFC3jX6wU88F_3YCJl204uG8w8qGdOGCR3PddmP3QOobXUYxulAanHCcKewW8B_RTNvTxpTU2ucv7w9Hw0OZbifaSse3sEaDb-a-l5aIpOwCkjxNY0kQWGpxSGTsFZ9-iHcRA-_5iYJF7J8E55pYuH2Qzb9CGF31D46RCKcYvaEKu60l4-DFx_biht5"
-                    />
                 </div>
             </header>
 
@@ -822,7 +822,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                     <div className="flex shrink-0 justify-center">
                                         <div className="grid w-full max-w-[430px] grid-cols-2 gap-3">
                                             <ParticipantTile
-                                                name="You"
+                                                name={userName}
                                                 subtitle={
                                                     state === "muted"
                                                         ? "Muted"
@@ -864,7 +864,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                             ) : (
                                 <div className="grid min-h-[320px] w-full max-w-6xl grid-cols-2 gap-6">
                                     <ParticipantTile
-                                        name="You"
+                                        name={userName}
                                         subtitle={
                                             state === "muted"
                                                 ? "Muted"

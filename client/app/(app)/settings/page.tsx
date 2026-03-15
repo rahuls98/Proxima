@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
+
 import {
     fetchAvatarGenerationEnabled,
     updateAvatarGenerationEnabled,
 } from "@/lib/ai-feature-settings";
+import { getUserName, setUserName } from "@/lib/user-settings";
 
 export default function SettingsPage() {
     const [avatarGenerationEnabled, setAvatarGenerationEnabledState] =
@@ -14,6 +16,9 @@ export default function SettingsPage() {
     const [isSaving, setIsSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
+    const [userName, setUserNameState] = useState("");
+    const [userNameSaved, setUserNameSaved] = useState(false);
+
     useEffect(() => {
         const loadSettings = async () => {
             setIsLoading(true);
@@ -21,6 +26,7 @@ export default function SettingsPage() {
             try {
                 const enabled = await fetchAvatarGenerationEnabled();
                 setAvatarGenerationEnabledState(enabled);
+                setUserNameState(getUserName() || "");
             } catch (loadError) {
                 setError(
                     loadError instanceof Error
@@ -62,8 +68,57 @@ export default function SettingsPage() {
             <AppPageHeader title="Settings" />
 
             <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
-                <section className="bg-surface-panel border border-border-subtle rounded-2xl p-6 space-y-5 max-w-3xl">
+                <section className="bg-surface-panel border border-border-subtle rounded-2xl p-6 space-y-8 max-w-3xl">
                     <div className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-primary">
+                            person
+                        </span>
+                        <h2 className="text-lg font-bold text-text-main">
+                            User Settings
+                        </h2>
+                    </div>
+                    <form
+                        className="flex items-end gap-4 rounded-xl border border-border-subtle bg-surface-base p-4"
+                        onSubmit={(e) => {
+                            e.preventDefault();
+                            setUserName(userName);
+                            setUserNameSaved(true);
+                            setTimeout(() => setUserNameSaved(false), 1200);
+                        }}
+                    >
+                        <div className="flex-1">
+                            <label
+                                className="block text-sm font-semibold text-text-main mb-1"
+                                htmlFor="userNameInput"
+                            >
+                                Your Name
+                            </label>
+                            <input
+                                id="userNameInput"
+                                type="text"
+                                className="w-full rounded-lg border border-border-subtle px-3 py-2 text-sm bg-surface-panel text-text-main focus:outline-none focus:border-primary"
+                                value={userName}
+                                onChange={(e) =>
+                                    setUserNameState(e.target.value)
+                                }
+                                placeholder="Enter your name"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="px-4 py-2 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
+                            disabled={userName.trim() === ""}
+                        >
+                            Save
+                        </button>
+                        {userNameSaved && (
+                            <span className="text-xs text-success ml-2">
+                                Saved!
+                            </span>
+                        )}
+                    </form>
+
+                    <div className="flex items-center gap-3 mt-8">
                         <span className="material-symbols-outlined text-primary">
                             smart_toy
                         </span>

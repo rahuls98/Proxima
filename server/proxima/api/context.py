@@ -18,6 +18,19 @@ from services.gemini.imagen import GeminiImagenClient, ImagenError
 
 router = APIRouter(prefix="/context", tags=["context"])
 
+REQUIRED_SESSION_CONTEXT_FIELDS = [
+    "job_title",
+    "company_name",
+    "location",
+    "industry",
+    "discussion_stage",
+    "objection_archetype",
+    "skepticism_level",
+    "negotiation_toughness",
+    "decision_style",
+    "trust_level_at_start",
+]
+
 # Lazy singleton — instantiated on first request so .env is already loaded.
 _client: GeminiMultimodalClient | None = None
 _imagen_client: GeminiImagenClient | None = None
@@ -188,18 +201,25 @@ def _build_persona_instruction(
         "Stay in character and use the persona details below:",
     ]
 
+    archetype_map = {
+        "skeptic": "The Skeptic",
+        "visionary": "The Visionary",
+        "guardian": "The Guardian",
+    }
+    archetype_value = str(session_context.get("objection_archetype") or "").strip()
+    archetype_label = archetype_map.get(archetype_value, archetype_value)
+
     details = [
         _line("Job title", "job_title"),
-        _line("Department", "department"),
         _line("Company", "company_name"),
-        _line("Company size", "company_size"),
+        _line("Location", "location"),
         _line("Industry", "industry"),
-        _line("Buying stage", "buying_stage"),
-        _line("Current initiative", "current_initiative"),
-        _line("Current tools", "current_tools"),
-        _line("Budget status", "budget_status"),
-        _line("Decision timeline", "decision_timeline"),
-        _line("Reports to", "reports_to"),
+        _line("Discussion stage", "discussion_stage"),
+        f"- Persona archetype: {archetype_label}" if archetype_label else None,
+        _line("Decision style", "decision_style"),
+        _line("Skepticism level (1-5)", "skepticism_level"),
+        _line("Negotiation toughness (1-5)", "negotiation_toughness"),
+        _line("Initial trust score (1-5)", "trust_level_at_start"),
         _line("Tone", "voice_tone") if tone else None,
     ]
 
@@ -239,6 +259,20 @@ async def generate_persona_instruction(req: SessionContextInput):
             detail="session_context cannot be empty.",
         )
 
+    missing_required = [
+        field
+        for field in REQUIRED_SESSION_CONTEXT_FIELDS
+        if not str(req.session_context.get(field) or "").strip()
+    ]
+    if missing_required:
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                "Missing required session_context fields: "
+                + ", ".join(missing_required)
+            ),
+        )
+
     context_name = req.session_context.get("prospect_name")
     voice_manager = LiveVoiceManager()
     selected_voice = voice_manager.get_random_voice()
@@ -250,7 +284,7 @@ async def generate_persona_instruction(req: SessionContextInput):
     else:
         seed = "|".join(
             str(req.session_context.get(key) or "")
-            for key in ["job_title", "company_name", "industry", "department"]
+            for key in ["job_title", "company_name", "industry", "location"]
         )
         prospect_name = _generate_prospect_name(seed, voice_gender)
 

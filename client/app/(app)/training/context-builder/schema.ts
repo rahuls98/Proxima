@@ -69,6 +69,13 @@ export const SESSION_CONTEXT_BUILDER_SCHEMA: ContextBuilderSchema = {
                     ],
                 },
                 {
+                    key: "location",
+                    label: "Location",
+                    type: "text",
+                    required: true,
+                    dummy_value: "San Francisco, CA",
+                },
+                {
                     key: "company_name",
                     label: "Company Name (Optional)",
                     type: "text",

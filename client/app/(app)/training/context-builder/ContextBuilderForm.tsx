@@ -1,6 +1,12 @@
 "use client";
 
-import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import {
+    forwardRef,
+    useEffect,
+    useImperativeHandle,
+    useRef,
+    useState,
+} from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/atoms/Input";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
@@ -21,28 +27,29 @@ type AdditionalFileItem = {
 
 type FormValues = {
     job_title: string;
-    department: string;
     company_name: string;
-    company_size: string;
+    location: string;
     industry: string;
-    buying_stage: string;
-    current_initiative: string;
-    current_tools: string;
-    budget_status: string;
-    decision_timeline: string;
+    // Persona fields
+    discussion_stage: string;
+    objection_archetype: string;
+    skepticism_level: string;
+    negotiation_toughness: string;
+    decision_style: string;
+    trust_level_at_start: string;
 };
 
 const REQUIRED_FIELDS: (keyof FormValues)[] = [
     "job_title",
-    "department",
     "company_name",
-    "company_size",
+    "location",
     "industry",
-    "buying_stage",
-    "current_initiative",
-    "current_tools",
-    "budget_status",
-    "decision_timeline",
+    "discussion_stage",
+    "objection_archetype",
+    "skepticism_level",
+    "negotiation_toughness",
+    "decision_style",
+    "trust_level_at_start",
 ];
 type GenerateResult = {
     sessionContext: Record<string, unknown>;
@@ -54,16 +61,16 @@ export type ContextBuilderFormHandle = {
 };
 
 const emptyForm: FormValues = {
-    job_title: "VP of Marketing",
-    department: "Marketing",
-    company_name: "Atlas Growth Co.",
-    company_size: "200-500 employees",
-    industry: "B2B SaaS",
-    buying_stage: "Evaluation",
-    current_initiative: "Modernizing lead-to-revenue analytics",
-    current_tools: "HubSpot, GA4, Looker",
-    budget_status: "Budget approved for Q2",
-    decision_timeline: "6-8 weeks",
+    job_title: "",
+    company_name: "",
+    location: "",
+    industry: "",
+    discussion_stage: "",
+    objection_archetype: "",
+    skepticism_level: "",
+    negotiation_toughness: "",
+    decision_style: "",
+    trust_level_at_start: "",
 };
 
 const AVATAR_STORAGE_KEY_PREFIX = "persona_image_";
@@ -127,6 +134,43 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
         const searchParams = useSearchParams();
         const personaId = searchParams?.get("personaId");
 
+        const randomizePersonaConfiguration = (
+            base: FormValues
+        ): FormValues => {
+            const archetypes = ["skeptic", "visionary", "guardian"];
+            const decisionStyles = [
+                "Data-Driven",
+                "Consensus-Based",
+                "Intuitive",
+                "Top-Down",
+            ];
+            const discussionStages = [
+                "Awareness",
+                "Consideration",
+                "Decision",
+                "Expansion",
+            ];
+
+            return {
+                ...base,
+                discussion_stage:
+                    discussionStages[
+                        Math.floor(Math.random() * discussionStages.length)
+                    ],
+                objection_archetype:
+                    archetypes[Math.floor(Math.random() * archetypes.length)],
+                decision_style:
+                    decisionStyles[
+                        Math.floor(Math.random() * decisionStyles.length)
+                    ],
+                skepticism_level: String(Math.floor(Math.random() * 5) + 1),
+                negotiation_toughness: String(
+                    Math.floor(Math.random() * 5) + 1
+                ),
+                trust_level_at_start: String(Math.floor(Math.random() * 5) + 1),
+            };
+        };
+
         const [formValues, setFormValues] = useState<FormValues>(emptyForm);
         const [additionalFiles, setAdditionalFiles] = useState<
             AdditionalFileItem[]
@@ -134,6 +178,14 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
         const [fileCounter, setFileCounter] = useState(2);
 
         const [error, setError] = useState<string | null>(null);
+        const [submitAttempted, setSubmitAttempted] = useState(false);
+
+        // Randomize Persona section values on mount (if not loading existing persona)
+        useEffect(() => {
+            if (!personaId) {
+                setFormValues((prev) => randomizePersonaConfiguration(prev));
+            }
+        }, [personaId]);
         useEffect(() => {
             if (!personaId) {
                 return;
@@ -152,15 +204,18 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                     >;
                     setFormValues({
                         job_title: context.job_title || "",
-                        department: context.department || "",
                         company_name: context.company_name || "",
-                        company_size: context.company_size || "",
+                        location: context.location || "",
                         industry: context.industry || "",
-                        buying_stage: context.buying_stage || "",
-                        current_initiative: context.current_initiative || "",
-                        current_tools: context.current_tools || "",
-                        budget_status: context.budget_status || "",
-                        decision_timeline: context.decision_timeline || "",
+                        discussion_stage: context.discussion_stage || "",
+                        objection_archetype: context.objection_archetype || "",
+                        skepticism_level:
+                            String(context.skepticism_level || "") || "",
+                        negotiation_toughness:
+                            String(context.negotiation_toughness || "") || "",
+                        decision_style: context.decision_style || "",
+                        trust_level_at_start:
+                            String(context.trust_level_at_start || "") || "",
                     });
                 } catch (loadError) {
                     console.error("Failed to load persona:", loadError);
@@ -209,10 +264,25 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             );
         };
 
+        // Refs for each required field
+        const fieldRefs = {
+            job_title: useRef<HTMLDivElement>(null),
+            company_name: useRef<HTMLDivElement>(null),
+            location: useRef<HTMLDivElement>(null),
+            industry: useRef<HTMLDivElement>(null),
+            discussion_stage: useRef<HTMLDivElement>(null),
+            objection_archetype: useRef<HTMLDivElement>(null),
+            skepticism_level: useRef<HTMLDivElement>(null),
+            negotiation_toughness: useRef<HTMLDivElement>(null),
+            decision_style: useRef<HTMLDivElement>(null),
+            trust_level_at_start: useRef<HTMLDivElement>(null),
+        };
+
         const generatePersona = async (
             sessionId: string
         ): Promise<GenerateResult | null> => {
             setError(null);
+            setSubmitAttempted(true);
 
             if (!sessionId) {
                 setError(
@@ -225,7 +295,34 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                 (key) => !formValues[key]?.trim()
             );
             if (missing.length > 0) {
-                setError("Please fill in all required fields.");
+                // Scroll to first missing field after DOM updates
+                const firstMissing = missing[0];
+                setTimeout(() => {
+                    const ref = fieldRefs[firstMissing];
+                    if (ref && ref.current) {
+                        ref.current.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center",
+                        });
+                        // Also focus the first input/select inside the errored field for accessibility
+                        const input = ref.current.querySelector(
+                            "input,select,textarea,button"
+                        );
+                        if (input && input instanceof HTMLElement) {
+                            input.focus();
+                        }
+                    } else {
+                        // fallback: try by id
+                        const el = document.getElementById(
+                            `field-${firstMissing}`
+                        );
+                        if (el)
+                            el.scrollIntoView({
+                                behavior: "smooth",
+                                block: "center",
+                            });
+                    }
+                }, 0);
                 return null;
             }
 
@@ -323,6 +420,10 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             generatePersona,
         }));
 
+        // Helper to check if a field is missing and should show error
+        const showFieldError = (key: keyof FormValues) =>
+            submitAttempted && !formValues[key]?.trim();
+
         return (
             <div className="space-y-8">
                 <section className="bg-surface-panel rounded-2xl border border-border-subtle p-6 space-y-8">
@@ -338,13 +439,17 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div className="space-y-1">
+                        <div
+                            className="space-y-1"
+                            ref={fieldRefs.job_title}
+                            id="field-job_title"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
                                 Job Title
                             </label>
                             <Input
                                 type="text"
-                                placeholder="e.g. VP of Marketing"
+                                placeholder="e.g. VP of Operations"
                                 value={formValues.job_title}
                                 onChange={(e) =>
                                     handleFieldChange(
@@ -352,31 +457,29 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                                         e.target.value
                                     )
                                 }
-                            />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Department
-                            </label>
-                            <Input
-                                type="text"
-                                placeholder="e.g. Marketing"
-                                value={formValues.department}
-                                onChange={(e) =>
-                                    handleFieldChange(
-                                        "department",
-                                        e.target.value
-                                    )
+                                className={
+                                    showFieldError("job_title")
+                                        ? "border-danger"
+                                        : ""
                                 }
                             />
+                            {showFieldError("job_title") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
-                        <div className="space-y-1">
+                        <div
+                            className="space-y-1"
+                            ref={fieldRefs.company_name}
+                            id="field-company_name"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
                                 Company Name
                             </label>
                             <Input
                                 type="text"
-                                placeholder="e.g. GrowthStack"
+                                placeholder="e.g. Acme Cloud Corp"
                                 value={formValues.company_name}
                                 onChange={(e) =>
                                     handleFieldChange(
@@ -384,31 +487,59 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                                         e.target.value
                                     )
                                 }
+                                className={
+                                    showFieldError("company_name")
+                                        ? "border-danger"
+                                        : ""
+                                }
                             />
+                            {showFieldError("company_name") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
-                        <div className="space-y-1">
+                        <div
+                            className="space-y-1"
+                            ref={fieldRefs.location}
+                            id="field-location"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Company Size
+                                Location
                             </label>
                             <Input
                                 type="text"
-                                placeholder="e.g. 500-1000 employees"
-                                value={formValues.company_size}
+                                placeholder="e.g. North America (EST)"
+                                value={formValues.location}
                                 onChange={(e) =>
                                     handleFieldChange(
-                                        "company_size",
+                                        "location",
                                         e.target.value
                                     )
                                 }
+                                className={
+                                    showFieldError("location")
+                                        ? "border-danger"
+                                        : ""
+                                }
                             />
+                            {showFieldError("location") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
-                        <div className="space-y-1">
+                        <div
+                            className="space-y-1"
+                            ref={fieldRefs.industry}
+                            id="field-industry"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
                                 Industry
                             </label>
                             <Input
                                 type="text"
-                                placeholder="e.g. B2B SaaS"
+                                placeholder="e.g. Fintech"
                                 value={formValues.industry}
                                 onChange={(e) =>
                                     handleFieldChange(
@@ -416,103 +547,279 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                                         e.target.value
                                     )
                                 }
+                                className={
+                                    showFieldError("industry")
+                                        ? "border-danger"
+                                        : ""
+                                }
                             />
+                            {showFieldError("industry") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
                     </div>
                 </section>
 
-                <section className="bg-surface-panel rounded-2xl border border-border-subtle p-6 space-y-8">
-                    <div className="flex items-center gap-3 mb-5">
-                        <div className="p-2 bg-primary/10 rounded-lg text-primary flex">
+                {/* Persona Section */}
+                <section
+                    className="bg-surface-panel rounded-2xl border border-border-subtle p-6"
+                    data-purpose="persona-section"
+                >
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg text-primary">
+                                <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path
+                                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth="2"
+                                    ></path>
+                                </svg>
+                            </div>
+                            <h2 className="text-lg font-bold text-white uppercase tracking-wider">
+                                Persona Configuration
+                            </h2>
+                        </div>
+                        <button
+                            type="button"
+                            className="bg-surface-hover border border-border-subtle text-text-main hover:bg-surface-base px-4 py-2 rounded-xl flex items-center gap-2 transition-colors text-xs font-bold"
+                            onClick={() => {
+                                setFormValues((prev) =>
+                                    randomizePersonaConfiguration(prev)
+                                );
+                            }}
+                        >
                             <span className="material-symbols-outlined !text-[20px]">
-                                work
+                                shuffle
                             </span>
-                        </div>
-                        <h3 className="text-lg font-bold text-white uppercase tracking-wider">
-                            Business Context
-                        </h3>
+                            Randomize
+                        </button>
                     </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        <div className="space-y-1">
+                    {/* Discussion Stage Dropdown */}
+                    <div
+                        className="mb-8"
+                        ref={fieldRefs.discussion_stage}
+                        id="field-discussion_stage"
+                    >
+                        <label className="text-sm font-medium text-text-muted mb-1 block">
+                            Discussion Stage
+                        </label>
+                        <select
+                            className={`w-full bg-surface-base border rounded-xl px-4 py-3 text-sm text-text-main focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all ${showFieldError("discussion_stage") ? "border-danger" : "border-border-subtle"}`}
+                            value={formValues.discussion_stage || ""}
+                            onChange={(e) =>
+                                handleFieldChange(
+                                    "discussion_stage" as keyof FormValues,
+                                    e.target.value
+                                )
+                            }
+                        >
+                            <option value="" disabled hidden>
+                                Select a stage...
+                            </option>
+                            <option>Awareness</option>
+                            <option>Consideration</option>
+                            <option>Decision</option>
+                            <option>Expansion</option>
+                        </select>
+                        {showFieldError("discussion_stage") && (
+                            <span className="text-xs text-danger">
+                                Required
+                            </span>
+                        )}
+                    </div>
+                    <div
+                        className="grid grid-cols-3 gap-4 mb-8"
+                        ref={fieldRefs.objection_archetype}
+                        id="field-objection_archetype"
+                    >
+                        {[
+                            {
+                                key: "skeptic",
+                                label: "The Skeptic",
+                                desc: "Questions data and demands proof at every step.",
+                            },
+                            {
+                                key: "visionary",
+                                label: "The Visionary",
+                                desc: "Focused on long-term strategy and transformation.",
+                            },
+                            {
+                                key: "guardian",
+                                label: "The Guardian",
+                                desc: "Protects current workflows and budget stability.",
+                            },
+                        ].map((arch) => (
+                            <div
+                                key={arch.key}
+                                className={`p-4 rounded-xl border ${formValues.objection_archetype === arch.key ? "border-primary bg-primary/5" : showFieldError("objection_archetype") ? "border-danger" : "border-border-subtle bg-surface-base hover:border-primary/50 transition-all duration-300 cursor-pointer group"}`}
+                                onClick={() =>
+                                    handleFieldChange(
+                                        "objection_archetype" as keyof FormValues,
+                                        arch.key
+                                    )
+                                }
+                            >
+                                <div
+                                    className={`font-bold ${formValues.objection_archetype === arch.key ? "text-primary" : "text-white"} mb-1`}
+                                >
+                                    {arch.label}
+                                </div>
+                                <div className="text-xs text-text-muted">
+                                    {arch.desc}
+                                </div>
+                            </div>
+                        ))}
+                        {showFieldError("objection_archetype") && (
+                            <span className="text-xs text-danger">
+                                Select one archetype
+                            </span>
+                        )}
+                    </div>
+                    {/* Decision Style in its own row */}
+                    <div
+                        className="mb-8"
+                        ref={fieldRefs.decision_style}
+                        id="field-decision_style"
+                    >
+                        <label className="text-sm font-medium text-text-muted mb-1 block">
+                            Decision Style
+                        </label>
+                        <select
+                            className={`w-full bg-surface-base border rounded-xl px-4 py-3 text-sm text-text-main focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all ${showFieldError("decision_style") ? "border-danger" : "border-border-subtle"}`}
+                            value={formValues.decision_style || "Data-Driven"}
+                            onChange={(e) =>
+                                handleFieldChange(
+                                    "decision_style" as keyof FormValues,
+                                    e.target.value
+                                )
+                            }
+                        >
+                            <option>Data-Driven</option>
+                            <option>Consensus-Based</option>
+                            <option>Intuitive</option>
+                            <option>Top-Down</option>
+                        </select>
+                        {showFieldError("decision_style") && (
+                            <span className="text-xs text-danger">
+                                Required
+                            </span>
+                        )}
+                    </div>
+                    {/* All sliders in one row */}
+                    <div className="grid grid-cols-3 gap-6">
+                        {/* Skepticism Level Slider */}
+                        <div
+                            ref={fieldRefs.skepticism_level}
+                            id="field-skepticism_level"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Buying Stage
+                                Skepticism Level
                             </label>
-                            <Input
-                                type="text"
-                                placeholder="e.g. Early Evaluation"
-                                value={formValues.buying_stage}
+                            <input
+                                type="range"
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={formValues.skepticism_level || 3}
                                 onChange={(e) =>
                                     handleFieldChange(
-                                        "buying_stage",
+                                        "skepticism_level" as keyof FormValues,
                                         e.target.value
                                     )
                                 }
+                                className={`w-full accent-primary ${showFieldError("skepticism_level") ? "border-danger" : ""}`}
                             />
+                            <div className="flex justify-between text-xs text-text-muted mt-1">
+                                <span>1</span>
+                                <span className="font-semibold text-text-main">
+                                    {formValues.skepticism_level || 3}
+                                </span>
+                                <span>5</span>
+                            </div>
+                            {showFieldError("skepticism_level") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
-                        <div className="space-y-1">
+                        {/* Toughness in Negotiation Slider */}
+                        <div
+                            ref={fieldRefs.negotiation_toughness}
+                            id="field-negotiation_toughness"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Current Initiative
+                                Toughness in Negotiation
                             </label>
-                            <Input
-                                type="text"
-                                placeholder="e.g. Marketing automation overhaul"
-                                value={formValues.current_initiative}
+                            <input
+                                type="range"
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={formValues.negotiation_toughness || 3}
                                 onChange={(e) =>
                                     handleFieldChange(
-                                        "current_initiative",
+                                        "negotiation_toughness" as keyof FormValues,
                                         e.target.value
                                     )
                                 }
+                                className={`w-full accent-primary ${showFieldError("negotiation_toughness") ? "border-danger" : ""}`}
                             />
+                            <div className="flex justify-between text-xs text-text-muted mt-1">
+                                <span>1</span>
+                                <span className="font-semibold text-text-main">
+                                    {formValues.negotiation_toughness || 3}
+                                </span>
+                                <span>5</span>
+                            </div>
+                            {showFieldError("negotiation_toughness") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
-                        <div className="space-y-1">
+                        {/* Initial Trust Score Slider */}
+                        <div
+                            ref={fieldRefs.trust_level_at_start}
+                            id="field-trust_level_at_start"
+                        >
                             <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Current Tools
+                                Initial Trust Score
                             </label>
-                            <Input
-                                type="text"
-                                placeholder="e.g. HubSpot, Salesforce"
-                                value={formValues.current_tools}
+                            <input
+                                type="range"
+                                min={1}
+                                max={5}
+                                step={1}
+                                value={formValues.trust_level_at_start || 3}
                                 onChange={(e) =>
                                     handleFieldChange(
-                                        "current_tools",
+                                        "trust_level_at_start" as keyof FormValues,
                                         e.target.value
                                     )
                                 }
+                                className={`w-full accent-primary ${showFieldError("trust_level_at_start") ? "border-danger" : ""}`}
                             />
-                        </div>
-                        <div className="space-y-1">
-                            <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Budget Status
-                            </label>
-                            <Input
-                                type="text"
-                                placeholder="e.g. Pending Approval"
-                                value={formValues.budget_status}
-                                onChange={(e) =>
-                                    handleFieldChange(
-                                        "budget_status",
-                                        e.target.value
-                                    )
-                                }
-                            />
-                        </div>
-                        <div className="space-y-1 md:col-span-2">
-                            <label className="text-sm font-medium text-text-muted mb-1 block">
-                                Decision Timeline
-                            </label>
-                            <Input
-                                type="text"
-                                placeholder="e.g. 3-6 months"
-                                value={formValues.decision_timeline}
-                                onChange={(e) =>
-                                    handleFieldChange(
-                                        "decision_timeline",
-                                        e.target.value
-                                    )
-                                }
-                            />
+                            <div className="flex justify-between text-xs text-text-muted mt-1">
+                                <span>1</span>
+                                <span className="font-semibold text-text-main">
+                                    {formValues.trust_level_at_start || 3}
+                                </span>
+                                <span>5</span>
+                            </div>
+                            {showFieldError("trust_level_at_start") && (
+                                <span className="text-xs text-danger">
+                                    Required
+                                </span>
+                            )}
                         </div>
                     </div>
                 </section>
@@ -525,9 +832,9 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                                     menu_book
                                 </span>
                             </div>
-                            <h3 className="text-lg font-bold text-white uppercase tracking-wider">
-                                Knowledge Inputs
-                            </h3>
+                            <h2 className="text-lg font-bold text-white uppercase tracking-wider">
+                                Additional Context
+                            </h2>
                         </div>
                         <button
                             type="button"
@@ -549,8 +856,8 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                         showAddButton={false}
                     />
                 </section>
-
-                {error && (
+                {/* Only show error for non-required errors (e.g., session ID missing, avatar generation, etc.) */}
+                {error && !error.includes("required") && (
                     <div className="p-4 bg-danger/10 border border-danger/20 rounded-xl">
                         <p className="text-danger text-sm font-medium">Error</p>
                         <p className="text-danger text-sm mt-1">{error}</p>

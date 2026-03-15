@@ -95,9 +95,9 @@ class GeminiImagenClient:
         # Extract relevant fields from session context
         job_title = session_context.get("job_title", "professional")
         industry = session_context.get("industry", "business")
-        department = session_context.get("department", "")
-        company_size = session_context.get("company_size", "")
-        prospect_name = session_context.get("prospect_name", "")
+        location = session_context.get("location", "")
+        discussion_stage = session_context.get("discussion_stage", "")
+        archetype = session_context.get("objection_archetype", "")
         gender = (
             session_context.get("prospect_gender")
             or session_context.get("voice_gender")
@@ -115,11 +115,18 @@ class GeminiImagenClient:
         if job_title:
             parts.append(f"{job_title.lower()}")
 
-        # Add industry/department context
-        if department:
-            parts.append(f"in {department.lower()}")
-        elif industry:
+        # Add industry/location context
+        if industry:
             parts.append(f"in {industry.lower()}")
+
+        if location:
+            parts.append(f"based in {str(location).lower()}")
+
+        if discussion_stage:
+            parts.append(f", in {str(discussion_stage).lower()} stage")
+
+        if archetype:
+            parts.append(f", {str(archetype).lower()} archetype")
 
         # Add style and quality modifiers
         parts.extend([

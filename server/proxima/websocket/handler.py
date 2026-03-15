@@ -40,8 +40,10 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect  # type: ignore
 
 from services.gemini.live import GeminiLiveManager
+from services.gemini.live.voice_manager import LiveVoiceManager
 
 from ..config import build_live_config, resolve_mode, SYSTEM_PROMPTS
+from ..storage import get_storage
 from ..session_store import get_session_store
 
 
@@ -110,7 +112,10 @@ class ProximaAgentWebSocketHandler:
             - file_uploaded: File upload confirmation
         """
         mode = resolve_mode(websocket.query_params.get("mode"))
-        system_instruction = str(SYSTEM_PROMPTS[mode])
+        base_instruction = str(SYSTEM_PROMPTS[mode])
+        system_instruction = base_instruction
+        voice_manager = LiveVoiceManager()
+        voice_name = None
         await websocket.accept()
         self.logger.info("proxima-agent websocket accepted (mode=%s)", mode)
 
@@ -122,12 +127,66 @@ class ProximaAgentWebSocketHandler:
         session_store.start_session(session_id)
         self.logger.info("Session tracking enabled (session_id=%s)", session_id)
 
+        selected_voice = None
+        try:
+            context_record = get_storage().get_session_context(session_id) or {}
+            session_context = context_record.get("session_context") or {}
+            stored_voice_name = session_context.get("voice_name")
+            stored_voice_gender = session_context.get("voice_gender")
+            stored_voice_tone = session_context.get("voice_tone")
+
+            if isinstance(stored_voice_name, str) and stored_voice_name.strip():
+                selected_voice = voice_manager.get_voice_by_name(
+                    stored_voice_name
+                )
+
+            if not selected_voice:
+                selected_voice = voice_manager.get_random_voice(
+                    gender_filter=stored_voice_gender
+                    if isinstance(stored_voice_gender, str)
+                    else None,
+                    tone_filter=stored_voice_tone
+                    if isinstance(stored_voice_tone, str)
+                    else None,
+                )
+
+            voice_name = selected_voice.name
+
+            # Ensure stored session context reflects the actual voice metadata.
+            if session_context:
+                updated_context = {
+                    **session_context,
+                    "voice_name": selected_voice.name,
+                    "voice_gender": selected_voice.gender,
+                    "voice_tone": selected_voice.tone,
+                    "prospect_gender": session_context.get("prospect_gender")
+                    or selected_voice.gender,
+                }
+                if updated_context != session_context:
+                    get_storage().set_session_context(
+                        session_id,
+                        {
+                            "persona_instruction": context_record.get(
+                                "persona_instruction"
+                            ),
+                            "session_context": updated_context,
+                        },
+                    )
+        except Exception:
+            selected_voice = voice_manager.get_random_voice()
+            voice_name = selected_voice.name
+
+        if not voice_name:
+            voice_name = voice_manager.get_random_voice().name
+
         # Initialize Gemini Live manager and session configuration
         manager = self.manager_factory()
         live_tools = None
         if hasattr(manager, "live_tool_declarations"):
             live_tools = manager.live_tool_declarations()
-        config = build_live_config(system_instruction, mode, tools=live_tools)
+        config = build_live_config(
+            system_instruction, mode, voice_name=voice_name, tools=live_tools
+        )
 
         # Communication queues for inter-task messaging
         outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -339,6 +398,14 @@ class ProximaAgentWebSocketHandler:
                         # Handle coaching UI events
                         if event["type"] == "ui_event" and event.get("sub_type") == "coaching":
                             coaching_data = event.get("data", {})
+                            session_store.add_message(
+                                session_id=session_id,
+                                speaker="coach",
+                                text=(
+                                    f"{coaching_data.get('intervention_type', 'COACHING')}: "
+                                    f"{coaching_data.get('suggested_action', '')}".strip()
+                                ),
+                            )
                             await enqueue_outbound(
                                 {
                                     "type": "coach_intervention",
@@ -407,6 +474,14 @@ class ProximaAgentWebSocketHandler:
                 elif msg_type == "stream_stop":
                     stream_enabled = False
                     await enqueue_outbound({"type": "stream_stopped"})
+                elif msg_type == "activity_end":
+                    if hasattr(manager, "send_activity_end"):
+                        try:
+                            await manager.send_activity_end()
+                        except Exception:
+                            self.logger.exception(
+                                "Failed to send activity end to Gemini"
+                            )
                 elif msg_type == "screen_share_start":
                     screen_share_enabled = True
                 elif msg_type == "screen_share_stop":
@@ -549,9 +624,18 @@ class ProximaAgentWebSocketHandler:
                 elif msg_type == "set_system_instruction":
                     # Receive dynamic system instruction from client
                     new_instruction = payload.get("instruction")
-                    if new_instruction and new_instruction != system_instruction:
-                        system_instruction = new_instruction
-                        config = build_live_config(system_instruction, mode, tools=live_tools)
+                    if new_instruction:
+                        combined_instruction = (
+                            f"{base_instruction}\n\n# Persona\n{new_instruction}"
+                        )
+                        if combined_instruction != system_instruction:
+                            system_instruction = combined_instruction
+                            config = build_live_config(
+                                system_instruction,
+                                mode,
+                                voice_name=voice_name,
+                                tools=live_tools,
+                            )
                         self.logger.info("System instruction updated from client")
                         # Reconnect with new system instruction
                         await reconnect_live_session("system instruction update")
@@ -602,6 +686,22 @@ class ProximaAgentWebSocketHandler:
         finally:
             # Mark session as ended
             session_store.end_session(session_id)
+            try:
+                session = session_store.get_session(session_id)
+                if session and session.transcript:
+                    get_storage().set_session_transcript(
+                        session_id,
+                        {
+                            "transcript": session.transcript,
+                            "created_at": session.created_at,
+                            "started_at": session.started_at,
+                            "ended_at": session.ended_at,
+                            "duration_seconds": session.get_duration(),
+                            "mode": session.mode,
+                        },
+                    )
+            except Exception:
+                self.logger.exception("Failed to persist session transcript")
             
             for task in [sender_task, send_task, video_send_task, receive_task, client_task]:
                 if task is not None and not task.done():

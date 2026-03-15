@@ -53,6 +53,12 @@ export function buildLineAndAreaPaths(
         };
     }
 
+    if (points.length === 1) {
+        const point = points[0];
+        const fallbackX = Math.min(point.x + stepX, width);
+        points.push({ x: fallbackX, y: point.y });
+    }
+
     const linePath = points
         .map(
             (point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`

@@ -1,12 +1,14 @@
 type SessionMetricCardProps = {
     label: string;
     value: string;
+    description?: string;
     note?: string;
 };
 
 export function SessionMetricCard({
     label,
     value,
+    description,
     note,
 }: SessionMetricCardProps) {
     return (
@@ -17,8 +19,13 @@ export function SessionMetricCard({
             <div className="text-3xl font-extrabold text-white mb-1">
                 {value}
             </div>
+            {description ? (
+                <div className="text-[11px] text-text-muted leading-snug">
+                    {description}
+                </div>
+            ) : null}
             {note ? (
-                <div className="text-[11px] font-bold text-text-muted uppercase">
+                <div className="text-[11px] font-bold text-text-muted uppercase mt-2">
                     {note}
                 </div>
             ) : null}

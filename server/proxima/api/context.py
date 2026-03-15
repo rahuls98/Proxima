@@ -1,10 +1,12 @@
 # server/proxima_agent/api/context.py
 
-from typing import List, Dict, Any
+import random
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile  # type: ignore
 from pydantic import BaseModel  # type: ignore
 
+from services.gemini.live.voice_manager import LiveVoiceManager
 from services.gemini.multimodal import (
     FileContextItem,
     GeminiMultimodalClient,
@@ -35,6 +37,9 @@ class PersonaInstructionResponse(BaseModel):
     persona_instruction: str
     source_fields_count: int
     prospect_name: str
+    voice_name: str
+    voice_gender: str
+    voice_tone: str
 
 
 @router.post("/persona", summary="Build unified persona context from arbitrary inputs")
@@ -87,8 +92,33 @@ async def build_persona_context(
     }
 
 
-def _generate_prospect_name(seed: str) -> str:
-    first_names = [
+def _generate_prospect_name(seed: str, gender: str | None) -> str:
+    rng = random.SystemRandom()
+    male_first_names = [
+        "Ethan",
+        "Liam",
+        "Noah",
+        "Mason",
+        "Logan",
+        "Caleb",
+        "Owen",
+        "Henry",
+        "Grant",
+        "Julian",
+    ]
+    female_first_names = [
+        "Ava",
+        "Mia",
+        "Nora",
+        "Lila",
+        "Aria",
+        "Chloe",
+        "Zoe",
+        "Sienna",
+        "Naomi",
+        "Elena",
+    ]
+    neutral_first_names = [
         "Avery",
         "Jordan",
         "Casey",
@@ -112,10 +142,62 @@ def _generate_prospect_name(seed: str) -> str:
         "Wells",
         "Monroe",
     ]
+
+    if gender and gender.lower() == "male":
+        first_names = male_first_names
+    elif gender and gender.lower() == "female":
+        first_names = female_first_names
+    else:
+        first_names = neutral_first_names
+
     if not seed:
-        return "Alex Rivera"
+        return f"{rng.choice(first_names)} {rng.choice(last_names)}"
+
     index = sum(ord(ch) for ch in seed)
-    return f"{first_names[index % len(first_names)]} {last_names[index % len(last_names)]}"
+    last_name = last_names[index % len(last_names)]
+    first_name = rng.choice(first_names)
+    return f"{first_name} {last_name}"
+
+
+def _build_persona_instruction(
+    session_context: Dict[str, Any], name: str, tone: str | None
+) -> str:
+    def _line(label: str, key: str) -> str | None:
+        value = session_context.get(key)
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        return f"- {label}: {text}"
+
+    lines = [
+        f"Prospect name: {name}",
+        "You are the prospect in this role-play.",
+        "After your initial greeting, introduce yourself by name.",
+        "Stay in character and use the persona details below:",
+    ]
+
+    details = [
+        _line("Job title", "job_title"),
+        _line("Department", "department"),
+        _line("Company", "company_name"),
+        _line("Company size", "company_size"),
+        _line("Industry", "industry"),
+        _line("Buying stage", "buying_stage"),
+        _line("Current initiative", "current_initiative"),
+        _line("Current tools", "current_tools"),
+        _line("Budget status", "budget_status"),
+        _line("Decision timeline", "decision_timeline"),
+        _line("Reports to", "reports_to"),
+        _line("Tone", "voice_tone") if tone else None,
+    ]
+
+    for detail in details:
+        if detail:
+            lines.append(detail)
+
+    return "\n".join(lines)
 
 
 @router.post(
@@ -148,6 +230,11 @@ async def generate_persona_instruction(req: SessionContextInput):
         )
 
     context_name = req.session_context.get("prospect_name")
+    voice_manager = LiveVoiceManager()
+    selected_voice = voice_manager.get_random_voice()
+    voice_name = selected_voice.name
+    voice_gender = selected_voice.gender
+    voice_tone = selected_voice.tone
     if isinstance(context_name, str) and context_name.strip():
         prospect_name = context_name.strip()
     else:
@@ -155,11 +242,16 @@ async def generate_persona_instruction(req: SessionContextInput):
             str(req.session_context.get(key) or "")
             for key in ["job_title", "company_name", "industry", "department"]
         )
-        prospect_name = _generate_prospect_name(seed)
+        prospect_name = _generate_prospect_name(seed, voice_gender)
 
     # Dummy response aligned with client UI placeholders.
     return PersonaInstructionResponse(
-        persona_instruction=f"Demo persona instruction for {prospect_name}.",
+        persona_instruction=_build_persona_instruction(
+            req.session_context, prospect_name, voice_tone
+        ),
         source_fields_count=len(req.session_context),
         prospect_name=prospect_name,
+        voice_name=voice_name,
+        voice_gender=voice_gender,
+        voice_tone=voice_tone,
     )

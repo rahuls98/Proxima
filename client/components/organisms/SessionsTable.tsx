@@ -13,6 +13,7 @@ type SessionsTableRow = {
 
 type SessionsTableProps = {
     rows: SessionsTableRow[];
+    isLoading?: boolean;
     onViewReport?: (sessionId: string) => void;
     onViewPersona?: (personaId: string) => void;
     onDelete?: (sessionId: string) => void;
@@ -23,6 +24,7 @@ type SessionsTableProps = {
 
 export function SessionsTable({
     rows,
+    isLoading = false,
     onViewReport,
     onViewPersona,
     onDelete,
@@ -122,7 +124,18 @@ export function SessionsTable({
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-border-subtle bg-surface-base/40">
-                        {visibleRows.length === 0 ? (
+                        {isLoading ? (
+                            <tr>
+                                <td colSpan={7} className="px-6 py-16">
+                                    <div className="flex flex-col items-center justify-center gap-2 text-center">
+                                        <div className="inline-block animate-spin rounded-full h-8 w-8 border-2 border-border-subtle border-t-primary" />
+                                        <p className="text-sm font-semibold text-text-main">
+                                            Loading sessions...
+                                        </p>
+                                    </div>
+                                </td>
+                            </tr>
+                        ) : visibleRows.length === 0 ? (
                             <tr>
                                 <td colSpan={7} className="px-6 py-16">
                                     <div className="flex flex-col items-center justify-center gap-2 text-center">
@@ -190,7 +203,7 @@ export function SessionsTable({
                                             className={`material-symbols-outlined ${
                                                 row.sentiment > 0.15
                                                     ? "text-success"
-                                                    : row.sentiment > 0
+                                                    : row.sentiment >= -0.05
                                                       ? "text-text-main"
                                                       : "text-danger"
                                             }`}
@@ -201,8 +214,8 @@ export function SessionsTable({
                                         >
                                             {row.sentiment > 0.15
                                                 ? "sentiment_very_satisfied"
-                                                : row.sentiment > 0
-                                                  ? "sentiment_satisfied"
+                                                : row.sentiment >= -0.05
+                                                  ? "sentiment_neutral"
                                                   : "sentiment_dissatisfied"}
                                         </span>
                                     </td>

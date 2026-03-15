@@ -6,7 +6,7 @@ import { Input } from "@/components/atoms/Input";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
 import { generatePersonaInstruction } from "@/lib/api";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
-import { createDraft, updateDraft } from "@/lib/session-draft";
+import { setSessionContext } from "@/lib/session-context";
 
 type AdditionalFileItem = {
     id: number;
@@ -46,20 +46,20 @@ type GenerateResult = {
 };
 
 export type ContextBuilderFormHandle = {
-    generatePersona: () => Promise<GenerateResult | null>;
+    generatePersona: (sessionId: string) => Promise<GenerateResult | null>;
 };
 
 const emptyForm: FormValues = {
-    job_title: "",
-    department: "",
-    company_name: "",
-    company_size: "",
-    industry: "",
-    buying_stage: "",
-    current_initiative: "",
-    current_tools: "",
-    budget_status: "",
-    decision_timeline: "",
+    job_title: "VP of Marketing",
+    department: "Marketing",
+    company_name: "Atlas Growth Co.",
+    company_size: "200-500 employees",
+    industry: "B2B SaaS",
+    buying_stage: "Evaluation",
+    current_initiative: "Modernizing lead-to-revenue analytics",
+    current_tools: "HubSpot, GA4, Looker",
+    budget_status: "Budget approved for Q2",
+    decision_timeline: "6-8 weeks",
 };
 
 export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
@@ -74,8 +74,6 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
         const [fileCounter, setFileCounter] = useState(2);
 
         const [error, setError] = useState<string | null>(null);
-        const [draftId, setDraftId] = useState<string | null>(null);
-
         useEffect(() => {
             if (!personaId) {
                 return;
@@ -105,14 +103,6 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                         decision_timeline: context.decision_timeline || "",
                     });
 
-                    const draft = await createDraft({
-                        persona_instruction: persona.personaInstruction,
-                        session_context: persona.sessionContext as Record<
-                            string,
-                            unknown
-                        >,
-                    });
-                    setDraftId(draft.id);
                 } catch (loadError) {
                     console.error("Failed to load persona:", loadError);
                 }
@@ -160,8 +150,15 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             );
         };
 
-        const generatePersona = async (): Promise<GenerateResult | null> => {
+        const generatePersona = async (
+            sessionId: string
+        ): Promise<GenerateResult | null> => {
             setError(null);
+
+            if (!sessionId) {
+                setError("Session ID is missing. Please refresh and try again.");
+                return null;
+            }
 
             const missing = REQUIRED_FIELDS.filter(
                 (key) => !formValues[key]?.trim()
@@ -186,20 +183,19 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
 
                 const data = await generatePersonaInstruction(sessionContext);
                 sessionContext.prospect_name = data.prospect_name;
+                sessionContext.prospect_gender = data.voice_gender;
+                sessionContext.voice_name = data.voice_name;
+                sessionContext.voice_gender = data.voice_gender;
+                sessionContext.voice_tone = data.voice_tone;
 
                 await savePersona(sessionContext, data.persona_instruction);
 
-                const draftPayload = {
+                const contextPayload = {
                     persona_instruction: data.persona_instruction,
                     session_context: sessionContext,
                 };
 
-                if (draftId) {
-                    await updateDraft(draftId, draftPayload);
-                } else {
-                    const draft = await createDraft(draftPayload);
-                    setDraftId(draft.id);
-                }
+                await setSessionContext(sessionId, contextPayload);
 
                 return {
                     sessionContext,

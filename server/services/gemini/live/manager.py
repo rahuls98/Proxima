@@ -128,11 +128,14 @@ class GeminiLiveManager:
         """
         if not self.session:
             return
-
+        suppress_text = False
+        suppress_audio = False
         turn = self.session.receive()
         async for response in turn:
             if response.server_content and response.server_content.interrupted:
                 yield {"type": "interruption"}
+                suppress_text = False
+                suppress_audio = False
 
             if (
                 response.server_content
@@ -144,10 +147,23 @@ class GeminiLiveManager:
                     "text": response.server_content.input_transcription.text,
                 }
 
+            has_function_call = False
+            if response.tool_call and response.tool_call.function_calls:
+                has_function_call = True
+            if response.server_content and response.server_content.model_turn:
+                for part in response.server_content.model_turn.parts:
+                    if part.function_call:
+                        has_function_call = True
+            if has_function_call:
+                # Silence all text output for the remainder of this tool-invocation turn.
+                suppress_text = True
+                suppress_audio = True
+
             if (
                 response.server_content
                 and response.server_content.output_transcription
                 and response.server_content.output_transcription.text
+                and not suppress_text
             ):
                 yield {
                     "type": "text",
@@ -181,15 +197,19 @@ class GeminiLiveManager:
                 for part in response.server_content.model_turn.parts:
                     # Skip text parts during tool calls to prevent "ghost" pre-fill messages
                     # The model will send the real response after the tool completes
-                    if part.text and response.tool_call is None:
+                    if part.text and not suppress_text:
                         # Only yield text if there's no concurrent tool call
                         yield {
                             "type": "text",
                             "text": part.text,
                         }
                     
-                    # Always yield audio data (even during tool calls)
-                    if part.inline_data and part.inline_data.data:
+                    # Suppress audio if a tool call is present in this response packet
+                    if (
+                        part.inline_data
+                        and part.inline_data.data
+                        and not suppress_audio
+                    ):
                         yield {
                             "type": "audio",
                             "data": part.inline_data.data,
@@ -198,5 +218,7 @@ class GeminiLiveManager:
 
             if response.server_content and response.server_content.turn_complete:
                 yield {"type": "turn_complete"}
+                suppress_text = False
+                suppress_audio = False
             if response.server_content and response.server_content.waiting_for_input:
                 yield {"type": "waiting_for_input"}

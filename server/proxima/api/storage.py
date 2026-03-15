@@ -88,6 +88,13 @@ class DraftPayload(BaseModel):
     updated_at: str | None = None
 
 
+class SessionContextPayload(BaseModel):
+    persona_instruction: str | None = None
+    session_context: dict[str, Any] | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 @router.get("/personas")
 async def list_personas():
     return get_storage().list_personas()
@@ -280,7 +287,21 @@ async def start_draft(draft_id: str):
     return {"status": "started", "draft_id": draft_id}
 
 
+@router.post("/sessions/{session_id}/context")
+async def set_session_context(session_id: str, payload: SessionContextPayload):
+    return get_storage().set_session_context(
+        session_id, payload.model_dump(exclude_none=True)
+    )
+
+
+@router.get("/sessions/{session_id}/context")
+async def get_session_context(session_id: str):
+    data = get_storage().get_session_context(session_id)
+    if not data:
+        raise HTTPException(status_code=404, detail="Session context not found")
+    return data
+
+
 @router.get("/reports/dummy")
 async def get_dummy_report():
     return DUMMY_SESSION_REPORT
-

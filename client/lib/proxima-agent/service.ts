@@ -54,6 +54,8 @@ type ProximaAgentServiceOptions = {
     wsUrl?: string;
     /** Agent mode for initialization (default: "training") */
     mode?: string;
+    /** Optional session id to bind server-side session */
+    sessionId?: string;
     /** Custom system instruction (overrides server default) */
     systemInstruction?: string;
     /** Callback for all events from server */
@@ -75,8 +77,10 @@ export class ProximaAgentService {
     private readonly wsUrl: string;
     /** Agent mode ("training", etc.) */
     private readonly mode: string;
+    /** Optional session id to bind server-side session */
+    private readonly sessionId: string | undefined;
     /** Custom system instruction (if provided by caller) */
-    private readonly systemInstruction: string | undefined;
+    private systemInstruction: string | undefined;
     /** Event callback provided by caller */
     private readonly onEvent: (event: ProximaAgentEvent) => void;
 
@@ -95,6 +99,10 @@ export class ProximaAgentService {
     private inputProcessor: ScriptProcessorNode | null = null;
     /** Gain node for silence padding */
     private inputSilenceGain: GainNode | null = null;
+    /** Voice activity timestamps for end-of-turn signaling */
+    private lastVoiceAt = 0;
+    private lastActivityEndAt = 0;
+    private hasSpokenRecently = false;
 
     // Audio output (speaker)
     /** Audio context for speaker playback */
@@ -118,6 +126,7 @@ export class ProximaAgentService {
      */
     constructor(options: ProximaAgentServiceOptions) {
         this.mode = options.mode ?? "training";
+        this.sessionId = options.sessionId;
         this.systemInstruction = options.systemInstruction;
         this.wsUrl = options.wsUrl ?? this.defaultWebSocketUrl();
         this.onEvent = options.onEvent;
@@ -132,7 +141,11 @@ export class ProximaAgentService {
         const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
         const host = window.location.hostname;
         const port = 8000;
-        return `${protocol}//${host}:${port}/ws/proxima-agent?mode=${this.mode}`;
+        const params = new URLSearchParams({ mode: this.mode });
+        if (this.sessionId) {
+            params.set("session_id", this.sessionId);
+        }
+        return `${protocol}//${host}:${port}/ws/proxima-agent?${params.toString()}`;
     }
 
     /**
@@ -161,6 +174,23 @@ export class ProximaAgentService {
         }
         await this.ensureMicPipeline();
         this.startStream();
+    }
+
+    /**
+     * Update system instruction at runtime.
+     * If connected, sends set_system_instruction immediately.
+     */
+    setSystemInstruction(instruction: string | null | undefined) {
+        if (!instruction || !instruction.trim()) {
+            return;
+        }
+        this.systemInstruction = instruction;
+        if (this.websocket && this.websocket.readyState === WebSocket.OPEN) {
+            this.sendJson({
+                type: "set_system_instruction",
+                instruction,
+            });
+        }
     }
 
     /**
@@ -196,6 +226,9 @@ export class ProximaAgentService {
      */
     stopStream() {
         this.streamEnabled = false;
+        this.hasSpokenRecently = false;
+        this.lastVoiceAt = 0;
+        this.lastActivityEndAt = 0;
         this.sendJson({ type: "stream_stop" });
     }
 
@@ -515,6 +548,27 @@ export class ProximaAgentService {
             }
 
             const input = audioEvent.inputBuffer.getChannelData(0);
+            const now = performance.now();
+            let sumSquares = 0;
+            for (let i = 0; i < input.length; i += 1) {
+                const sample = input[i] ?? 0;
+                sumSquares += sample * sample;
+            }
+            const rms = Math.sqrt(sumSquares / input.length);
+            const voiceThreshold = 0.015;
+            const silenceWindowMs = 900;
+            if (rms > voiceThreshold) {
+                this.hasSpokenRecently = true;
+                this.lastVoiceAt = now;
+            } else if (
+                this.hasSpokenRecently &&
+                now - this.lastVoiceAt > silenceWindowMs &&
+                now - this.lastActivityEndAt > silenceWindowMs
+            ) {
+                this.lastActivityEndAt = now;
+                this.hasSpokenRecently = false;
+                this.sendJson({ type: "activity_end" });
+            }
             const downsampled = downsampleBuffer(
                 input,
                 audioContext.sampleRate,
@@ -667,6 +721,7 @@ export class ProximaAgentService {
             case "audio":
                 if (payload.audio) {
                     this.playAudioChunk(payload.audio, payload.mimeType);
+                    this.onEvent({ type: "audio" });
                 }
                 return;
             default:

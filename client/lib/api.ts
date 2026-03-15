@@ -27,6 +27,9 @@ export async function generatePersonaInstruction(sessionContext: {
     persona_instruction: string;
     source_fields_count: number;
     prospect_name: string;
+    voice_name: string;
+    voice_gender: string;
+    voice_tone: string;
 }> {
     const url = getApiUrl("/context/persona-instruction");
 
@@ -117,6 +120,13 @@ export type SessionReport = {
         next_step_clarity: string;
         commitment_secured: boolean;
     };
+    key_moments?: {
+        timestamp_seconds: number;
+        title: string;
+        speaker?: string;
+        utterance?: string;
+        description?: string;
+    }[];
     top_feedback: string[];
     strengths: string[];
     practice_recommendations: {

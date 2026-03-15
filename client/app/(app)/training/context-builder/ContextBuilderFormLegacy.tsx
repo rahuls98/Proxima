@@ -13,7 +13,7 @@ import { ContextSection } from "@/components/molecules/ContextSection";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
 import { generatePersonaInstruction } from "@/lib/api";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
-import { createDraft, updateDraft } from "@/lib/session-draft";
+import { setSessionContext } from "@/lib/session-context";
 
 interface FormValues {
     [key: string]: string | number | boolean | string[] | null;
@@ -38,7 +38,7 @@ type GenerateResult = {
 };
 
 export type ContextBuilderFormLegacyHandle = {
-    generatePersona: () => Promise<GenerateResult | null>;
+    generatePersona: (sessionId: string) => Promise<GenerateResult | null>;
 };
 
 export const ContextBuilderFormLegacy = forwardRef<
@@ -79,7 +79,6 @@ export const ContextBuilderFormLegacy = forwardRef<
     const [fileCounter, setFileCounter] = useState(2);
 
     const [error, setError] = useState<string | null>(null);
-    const [draftId, setDraftId] = useState<string | null>(null);
 
     useEffect(() => {
         if (!personaId) {
@@ -103,14 +102,6 @@ export const ContextBuilderFormLegacy = forwardRef<
                     setAdditionalText(additionalTextContext);
                 }
 
-                const draft = await createDraft({
-                    persona_instruction: persona.personaInstruction,
-                    session_context: persona.sessionContext as Record<
-                        string,
-                        unknown
-                    >,
-                });
-                setDraftId(draft.id);
             } catch (loadError) {
                 console.error("Failed to load persona:", loadError);
             }
@@ -161,8 +152,15 @@ export const ContextBuilderFormLegacy = forwardRef<
         );
     }
 
-    const generatePersona = async (): Promise<GenerateResult | null> => {
+    const generatePersona = async (
+        sessionId: string
+    ): Promise<GenerateResult | null> => {
         setError(null);
+
+        if (!sessionId) {
+            setError("Session ID is missing. Please refresh and try again.");
+            return null;
+        }
 
         const requiredErrors: string[] = [];
         filteredSections.forEach((section) => {
@@ -198,20 +196,19 @@ export const ContextBuilderFormLegacy = forwardRef<
 
             const data = await generatePersonaInstruction(sessionContext);
             sessionContext.prospect_name = data.prospect_name;
+            sessionContext.prospect_gender = data.voice_gender;
+            sessionContext.voice_name = data.voice_name;
+            sessionContext.voice_gender = data.voice_gender;
+            sessionContext.voice_tone = data.voice_tone;
 
             await savePersona(sessionContext, data.persona_instruction);
 
-            const draftPayload = {
+            const contextPayload = {
                 persona_instruction: data.persona_instruction,
                 session_context: sessionContext,
             };
 
-            if (draftId) {
-                await updateDraft(draftId, draftPayload);
-            } else {
-                const draft = await createDraft(draftPayload);
-                setDraftId(draft.id);
-            }
+            await setSessionContext(sessionId, contextPayload);
 
             return {
                 sessionContext,

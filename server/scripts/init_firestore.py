@@ -33,6 +33,7 @@ def main() -> None:
         "reports",
         "metrics",
         "drafts",
+        "session_contexts",
     ]
 
     for name in collections:

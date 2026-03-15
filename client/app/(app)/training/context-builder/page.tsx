@@ -6,14 +6,14 @@ import { Button } from "@/components/atoms/Button";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
 import { PersonaConfiguringOverlay } from "@/components/molecules/PersonaConfiguringOverlay";
 import {
-    ContextBuilderFormLegacy,
-    type ContextBuilderFormLegacyHandle,
-} from "./ContextBuilderFormLegacy";
+    ContextBuilderForm,
+    type ContextBuilderFormHandle,
+} from "./ContextBuilderForm";
 
 export default function BuildContextPage() {
     const router = useRouter();
     const [isBuildingPersona, setIsBuildingPersona] = useState(false);
-    const formRef = useRef<ContextBuilderFormLegacyHandle | null>(null);
+    const formRef = useRef<ContextBuilderFormHandle | null>(null);
 
     const createSessionId = () => {
         if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -32,13 +32,13 @@ export default function BuildContextPage() {
 
         setIsBuildingPersona(true);
 
-        const result = await formRef.current?.generatePersona();
+        const sessionId = createSessionId();
+        const result = await formRef.current?.generatePersona(sessionId);
         if (!result) {
             setIsBuildingPersona(false);
             return;
         }
 
-        const sessionId = createSessionId();
         router.push(`/training/${sessionId}`);
     };
 
@@ -47,7 +47,7 @@ export default function BuildContextPage() {
             <AppPageHeader title="Context Builder" />
 
             <div className="flex-1 overflow-y-auto p-8 space-y-10 [scrollbar-width:thin] [scrollbar-color:#22313a_#141c21] [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-track]:bg-surface-panel [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border-subtle [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:hover]:bg-primary/70">
-                <ContextBuilderFormLegacy ref={formRef} />
+                <ContextBuilderForm ref={formRef} />
                 <div className="pt-2 pb-8 flex justify-end">
                     <Button
                         variant="primary"

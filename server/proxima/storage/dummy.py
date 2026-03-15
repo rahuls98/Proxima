@@ -31,6 +31,8 @@ class DummyStorage:
         self._aggregate = copy.deepcopy(DUMMY_METRICS_AGGREGATE)
         self._drafts: dict[str, dict[str, Any]] = {}
         self._draft_order: list[str] = []
+        self._session_contexts: dict[str, dict[str, Any]] = {}
+        self._session_transcripts: dict[str, dict[str, Any]] = {}
 
     # Personas
     def list_personas(self) -> list[dict[str, Any]]:
@@ -167,3 +169,28 @@ class DummyStorage:
             self._draft_order = [entry for entry in self._draft_order if entry != draft_id]
         return removed
 
+    # Session Contexts
+    def set_session_context(
+        self, session_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        now = _now_iso()
+        data = {
+            **payload,
+            "session_id": session_id,
+            "created_at": payload.get("created_at") or now,
+            "updated_at": now,
+        }
+        self._session_contexts[session_id] = data
+        return data
+
+    def get_session_context(self, session_id: str) -> dict[str, Any] | None:
+        return self._session_contexts.get(session_id)
+
+    # Session Transcripts
+    def set_session_transcript(self, session_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+        record = {**payload, "session_id": session_id}
+        self._session_transcripts[session_id] = record
+        return record
+
+    def get_session_transcript(self, session_id: str) -> dict[str, Any] | None:
+        return self._session_transcripts.get(session_id)

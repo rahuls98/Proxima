@@ -13,11 +13,12 @@ import { IconButton } from "@/components/atoms/IconButton";
 import { ChatComposer } from "@/components/molecules/ChatComposer";
 import { ChatTranscript } from "@/components/molecules/ChatTranscript";
 import { ParticipantTile } from "@/components/molecules/ParticipantTile";
+import { PersonaConfiguringOverlay } from "@/components/molecules/PersonaConfiguringOverlay";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
-import { saveTrainingSession } from "@/lib/training-history";
+import { saveTrainingSessionWithReport } from "@/lib/training-history";
 import { generateSessionReport } from "@/lib/api";
-import { getLatestDraft } from "@/lib/session-draft";
+import { getSessionContext } from "@/lib/session-context";
 import type {
     ProximaAgentConnectionState,
     ProximaAgentEvent,
@@ -72,6 +73,11 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         Record<string, unknown> | null
     >(null);
     const [prospectName, setProspectName] = useState<string | null>(null);
+    const [prospectTone, setProspectTone] = useState<string | null>(null);
+    const [isPersonaReady, setIsPersonaReady] = useState(false);
+    const [personaError, setPersonaError] = useState<string | null>(null);
+    const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+    const [coachPopup, setCoachPopup] = useState<string | null>(null);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
@@ -84,6 +90,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     const screenShareVideoRef = useRef<HTMLVideoElement | null>(null);
     const screenCaptureCleanupRef = useRef<(() => void) | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const coachPopupTimeoutRef = useRef<number | null>(null);
 
     const markSpeaker = useCallback((speaker: "user" | "agent") => {
         setActiveSpeaker(speaker);
@@ -202,6 +209,9 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     currentUserMessageIdRef.current = null;
                     appendBotText(event.text);
                     return;
+                case "audio":
+                    markSpeaker("agent");
+                    return;
                 case "turn_complete":
                     currentBotMessageIdRef.current = null;
                     if (stateRef.current === "connected") {
@@ -220,6 +230,13 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     return;
                 case "coach_intervention":
                     appendTranscript("coach", `Coaching Tip: ${event.hint}`);
+                    setCoachPopup(`Coaching Tip: ${event.hint}`);
+                    if (coachPopupTimeoutRef.current) {
+                        window.clearTimeout(coachPopupTimeoutRef.current);
+                    }
+                    coachPopupTimeoutRef.current = window.setTimeout(() => {
+                        setCoachPopup(null);
+                    }, 5000);
                     return;
                 case "warning":
                     appendTranscript("system", event.message);
@@ -249,46 +266,80 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     useEffect(() => {
         let cancelled = false;
 
+        serviceRef.current = new ProximaAgentService({
+            mode: "training",
+            sessionId: initialSessionId,
+            systemInstruction: undefined,
+            onEvent: handleEvent,
+        });
+
+        const applyContext = (
+            context: Awaited<ReturnType<typeof getSessionContext>> | null
+        ) => {
+            if (!context) {
+                return;
+            }
+
+            if (context.session_context) {
+                setSessionContext(
+                    (context.session_context as Record<string, unknown>) || null
+                );
+                const draftName =
+                    (context.session_context?.prospect_name as
+                        | string
+                        | undefined) || null;
+                setProspectName(draftName);
+                const tone =
+                    (context.session_context?.voice_tone as
+                        | string
+                        | undefined) || null;
+                setProspectTone(tone);
+            }
+
+            if (context.persona_instruction) {
+                serviceRef.current?.setSystemInstruction(
+                    context.persona_instruction
+                );
+                setIsPersonaReady(true);
+            }
+        };
+
         const init = async () => {
             try {
-                let draft = await getLatestDraft();
+                if (!initialSessionId) {
+                    return;
+                }
+
+                setPersonaError(null);
+                let context = await getSessionContext(initialSessionId);
                 let attempts = 0;
                 while (
-                    attempts < 5 &&
-                    (!draft || !draft.persona_instruction)
+                    attempts < 20 &&
+                    (!context || !context.persona_instruction)
                 ) {
                     await new Promise((resolve) =>
                         window.setTimeout(resolve, 300)
                     );
-                    draft = await getLatestDraft();
+                    context = await getSessionContext(initialSessionId);
                     attempts += 1;
                 }
                 if (cancelled) {
                     return;
                 }
-                const personaInstruction =
-                    draft?.persona_instruction || undefined;
-                setSessionContext(
-                    (draft?.session_context as Record<string, unknown>) || null
-                );
-                const draftName =
-                    (draft?.session_context?.prospect_name as
-                        | string
-                        | undefined) || null;
-                setProspectName(draftName);
-
-                serviceRef.current = new ProximaAgentService({
-                    mode: "training",
-                    systemInstruction: personaInstruction,
-                    onEvent: handleEvent,
-                });
+                if (!context || !context.persona_instruction) {
+                    setPersonaError(
+                        "Persona is not ready yet. Please return to the context builder."
+                    );
+                    return;
+                }
+                applyContext(context);
             } catch (error) {
-                console.error("Failed to load draft context:", error);
-                serviceRef.current = new ProximaAgentService({
-                    mode: "training",
-                    systemInstruction: undefined,
-                    onEvent: handleEvent,
-                });
+                console.error("Failed to load session context:", error);
+                setPersonaError(
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to load persona context."
+                );
             }
         };
 
@@ -300,6 +351,9 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             serviceRef.current = null;
             if (speakerTimeoutRef.current) {
                 window.clearTimeout(speakerTimeoutRef.current);
+            }
+            if (coachPopupTimeoutRef.current) {
+                window.clearTimeout(coachPopupTimeoutRef.current);
             }
             if (screenCaptureCleanupRef.current) {
                 screenCaptureCleanupRef.current();
@@ -313,7 +367,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     .forEach((track) => track.stop());
             }
         };
-    }, [handleEvent]);
+    }, [handleEvent, initialSessionId]);
 
     useEffect(() => {
         if (!screenShareVideoRef.current) {
@@ -416,6 +470,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
 
         // Save session to training history if we have a session ID and transcript
         if (activeSessionId && transcript.length > 0) {
+            setIsGeneratingReport(true);
             // Extract persona info from session context
             let personaName: string | undefined;
             let jobTitle: string | undefined;
@@ -434,25 +489,110 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             // Generate and cache the report
             try {
                 const report = await generateSessionReport(activeSessionId);
+                const durationSeconds =
+                    report.session_overview.session_duration_seconds ?? 0;
+                const minutes = Math.floor(durationSeconds / 60);
+                const seconds = durationSeconds % 60;
 
-                await saveTrainingSession({
-                    id: activeSessionId,
-                    timestamp: new Date().toISOString(),
-                    transcriptLength: transcript.length,
-                    personaName,
-                    jobTitle,
-                    report, // Cache the report
-                });
+                await saveTrainingSessionWithReport(
+                    {
+                        id: activeSessionId,
+                        timestamp:
+                            report.session_overview.session_start_time ||
+                            new Date().toISOString(),
+                        transcriptLength: transcript.length,
+                        personaName,
+                        jobTitle,
+                        scenario: report.session_overview.scenario,
+                        duration: `${minutes}m ${seconds
+                            .toString()
+                            .padStart(2, "0")}s`,
+                    },
+                    report
+                );
             } catch (error) {
                 console.error("Failed to generate report:", error);
                 // Still save the session without the report
-                await saveTrainingSession({
-                    id: activeSessionId,
-                    timestamp: new Date().toISOString(),
-                    transcriptLength: transcript.length,
-                    personaName,
-                    jobTitle,
-                });
+                await saveTrainingSessionWithReport(
+                    {
+                        id: activeSessionId,
+                        timestamp: new Date().toISOString(),
+                        transcriptLength: transcript.length,
+                        personaName,
+                        jobTitle,
+                    },
+                    {
+                        session_overview: {
+                            session_id: activeSessionId,
+                            scenario: "Training Session",
+                            prospect_persona: personaName ?? "Prospect",
+                            difficulty: "Intermediate",
+                            session_duration_seconds: 0,
+                            session_start_time: new Date().toISOString(),
+                        },
+                        overall_score: {
+                            score: 0,
+                            performance_level: "Unavailable",
+                            breakdown: {
+                                discovery: 0,
+                                objection_handling: 0,
+                                value_communication: 0,
+                                conversation_control: 0,
+                                emotional_intelligence: 0,
+                            },
+                        },
+                        conversation_metrics: {
+                            talk_ratio_rep: 0,
+                            talk_ratio_prospect: 0,
+                            questions_asked: 0,
+                            open_questions: 0,
+                            interruptions: 0,
+                            avg_response_latency_seconds: 0,
+                        },
+                        discovery_signals: {
+                            pain_identified: false,
+                            current_tools_identified: false,
+                            budget_discussed: false,
+                            decision_process_identified: false,
+                            timeline_discussed: "not_discussed",
+                        },
+                        objection_handling: {
+                            objections_detected: 0,
+                            acknowledgment_quality: "Unavailable",
+                            evidence_used: "Unavailable",
+                            follow_up_questions: "Unavailable",
+                        },
+                        value_communication: {
+                            value_clarity: "Unavailable",
+                            feature_vs_benefit_balance: "Unavailable",
+                            roi_quantified: false,
+                            personalization: "Unavailable",
+                        },
+                        emotional_intelligence: {
+                            empathy: "Unavailable",
+                            listening_signals: "Unavailable",
+                            rapport_building: "Unavailable",
+                            tone_adaptation: "Unavailable",
+                        },
+                        prospect_engagement: {
+                            trust_change: 0,
+                            engagement_level: "Unavailable",
+                            objection_frequency: 0,
+                            conversation_momentum: "Unavailable",
+                        },
+                        deal_progression: {
+                            buying_interest: "Unavailable",
+                            next_step_clarity: "Unavailable",
+                            commitment_secured: false,
+                        },
+                        top_feedback: [],
+                        strengths: [],
+                        practice_recommendations: {
+                            focus_area: "Unavailable",
+                            recommended_exercise: "Unavailable",
+                        },
+                    }
+                );
             }
 
             // Navigate to session report page
@@ -561,8 +701,28 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         }
     };
 
+    if (!isPersonaReady) {
+        return (
+            <div className="h-full w-full flex items-center justify-center bg-surface-base">
+                <PersonaConfiguringOverlay
+                    fixed
+                    message={
+                        personaError ||
+                        "Preparing your training agent with the generated persona..."
+                    }
+                />
+            </div>
+        );
+    }
+
     return (
         <div className="h-full w-full flex flex-col overflow-hidden bg-surface-base text-text-main">
+            {isGeneratingReport ? (
+                <PersonaConfiguringOverlay
+                    fixed
+                    message="Generating your session report..."
+                />
+            ) : null}
             <header className="h-20 px-8 bg-surface-base border-b border-border-subtle flex items-center justify-between z-50">
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -641,6 +801,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                                 isSpeaking={
                                                     activeSpeaker === "agent"
                                                 }
+                                                toneLabel={prospectTone}
                                                 compact
                                                 className="aspect-[16/9] bg-surface-panel"
                                             />
@@ -671,6 +832,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                         name={prospectName || "Prospect"}
                                         subtitle="Training Agent"
                                         isSpeaking={activeSpeaker === "agent"}
+                                        toneLabel={prospectTone}
                                     />
                                 </div>
                             )}
@@ -678,7 +840,13 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     </div>
 
                     <div className="flex justify-center">
-                        <div className="flex items-center gap-3 rounded-full border border-border-subtle bg-surface-panel/95 px-4 py-3 backdrop-blur-md shadow-2xl">
+                        <div className="flex flex-col items-center gap-3">
+                            {coachPopup && !isScreenShareActive ? (
+                                <div className="max-w-[560px] rounded-2xl border border-primary/40 bg-surface-panel/95 px-4 py-3 text-center text-sm font-medium text-text-main shadow-lg backdrop-blur-md">
+                                    {coachPopup}
+                                </div>
+                            ) : null}
+                            <div className="flex items-center gap-3 rounded-full border border-border-subtle bg-surface-panel/95 px-4 py-3 backdrop-blur-md shadow-2xl">
                             {state === "disconnected" ||
                             state === "error" ||
                             state === "connecting" ? (
@@ -749,6 +917,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                 danger
                                 showLabel
                             />
+                            </div>
                         </div>
                     </div>
                 </div>

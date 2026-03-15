@@ -31,6 +31,8 @@ class FirestoreStorage:
         self.reports = self.client.collection("reports")
         self.metrics = self.client.collection("metrics")
         self.drafts = self.client.collection("drafts")
+        self.session_contexts = self.client.collection("session_contexts")
+        self.session_transcripts = self.client.collection("session_transcripts")
 
     # Personas
     def list_personas(self) -> list[dict[str, Any]]:
@@ -271,6 +273,48 @@ class FirestoreStorage:
             return False
         doc_ref.delete()
         return True
+
+    # Session Contexts
+    def set_session_context(
+        self, session_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        doc_ref = self.session_contexts.document(session_id)
+        now = _now_iso()
+        data = {
+            **payload,
+            "session_id": session_id,
+            "created_at": payload.get("created_at") or now,
+            "updated_at": now,
+        }
+        doc_ref.set(data, merge=True)
+        return self._doc_to_dict(doc_ref.get())
+
+    def get_session_context(self, session_id: str) -> dict[str, Any] | None:
+        doc = self.session_contexts.document(session_id).get()
+        if not doc.exists:
+            return None
+        return self._doc_to_dict(doc)
+
+    # Session Transcripts
+    def set_session_transcript(
+        self, session_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        doc_ref = self.session_transcripts.document(session_id)
+        now = _now_iso()
+        data = {
+            **payload,
+            "session_id": session_id,
+            "created_at": payload.get("created_at") or now,
+            "updated_at": now,
+        }
+        doc_ref.set(data, merge=True)
+        return self._doc_to_dict(doc_ref.get())
+
+    def get_session_transcript(self, session_id: str) -> dict[str, Any] | None:
+        doc = self.session_transcripts.document(session_id).get()
+        if not doc.exists:
+            return None
+        return self._doc_to_dict(doc)
 
     @staticmethod
     def _doc_to_dict(doc: firestore.DocumentSnapshot | None) -> dict[str, Any]:

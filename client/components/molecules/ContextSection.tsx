@@ -15,6 +15,37 @@ export function ContextSection({
     values,
     onFieldChange,
 }: ContextSectionProps) {
+    const resolveDefaultValue = (
+        field: Section["fields"][number]
+    ): string | number | boolean | string[] | null => {
+        if (field.dummy_value !== undefined && field.dummy_value !== null) {
+            return field.dummy_value;
+        }
+
+        switch (field.type) {
+            case "select":
+                return field.options?.[0]?.value ?? field.options?.[0]?.label ?? "";
+            case "number":
+            case "range":
+                return 3;
+            case "checkbox":
+                return false;
+            case "multi_select":
+            case "multi_select_combo":
+                return field.options?.slice(0, 2).map((option) => option.value) ?? [];
+            case "text":
+            case "textarea":
+            default:
+                return `Sample ${field.label}`;
+        }
+    };
+
+    section.fields.forEach((field) => {
+        if (values[field.key] === null || values[field.key] === undefined) {
+            onFieldChange(field.key, resolveDefaultValue(field));
+        }
+    });
+
     const sectionMeta: Record<string, { title: string; icon: string }> = {
         "Prospect Identity": {
             title: "1. Prospect Identity",

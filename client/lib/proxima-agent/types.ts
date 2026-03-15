@@ -54,6 +54,7 @@ export type ProximaAgentInboundMessage = {
 export type ProximaAgentOutboundMessage =
     | { type: "stream_start" }
     | { type: "stream_stop" }
+    | { type: "activity_end" }
     | { type: "ping" }
     | { type: "disconnect" }
     | { type: "end_session" }
@@ -83,6 +84,7 @@ export type ProximaAgentEvent =
     | { type: "file_uploaded"; fileId: string; fileName: string }
     | { type: "user_text"; text: string }
     | { type: "text"; text: string }
+    | { type: "audio" }
     | { type: "turn_complete" }
     | { type: "waiting_for_input" }
     | { type: "interruption" }

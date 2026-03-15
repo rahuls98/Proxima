@@ -29,8 +29,16 @@ class ToolDispatcher:
         
         try:
             # Parse arguments if passed as JSON string
-            args = json.loads(tool_call.args) if isinstance(tool_call.args, str) else tool_call.args
-            result = await func(**args) if inspect.iscoroutinefunction(func) else func(**args)
-            return {"result": result}
+            args = (
+                json.loads(tool_call.args)
+                if isinstance(tool_call.args, str)
+                else tool_call.args
+            )
+            if inspect.iscoroutinefunction(func):
+                await func(**args)
+            else:
+                func(**args)
+            # Always return passive status to avoid model re-speaking tool output
+            return {"status": "ok"}
         except Exception as e:
             return {"error": str(e)}

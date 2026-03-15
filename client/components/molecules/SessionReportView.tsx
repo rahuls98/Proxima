@@ -35,11 +35,9 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
 
         const breakdown = report.overall_score.breakdown;
         return [
-            clamp((breakdown.discovery - 6) / 10, 0, 10),
             clamp(breakdown.discovery / 10, 0, 10),
             clamp(breakdown.conversation_control / 10, 0, 10),
             clamp(breakdown.objection_handling / 10, 0, 10),
-            clamp(breakdown.value_communication / 10, 0, 10),
             clamp(breakdown.emotional_intelligence / 10, 0, 10),
             clamp(report.overall_score.score / 10, 0, 10),
         ];
@@ -51,16 +49,19 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
         }
 
         const trustDelta = report.prospect_engagement.trust_change;
-        const baseline = clamp(2 + trustDelta * 0.4, 1, 3);
+        const talkDelta = clamp(
+            (report.conversation_metrics.talk_ratio_rep - 0.5) * 1.5,
+            -0.5,
+            0.5
+        );
+        const baseline = clamp(2 + trustDelta * 0.5, 1, 3);
 
         return [
-            clamp(baseline - trustDelta * 1.5 - 0.25, 1, 3),
-            clamp(baseline - trustDelta * 1.0 - 0.15, 1, 3),
-            clamp(baseline - trustDelta * 0.6 - 0.08, 1, 3),
-            clamp(baseline, 1, 3),
-            clamp(baseline + trustDelta * 0.6 + 0.08, 1, 3),
-            clamp(baseline + trustDelta * 1.0 + 0.15, 1, 3),
-            clamp(2 + trustDelta * 1.6, 1, 3),
+            clamp(baseline - 0.3, 1, 3),
+            clamp(baseline + talkDelta * 0.4, 1, 3),
+            clamp(baseline + talkDelta, 1, 3),
+            clamp(baseline + trustDelta * 0.3, 1, 3),
+            clamp(baseline + trustDelta * 0.7, 1, 3),
         ];
     }, [report]);
 
@@ -84,6 +85,66 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
         [sentimentTrendData]
     );
 
+    const formatTimestamp = (seconds: number) => {
+        const minutes = Math.floor(seconds / 60);
+        const remainder = Math.max(0, seconds % 60);
+        return `${minutes.toString().padStart(2, "0")}:${remainder
+            .toString()
+            .padStart(2, "0")}`;
+    };
+
+    const trendTimeLabels = useMemo(() => {
+        if (!report) {
+            return [] as string[];
+        }
+        const totalSeconds =
+            report.session_overview.session_duration_seconds || 0;
+        const buckets = [0, 0.25, 0.5, 0.75, 1].map((ratio) =>
+            Math.round(totalSeconds * ratio)
+        );
+        return buckets.map((seconds) => formatTimestamp(seconds));
+    }, [report]);
+
+    const keyMoments = useMemo(() => {
+        if (!report) {
+            return [] as {
+                timestamp_seconds: number;
+                title: string;
+                speaker?: string;
+                utterance?: string;
+                description?: string;
+            }[];
+        }
+
+        if (report.key_moments && report.key_moments.length > 0) {
+            return report.key_moments;
+        }
+
+        const fallback = [];
+        if (report.strengths[0]) {
+            fallback.push({
+                timestamp_seconds: 0,
+                title: "Early momentum",
+                utterance: report.strengths[0],
+            });
+        }
+        if (report.top_feedback[0]) {
+            fallback.push({
+                timestamp_seconds: 120,
+                title: "Mid-session opportunity",
+                utterance: report.top_feedback[0],
+            });
+        }
+        if (report.practice_recommendations?.recommended_exercise) {
+            fallback.push({
+                timestamp_seconds: 300,
+                title: "Closing opportunity",
+                utterance: report.practice_recommendations.recommended_exercise,
+            });
+        }
+        return fallback;
+    }, [report]);
+
     useEffect(() => {
         if (hasFetchedRef.current) {
             return;
@@ -96,13 +157,31 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
             return;
         }
 
+        const isGenericReport = (candidate: SessionReport) => {
+            const strengths = candidate.strengths || [];
+            const feedback = candidate.top_feedback || [];
+            const keyMoments = candidate.key_moments || [];
+            const genericStrengths = strengths.some((item) =>
+                item.toLowerCase().includes("steady discovery cadence")
+            );
+            const genericFeedback = feedback.some((item) =>
+                item.toLowerCase().includes("open-ended questions")
+            );
+            const genericMoments = keyMoments.some((moment) =>
+                (moment.title || "")
+                    .toLowerCase()
+                    .includes("early momentum")
+            );
+            return genericStrengths || genericFeedback || genericMoments;
+        };
+
         const loadReport = async () => {
             setIsLoading(true);
             setError(null);
 
             try {
                 const cachedReport = await getTrainingReport(sessionId);
-                if (cachedReport) {
+                if (cachedReport && !isGenericReport(cachedReport)) {
                     setReport(cachedReport);
                     setIsLoading(false);
                     return;
@@ -197,42 +276,40 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                 </section>
 
                 <section
-                    className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4"
+                    className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"
                     data-purpose="metrics-grid"
                 >
                     <SessionMetricCard
                         label="Duration"
                         value={duration}
-                        note="Optimized"
+                        description="Total recorded session length."
                     />
                     <SessionMetricCard
                         label="Confidence"
                         value={`${confidence}%`}
+                        description="Overall performance score for this session."
                     />
                     <SessionMetricCard
                         label="Sentiment"
                         value={`${sentiment}%`}
-                        note="Positive Bias"
-                    />
-                    <SessionMetricCard
-                        label="Script Adherence"
-                        value={`${report.overall_score.breakdown.value_communication}%`}
+                        description="Prospect sentiment converted to a 0–100 scale."
                     />
                     <SessionMetricCard
                         label="Objections"
                         value={`${report.objection_handling.objections_detected}`}
-                        note="Neutralized"
+                        description="Count of objections detected in the transcript."
                     />
                     <SessionMetricCard
                         label="Talk Ratio"
                         value={`${Math.round(report.conversation_metrics.talk_ratio_rep * 100)}:${Math.round(report.conversation_metrics.talk_ratio_prospect * 100)}`}
-                        note="Balanced"
+                        description="Rep vs prospect share of talk time."
                     />
                 </section>
 
                 <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 gap-6">
                     <SummaryMetricCard
                         title="Confidence Trend"
+                        description="How confidence shifts across the session."
                         indicator={
                             <TrendBadge
                                 direction={confidenceTrend.direction}
@@ -242,24 +319,12 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                         }
                     >
                         <MiniTrendChart
-                            yAxisLabels={[
-                                "3 sessions",
-                                "2 sessions",
-                                "1 session",
-                            ]}
+                            yAxisLabels={["10", "5", "0"]}
                             linePath={confidenceLinePoints.linePath}
                             areaPath={confidenceLinePoints.areaPath}
                             lineColorClass={confidenceTrend.lineClass}
                             areaColorClass={confidenceTrend.fillClass}
-                            xAxisLabels={[
-                                "Start",
-                                "D",
-                                "C",
-                                "O",
-                                "V",
-                                "E",
-                                "Final",
-                            ]}
+                            xAxisLabels={trendTimeLabels}
                             valueLabels={confidenceTrendData.map((value) =>
                                 value.toFixed(1)
                             )}
@@ -268,6 +333,7 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
 
                     <SummaryMetricCard
                         title="Sentiment Fluctuation"
+                        description="Prospect sentiment swings throughout the call."
                         indicator={
                             <TrendBadge
                                 direction={sentimentTrend.direction}
@@ -277,23 +343,15 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                     >
                         <MiniTrendChart
                             yAxisLabels={[
-                                "3 sessions",
-                                "2 sessions",
-                                "1 session",
+                                "Satisfied",
+                                "Neutral",
+                                "Dissatisfied",
                             ]}
                             linePath={sentimentLinePoints.linePath}
                             areaPath={sentimentLinePoints.areaPath}
                             lineColorClass={sentimentTrend.lineClass}
                             areaColorClass={sentimentTrend.fillClass}
-                            xAxisLabels={[
-                                "Kickoff",
-                                "Early",
-                                "Mid",
-                                "Pivot",
-                                "Late",
-                                "Close",
-                                "End",
-                            ]}
+                            xAxisLabels={trendTimeLabels}
                             valueLabels={sentimentTrendData.map((value) =>
                                 value.toFixed(1)
                             )}
@@ -301,59 +359,84 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                     </SummaryMetricCard>
                 </section>
 
-                <section className="grid grid-cols-1 gap-6 pb-12">
-                    <div className="bg-surface-panel p-6 rounded-2xl border border-border-subtle">
-                        <div className="flex items-center gap-2 mb-5">
-                            <span className="material-symbols-outlined text-success">
-                                verified
-                            </span>
-                            <h3 className="font-bold text-white">
-                                AI Insights
-                            </h3>
-                        </div>
-                        <div className="space-y-4">
-                            {report.strengths.map((strength, idx) => (
-                                <div
-                                    key={idx}
-                                    className="rounded-xl border border-border-subtle bg-surface-hover/35 px-4 py-3"
-                                >
-                                    <div className="flex items-center gap-2 text-sm font-bold text-text-main mb-1">
-                                        <span className="material-symbols-outlined text-[16px] text-success">
-                                            check_circle
-                                        </span>
-                                        Insight {idx + 1}
+                <section className="grid grid-cols-1 lg:grid-cols-3 gap-8 pb-12">
+                    <div className="lg:col-span-1 space-y-6">
+                        <h2 className="text-xl font-bold text-white mb-2">
+                            Key Moments
+                        </h2>
+                        <div className="relative space-y-8 pl-8 border-l border-border-subtle ml-2">
+                            {keyMoments.map((moment, idx) => (
+                                <div key={`${moment.title}-${idx}`} className="relative">
+                                    <div
+                                        className={`absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-surface-base border-2 ${
+                                            idx === 0
+                                                ? "border-primary"
+                                                : "border-border-subtle"
+                                        } flex items-center justify-center`}
+                                    >
+                                        <div
+                                            className={`w-1 h-1 rounded-full ${
+                                                idx === 0
+                                                    ? "bg-primary"
+                                                    : "bg-border-subtle"
+                                            }`}
+                                        />
                                     </div>
-                                    <p className="text-sm text-text-muted leading-relaxed pl-6">
-                                        {strength}
+                                    <div className="text-sm font-bold text-text-main mb-1">
+                                        {formatTimestamp(
+                                            moment.timestamp_seconds
+                                        )}{" "}
+                                        - {moment.title}
+                                    </div>
+                                    <p className="text-sm text-text-muted leading-relaxed">
+                                        {moment.speaker ? (
+                                            <span className="text-text-main font-semibold">
+                                                {moment.speaker}:
+                                            </span>
+                                        ) : null}{" "}
+                                        {moment.utterance || moment.description}
                                     </p>
                                 </div>
                             ))}
                         </div>
                     </div>
 
-                    <div className="bg-surface-panel p-6 rounded-2xl border border-border-subtle">
-                        <div className="flex items-center gap-2 mb-5">
-                            <span className="material-symbols-outlined text-warning">
-                                trending_up
-                            </span>
-                            <h3 className="font-bold text-white">
-                                Improvement Areas
-                            </h3>
-                        </div>
-                        <div className="space-y-4">
-                            {report.top_feedback.map((feedback, idx) => (
-                                <div
-                                    key={idx}
-                                    className="rounded-xl border border-warning/20 bg-warning/10 px-4 py-3"
-                                >
-                                    <div className="text-sm font-bold text-text-main mb-1">
-                                        Practice Point {idx + 1}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="bg-surface-panel p-6 rounded-2xl border border-border-subtle">
+                            <div className="flex items-center gap-2 mb-6">
+                                <span className="material-symbols-outlined text-success">
+                                    psychology
+                                </span>
+                                <h3 className="font-bold text-white">AI Insights</h3>
+                            </div>
+                            <div className="divide-y divide-border-subtle">
+                                {[
+                                    ...report.strengths.map((text) => ({
+                                        type: "Strength",
+                                        tone: "text-success",
+                                        text,
+                                    })),
+                                    ...report.top_feedback.map((text) => ({
+                                        type: "Improve",
+                                        tone: "text-warning",
+                                        text,
+                                    })),
+                                ].map((item, idx) => (
+                                    <div key={`${item.type}-${idx}`} className="py-4 first:pt-0 last:pb-0">
+                                        <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-text-muted">
+                                            <span className={`material-symbols-outlined text-[16px] ${item.tone}`}>
+                                                {item.type === "Strength"
+                                                    ? "verified"
+                                                    : "trending_up"}
+                                            </span>
+                                            {item.type}
+                                        </div>
+                                        <p className="text-sm text-text-muted leading-relaxed mt-2">
+                                            {item.text}
+                                        </p>
                                     </div>
-                                    <p className="text-sm text-text-muted leading-relaxed">
-                                        {feedback}
-                                    </p>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                     </div>
                 </section>

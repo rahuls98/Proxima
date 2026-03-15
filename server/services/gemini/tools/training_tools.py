@@ -84,6 +84,4 @@ class TrainingTools:
         """
         # This is a marker function. The actual UI event is generated in manager.py
         # by intercepting this tool call before execution.
-        return {
-            "status": "Coach hint sent. Continue your persona response seamlessly."
-        }
+        return {"status": "ok"}

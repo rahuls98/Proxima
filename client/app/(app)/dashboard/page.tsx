@@ -26,6 +26,8 @@ import { PersonaLibraryCard } from "@/components/molecules/PersonaLibraryCard";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
 import { SessionsTable } from "@/components/organisms/SessionsTable";
 import { buildLineAndAreaPaths, getTrendVisual } from "@/lib/trend-chart";
+import { getTrainingReport } from "@/lib/training-report-storage";
+import { generateSessionReport } from "@/lib/api";
 
 const DASHBOARD_DAY_COUNT = 7;
 function getDateKey(date: Date) {
@@ -37,11 +39,13 @@ function getDateKey(date: Date) {
 
 function buildRecentDayBuckets() {
     const today = new Date();
+    const start = new Date(today);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay()); // Sunday
 
-    return Array.from({ length: DASHBOARD_DAY_COUNT }, (_, index) => {
-        const date = new Date(today);
-        date.setHours(0, 0, 0, 0);
-        date.setDate(today.getDate() - (DASHBOARD_DAY_COUNT - 1 - index));
+    return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(start);
+        date.setDate(start.getDate() + index);
 
         return {
             dateKey: getDateKey(date),
@@ -58,7 +62,11 @@ export default function DashboardPage() {
     const [metrics, setMetrics] = useState<TrainingMetricDataPoint[]>([]);
     const [sessions, setSessions] = useState<TrainingSession[]>([]);
     const [savedPersonas, setSavedPersonas] = useState<SavedPersona[]>([]);
+    const [reportBySessionId, setReportBySessionId] = useState<
+        Record<string, Awaited<ReturnType<typeof getTrainingReport>>>
+    >({});
     const [isLoading, setIsLoading] = useState(true);
+    const [isReportsLoading, setIsReportsLoading] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -84,6 +92,44 @@ export default function DashboardPage() {
         loadData();
     }, []);
 
+    useEffect(() => {
+        const loadReports = async () => {
+            if (hasMeaningfulMetrics) {
+                return;
+            }
+            setIsReportsLoading(true);
+            const missing = sessions.filter(
+                (session) => !reportBySessionId[session.id]
+            );
+            if (missing.length === 0) {
+                setIsReportsLoading(false);
+                return;
+            }
+
+            const entries = await Promise.all(
+                missing.map(async (session) => [
+                    session.id,
+                    (await getTrainingReport(session.id)) ??
+                        (await generateSessionReport(session.id)),
+                ])
+            );
+            setReportBySessionId((prev) => {
+                const next = { ...prev };
+                entries.forEach(([id, report]) => {
+                    if (report) {
+                        next[id as string] = report;
+                    }
+                });
+                return next;
+            });
+            setIsReportsLoading(false);
+        };
+
+        if (sessions.length > 0) {
+            void loadReports();
+        }
+    }, [sessions, reportBySessionId, metrics.length]);
+
     const personas = useMemo(
         () =>
             savedPersonas
@@ -92,9 +138,63 @@ export default function DashboardPage() {
         [savedPersonas]
     );
 
-    const activeAggregate = useMemo(
-        () =>
-            aggregate ?? {
+    const hasReportData = Object.keys(reportBySessionId).length > 0;
+    const hasMeaningfulMetrics = metrics.some(
+        (metric) =>
+            metric.overall_score > 0 ||
+            metric.duration_seconds > 0 ||
+            metric.questions_asked > 0
+    );
+    const activeMetrics = useMemo(() => {
+        if (hasMeaningfulMetrics) {
+            return metrics;
+        }
+
+        if (!hasReportData) {
+            return [] as TrainingMetricDataPoint[];
+        }
+
+        return Object.values(reportBySessionId)
+            .filter(Boolean)
+            .map((report) => ({
+                session_id: report!.session_overview.session_id,
+                timestamp: report!.session_overview.session_start_time,
+                scenario: report!.session_overview.scenario,
+                difficulty: report!.session_overview.difficulty,
+                duration_seconds:
+                    report!.session_overview.session_duration_seconds,
+                overall_score: report!.overall_score.score,
+                discovery_score: report!.overall_score.breakdown.discovery,
+                objection_handling_score:
+                    report!.overall_score.breakdown.objection_handling,
+                value_communication_score:
+                    report!.overall_score.breakdown.value_communication,
+                conversation_control_score:
+                    report!.overall_score.breakdown.conversation_control,
+                emotional_intelligence_score:
+                    report!.overall_score.breakdown.emotional_intelligence,
+                talk_ratio_rep: report!.conversation_metrics.talk_ratio_rep,
+                questions_asked: report!.conversation_metrics.questions_asked,
+                open_questions: report!.conversation_metrics.open_questions,
+                interruptions: report!.conversation_metrics.interruptions,
+                discovery_completeness: 0,
+                trust_change: report!.prospect_engagement.trust_change,
+                commitment_secured: report!.deal_progression.commitment_secured,
+            }));
+    }, [metrics, reportBySessionId, hasReportData, hasMeaningfulMetrics]);
+
+    const isMetricsReady = activeMetrics.length > 0;
+    const shouldShowLoading =
+        isLoading ||
+        (sessions.length > 0 && !isMetricsReady && isReportsLoading);
+
+    const activeAggregate = useMemo(() => {
+        if (aggregate && aggregate.total_sessions > 0) {
+            return aggregate;
+        }
+
+        if (activeMetrics.length === 0) {
+            return {
                 total_sessions: 0,
                 avg_overall_score: 0,
                 avg_discovery_score: 0,
@@ -112,11 +212,65 @@ export default function DashboardPage() {
                 },
                 most_common_strengths: [],
                 most_common_feedback: [],
-            },
-        [aggregate]
-    );
+            };
+        }
 
-    const activeMetrics = useMemo(() => metrics, [metrics]);
+        const totals = activeMetrics.reduce(
+            (acc, metric) => {
+                acc.overall += metric.overall_score;
+                acc.discovery += metric.discovery_score;
+                acc.objection += metric.objection_handling_score;
+                acc.value += metric.value_communication_score;
+                acc.control += metric.conversation_control_score;
+                acc.emotional += metric.emotional_intelligence_score;
+                acc.duration += metric.duration_seconds;
+                acc.questions += metric.questions_asked;
+                acc.talkRatio += metric.talk_ratio_rep;
+                acc.excellent += metric.overall_score >= 80 ? 1 : 0;
+                acc.good +=
+                    metric.overall_score >= 60 && metric.overall_score < 80
+                        ? 1
+                        : 0;
+                acc.needs += metric.overall_score < 60 ? 1 : 0;
+                return acc;
+            },
+            {
+                overall: 0,
+                discovery: 0,
+                objection: 0,
+                value: 0,
+                control: 0,
+                emotional: 0,
+                duration: 0,
+                questions: 0,
+                talkRatio: 0,
+                excellent: 0,
+                good: 0,
+                needs: 0,
+            }
+        );
+
+        const count = activeMetrics.length || 1;
+        return {
+            total_sessions: activeMetrics.length,
+            avg_overall_score: totals.overall / count,
+            avg_discovery_score: totals.discovery / count,
+            avg_objection_score: totals.objection / count,
+            avg_value_comm_score: totals.value / count,
+            avg_conversation_control: totals.control / count,
+            avg_emotional_intelligence: totals.emotional / count,
+            avg_duration_seconds: totals.duration / count,
+            avg_questions_asked: totals.questions / count,
+            avg_talk_ratio_rep: totals.talkRatio / count,
+            performance_distribution: {
+                excellent: totals.excellent,
+                good: totals.good,
+                needs_improvement: totals.needs,
+            },
+            most_common_strengths: [],
+            most_common_feedback: [],
+        };
+    }, [aggregate, activeMetrics]);
 
     const weeklyMetrics = useMemo(() => {
         const buckets = buildRecentDayBuckets();
@@ -138,6 +292,7 @@ export default function DashboardPage() {
         const buckets = buildRecentDayBuckets().map((day) => ({
             ...day,
             totalSeconds: 0,
+            displayLabel: "0m",
         }));
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
@@ -160,14 +315,25 @@ export default function DashboardPage() {
             1
         );
 
-        return buckets.map((entry) => ({
-            ...entry,
-            totalHours: entry.totalSeconds / 3600,
-            barHeightPercent: Math.max(
-                (entry.totalSeconds / maxSeconds) * 100,
-                entry.totalSeconds > 0 ? 16 : 8
-            ),
-        }));
+        return buckets.map((entry) => {
+            const totalHours = entry.totalSeconds / 3600;
+            const displayLabel =
+                entry.totalSeconds === 0
+                    ? "0m"
+                    : entry.totalSeconds < 3600
+                      ? `${Math.max(1, Math.round(entry.totalSeconds / 60))}m`
+                      : `${totalHours.toFixed(1)}h`;
+
+            return {
+                ...entry,
+                totalHours,
+                displayLabel,
+                barHeightPercent: Math.max(
+                    (entry.totalSeconds / maxSeconds) * 100,
+                    entry.totalSeconds > 0 ? 16 : 8
+                ),
+            };
+        });
     }, [weeklyMetrics]);
 
     const confidenceGraphData = useMemo(() => {
@@ -219,6 +385,10 @@ export default function DashboardPage() {
             10
         );
     }, [confidenceGraphData]);
+
+    const confidenceSinglePoint =
+        confidenceGraphData.filter((day) => day.avgRating !== null).length ===
+        1;
 
     const prospectSentimentGraphData = useMemo(() => {
         const getSentimentRating = (trustChange: number) => {
@@ -285,6 +455,11 @@ export default function DashboardPage() {
         );
     }, [prospectSentimentGraphData]);
 
+    const sentimentSinglePoint =
+        prospectSentimentGraphData.filter(
+            (day) => day.avgSentimentRating !== null
+        ).length === 1;
+
     const personaIdByName = useMemo(() => {
         return new Map(
             savedPersonas
@@ -297,33 +472,112 @@ export default function DashboardPage() {
     }, [savedPersonas]);
 
     const recentSessionRows = useMemo(() => {
-        const sorted = [...activeMetrics].sort(
-            (a, b) =>
-                new Date(b.timestamp).getTime() -
-                new Date(a.timestamp).getTime()
+        const resolveScore = (
+            metricScore: number | null | undefined,
+            reportScore: number | null | undefined
+        ) => {
+            if (
+                typeof reportScore === "number" &&
+                (metricScore === null ||
+                    metricScore === undefined ||
+                    metricScore === 0)
+            ) {
+                return reportScore;
+            }
+            return metricScore ?? 0;
+        };
+        const resolveTrust = (
+            metricTrust: number | null | undefined,
+            reportTrust: number | null | undefined
+        ) => {
+            if (
+                typeof reportTrust === "number" &&
+                (metricTrust === null ||
+                    metricTrust === undefined ||
+                    metricTrust === 0)
+            ) {
+                return reportTrust;
+            }
+            return metricTrust ?? 0;
+        };
+        const sessionById = new Map(
+            sessions.map((session) => [session.id, session])
         );
-        return sorted.slice(0, 6).map((metric) => {
-            const session = sessions.find(
-                (entry) => entry.id === metric.session_id
-            );
-            const personaName =
-                session?.personaName || session?.jobTitle || "Unknown";
-            const personaId = session?.personaName
-                ? personaIdByName.get(session.personaName.toLowerCase())
-                : undefined;
+        const rowsFromMetrics = [...activeMetrics]
+            .sort(
+                (a, b) =>
+                    new Date(b.timestamp).getTime() -
+                    new Date(a.timestamp).getTime()
+            )
+            .map((metric) => {
+                const session = sessionById.get(metric.session_id);
+                const report = reportBySessionId[metric.session_id];
+                const personaName =
+                    session?.personaName || session?.jobTitle || "Unknown";
+                const personaId = session?.personaName
+                    ? personaIdByName.get(session.personaName.toLowerCase())
+                    : undefined;
 
-            return {
-                id: metric.session_id,
-                name: metric.scenario || "Training Session",
-                persona: personaName,
-                personaId,
-                timestamp: metric.timestamp,
-                duration: `${Math.floor(metric.duration_seconds / 60)}m ${metric.duration_seconds % 60}s`,
-                confidence: metric.overall_score,
-                sentiment: metric.trust_change,
-            };
-        });
+                return {
+                    id: metric.session_id,
+                    name: metric.scenario || session?.scenario || "Training Session",
+                    persona: personaName,
+                    personaId,
+                    timestamp: metric.timestamp || session?.timestamp || "",
+                    duration: `${Math.floor(metric.duration_seconds / 60)}m ${(
+                        metric.duration_seconds % 60
+                    )
+                        .toString()
+                        .padStart(2, "0")}s`,
+                    confidence: resolveScore(
+                        metric.overall_score,
+                        report?.overall_score.score
+                    ),
+                    sentiment: resolveTrust(
+                        metric.trust_change,
+                        report?.prospect_engagement.trust_change
+                    ),
+                };
+            });
+        const fallback = [...sessions]
+            .sort(
+                (a, b) =>
+                    new Date(b.timestamp).getTime() -
+                    new Date(a.timestamp).getTime()
+            )
+            .slice(0, 3)
+            .map((session) => ({
+                id: session.id,
+                name: session.scenario || "Training Session",
+                persona: session.personaName || session.jobTitle || "Unknown",
+                personaId: session.personaName
+                    ? personaIdByName.get(session.personaName.toLowerCase())
+                    : undefined,
+                timestamp: session.timestamp,
+                duration: session.duration || "--",
+                confidence:
+                    reportBySessionId[session.id]?.overall_score.score ?? 0,
+                sentiment:
+                    reportBySessionId[session.id]?.prospect_engagement
+                        .trust_change ?? 0,
+            }));
+        const combined = [...rowsFromMetrics, ...fallback]
+            .reduce((acc, row) => {
+                if (!acc.some((entry) => entry.id === row.id)) {
+                    acc.push(row);
+                }
+                return acc;
+            }, [] as typeof rowsFromMetrics)
+            .sort(
+                (a, b) =>
+                    new Date(b.timestamp).getTime() -
+                    new Date(a.timestamp).getTime()
+            );
+
+        return combined.slice(0, 3);
     }, [activeMetrics, sessions, personaIdByName]);
+
+    const isSessionsLoading = shouldShowLoading || isReportsLoading;
 
     const handleNewTraining = (personaId: string) => {
         router.push(`/training/context-builder?personaId=${personaId}`);
@@ -346,7 +600,7 @@ export default function DashboardPage() {
         }
     };
 
-    if (isLoading) {
+    if (shouldShowLoading) {
         return (
             <div className="flex-1 p-8 flex items-center justify-center">
                 <div className="text-center">
@@ -365,16 +619,24 @@ export default function DashboardPage() {
                 <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     <SummaryMetricCard
                         title="Total Time"
+                        description="Total practice time recorded this week."
                         headerAlign="bottom"
                         indicator={
                             <span className="text-3xl font-bold text-white leading-none">
-                                {timeGraphData
-                                    .reduce(
-                                        (sum, day) => sum + day.totalHours,
+                                {(() => {
+                                    const totalSeconds = timeGraphData.reduce(
+                                        (sum, day) =>
+                                            sum + day.totalSeconds,
                                         0
-                                    )
-                                    .toFixed(1)}
-                                h
+                                    );
+                                    if (totalSeconds < 3600) {
+                                        return `${Math.max(
+                                            1,
+                                            Math.round(totalSeconds / 60)
+                                        )}m`;
+                                    }
+                                    return `${(totalSeconds / 3600).toFixed(1)}h`;
+                                })()}
                             </span>
                         }
                     >
@@ -396,7 +658,7 @@ export default function DashboardPage() {
                                         {day.dayLabel}
                                     </span>
                                     <span className="text-[9px] text-text-main font-medium leading-none">
-                                        {day.totalHours.toFixed(1)}h
+                                        {day.displayLabel}
                                     </span>
                                 </div>
                             ))}
@@ -405,6 +667,7 @@ export default function DashboardPage() {
 
                     <SummaryMetricCard
                         title="Confidence Rating"
+                        description="Average daily score on a 0–10 scale."
                         indicator={
                             <TrendBadge
                                 direction={confidenceSummary.direction}
@@ -416,9 +679,21 @@ export default function DashboardPage() {
                         <MiniTrendChart
                             yAxisLabels={["10", "5", "0"]}
                             linePath={confidenceLinePoints.linePath}
-                            areaPath={confidenceLinePoints.areaPath}
-                            lineColorClass={confidenceSummary.lineClass}
-                            areaColorClass={confidenceSummary.fillClass}
+                            areaPath={
+                                confidenceSinglePoint
+                                    ? undefined
+                                    : confidenceLinePoints.areaPath
+                            }
+                            lineColorClass={
+                                confidenceSinglePoint
+                                    ? "text-success"
+                                    : confidenceSummary.lineClass
+                            }
+                            areaColorClass={
+                                confidenceSinglePoint
+                                    ? "fill-success/10"
+                                    : confidenceSummary.fillClass
+                            }
                             xAxisLabels={confidenceGraphData.map(
                                 (day) => day.dayLabel
                             )}
@@ -432,6 +707,7 @@ export default function DashboardPage() {
 
                     <SummaryMetricCard
                         title="Prospect Average Sentiment Trend"
+                        description="Daily average prospect sentiment from 1–3."
                         indicator={
                             <TrendBadge
                                 direction={prospectSentimentSummary.direction}
@@ -446,9 +722,21 @@ export default function DashboardPage() {
                                 "1 Dissatisfied",
                             ]}
                             linePath={prospectSentimentLinePoints.linePath}
-                            areaPath={prospectSentimentLinePoints.areaPath}
-                            lineColorClass={prospectSentimentSummary.lineClass}
-                            areaColorClass={prospectSentimentSummary.fillClass}
+                            areaPath={
+                                sentimentSinglePoint
+                                    ? undefined
+                                    : prospectSentimentLinePoints.areaPath
+                            }
+                            lineColorClass={
+                                sentimentSinglePoint
+                                    ? "text-success"
+                                    : prospectSentimentSummary.lineClass
+                            }
+                            areaColorClass={
+                                sentimentSinglePoint
+                                    ? "fill-success/10"
+                                    : prospectSentimentSummary.fillClass
+                            }
                             xAxisLabels={prospectSentimentGraphData.map(
                                 (day) => day.dayLabel
                             )}
@@ -537,9 +825,10 @@ export default function DashboardPage() {
                         }
                     />
                     <SessionsTable
-                        rows={recentSessionRows}
+                        rows={isSessionsLoading ? [] : recentSessionRows}
                         onViewReport={handleViewReport}
                         onViewPersona={handleViewPersonaDetails}
+                        isLoading={isSessionsLoading}
                     />
                 </section>
             </div>

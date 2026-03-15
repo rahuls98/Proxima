@@ -31,7 +31,9 @@ class SessionMetrics(TypedDict):
     on_rep_confidence_trend: str  # "increasing", "decreasing", "stable"
     prospect_sentiment_avg: float  # 0-10 scale (0=very negative, 10=very positive)
     prospect_sentiment_trend: str  # "improving", "declining", "stable"
-    key_moments: list[str]  # Notable moments from the session
+    key_moments: list[dict]  # Notable moments from the session
+    strengths: list[str]  # What the rep did well
+    improvements: list[str]  # What needs improvement
     recommendations: list[str]  # Coaching recommendations
 
 
@@ -56,16 +58,16 @@ Analyze the following dimensions:
    - Scale: 0-10 (0=very negative/hostile, 10=very positive/enthusiastic)
    - Track the trend across the session (improving, declining, stable)
 
-4. **Key Moments**: Identify 3-5 critical moments that impacted the session outcome:
-   - Strong objection handling
-   - Missed opportunities
-   - Turning points in sentiment
-   - Power moments
+4. **Key Moments**: Identify 3-5 critical moments that impacted the session outcome.
+   Each moment must include:
+   - timestamp_seconds (integer seconds from session start)
+   - title (short label)
+   - speaker ("Rep" or "Prospect")
+   - utterance (verbatim or lightly trimmed quote)
 
-5. **Coaching Recommendations**: Provide 3-5 specific, actionable coaching points:
-   - What the rep did well
-   - What needs improvement
-   - Specific techniques to practice
+5. **Strengths**: Provide 2-4 concrete strengths with evidence from the transcript.
+6. **Improvements**: Provide 2-4 concrete improvement areas with evidence.
+7. **Coaching Recommendations**: Provide 3-5 specific, actionable coaching points.
 
 **Output Format**:
 Return ONLY valid JSON matching this exact structure (no markdown, no code blocks):
@@ -78,9 +80,20 @@ Return ONLY valid JSON matching this exact structure (no markdown, no code block
   "prospect_sentiment_avg": <number 0-10>,
   "prospect_sentiment_trend": "<improving|declining|stable>",
   "key_moments": [
-    "<moment 1>",
-    "<moment 2>",
-    "<moment 3>"
+    {
+      "timestamp_seconds": 75,
+      "title": "Pricing objection",
+      "speaker": "Prospect",
+      "utterance": "That's more than we expected this quarter."
+    }
+  ],
+  "strengths": [
+    "<strength 1>",
+    "<strength 2>"
+  ],
+  "improvements": [
+    "<improvement 1>",
+    "<improvement 2>"
   ],
   "recommendations": [
     "<recommendation 1>",
@@ -255,6 +268,8 @@ class SessionReportGenerator:
             "prospect_sentiment_avg",
             "prospect_sentiment_trend",
             "key_moments",
+            "strengths",
+            "improvements",
             "recommendations",
         ]
         

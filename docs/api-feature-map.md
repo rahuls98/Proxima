@@ -37,8 +37,13 @@ Feature → API mapping for the current Firestore-backed implementation.
 
 - `SettingsPage` (global AI feature toggles):
     - Reads/writes avatar generation toggle via `/api/settings/ai-features`
+- `SettingsPage` (local user context):
+    - Reads/writes `proxima_user_name` and `proxima_user_call_context` in localStorage
 - `ContextBuilderForm` and `MeetingRoom`:
     - Avatar generation and display logic is gated by the global setting
+- `ContextBuilderForm`:
+    - Collects required `discussion_intent` as part of persona configuration
+    - Injects `rep_call_context` from localStorage into `session_context` before calling `POST /context/persona-instruction`
 - `MeetingRoom` reads draft context: `GET /api/sessions/draft/latest`
 - `MeetingRoom` saves session history: `POST /api/sessions`
 - `MeetingRoom` generates report: `POST /report/generate`

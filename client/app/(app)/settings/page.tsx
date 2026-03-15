@@ -7,7 +7,12 @@ import {
     fetchAvatarGenerationEnabled,
     updateAvatarGenerationEnabled,
 } from "@/lib/ai-feature-settings";
-import { getUserName, setUserName } from "@/lib/user-settings";
+import {
+    getUserCallContext,
+    getUserName,
+    setUserCallContext,
+    setUserName,
+} from "@/lib/user-settings";
 
 export default function SettingsPage() {
     const [avatarGenerationEnabled, setAvatarGenerationEnabledState] =
@@ -17,6 +22,7 @@ export default function SettingsPage() {
     const [error, setError] = useState<string | null>(null);
 
     const [userName, setUserNameState] = useState("");
+    const [userCallContext, setUserCallContextState] = useState("");
     const [userNameSaved, setUserNameSaved] = useState(false);
 
     useEffect(() => {
@@ -27,6 +33,7 @@ export default function SettingsPage() {
                 const enabled = await fetchAvatarGenerationEnabled();
                 setAvatarGenerationEnabledState(enabled);
                 setUserNameState(getUserName() || "");
+                setUserCallContextState(getUserCallContext() || "");
             } catch (loadError) {
                 setError(
                     loadError instanceof Error
@@ -68,7 +75,7 @@ export default function SettingsPage() {
             <AppPageHeader title="Settings" />
 
             <div className="flex-1 overflow-y-auto px-8 py-8 no-scrollbar">
-                <section className="bg-surface-panel border border-border-subtle rounded-2xl p-6 space-y-8 max-w-3xl">
+                <section className="p-6 space-y-8 max-w-3xl">
                     <div className="flex items-center gap-3">
                         <span className="material-symbols-outlined text-primary">
                             person
@@ -82,11 +89,12 @@ export default function SettingsPage() {
                         onSubmit={(e) => {
                             e.preventDefault();
                             setUserName(userName);
+                            setUserCallContext(userCallContext);
                             setUserNameSaved(true);
                             setTimeout(() => setUserNameSaved(false), 1200);
                         }}
                     >
-                        <div className="flex-1">
+                        <div className="flex-1 space-y-4">
                             <label
                                 className="block text-sm font-semibold text-text-main mb-1"
                                 htmlFor="userNameInput"
@@ -103,11 +111,32 @@ export default function SettingsPage() {
                                 }
                                 placeholder="Enter your name"
                             />
+
+                            <div>
+                                <label
+                                    className="block text-sm font-semibold text-text-main mb-1"
+                                    htmlFor="userCallContextInput"
+                                >
+                                    About You
+                                </label>
+                                <textarea
+                                    id="userCallContextInput"
+                                    className="w-full min-h-24 rounded-lg border border-border-subtle px-3 py-2 text-sm bg-surface-panel text-text-main placeholder:text-text-placeholder focus:outline-none focus:border-primary resize-y"
+                                    value={userCallContext}
+                                    onChange={(e) =>
+                                        setUserCallContextState(e.target.value)
+                                    }
+                                    placeholder="I am an AE focused on enterprise discovery. I usually aim to qualify urgency, identify blockers, and align next steps with a clear decision timeline."
+                                />
+                            </div>
                         </div>
                         <button
                             type="submit"
                             className="px-4 py-2 rounded-lg bg-primary text-white font-semibold disabled:opacity-60"
-                            disabled={userName.trim() === ""}
+                            disabled={
+                                userName.trim() === "" &&
+                                userCallContext.trim() === ""
+                            }
                         >
                             Save
                         </button>
@@ -117,6 +146,8 @@ export default function SettingsPage() {
                             </span>
                         )}
                     </form>
+
+                    <hr className="border-border-subtle" />
 
                     <div className="flex items-center gap-3 mt-8">
                         <span className="material-symbols-outlined text-primary">
@@ -137,6 +168,17 @@ export default function SettingsPage() {
                                 and show them in the meeting room participant
                                 tile.
                             </p>
+                            <br />
+                            <p className="text-xs text-text-muted">
+                                {isLoading
+                                    ? "Loading setting..."
+                                    : isSaving
+                                      ? "Saving setting..."
+                                      : "Global setting applies to all sessions and users."}
+                            </p>
+                            {error ? (
+                                <p className="text-xs text-danger">{error}</p>
+                            ) : null}
                         </div>
 
                         <button
@@ -164,17 +206,6 @@ export default function SettingsPage() {
                             />
                         </button>
                     </div>
-
-                    <p className="text-xs text-text-muted">
-                        {isLoading
-                            ? "Loading setting..."
-                            : isSaving
-                              ? "Saving setting..."
-                              : "Global setting applies to all sessions and users."}
-                    </p>
-                    {error ? (
-                        <p className="text-xs text-danger">{error}</p>
-                    ) : null}
                 </section>
             </div>
         </div>

@@ -10,6 +10,7 @@ Next.js UI for persona setup, live training sessions, and performance reports.
 - `/training/[sessionId]/report` – Session report
 - `/personas` – Persona library
 - `/sessions` – Session history
+- `/settings` – User settings + AI feature toggles
 
 ## Service Layer
 
@@ -61,3 +62,20 @@ The app supports global AI feature toggles, persisted in Firestore and surfaced 
 **Usage:**
 
 - Avatar generation and display logic in context builder and meeting room is gated by this setting.
+
+## User Context Settings (Local Storage)
+
+The settings page stores lightweight user context in browser localStorage for use during training setup:
+
+- `proxima_user_name` via `getUserName()` / `setUserName()`
+- `proxima_user_call_context` via `getUserCallContext()` / `setUserCallContext()`
+
+The user call context is a single textarea value describing who the user is and what they typically try to achieve on calls.
+
+## Context Builder Additions
+
+The persona configuration flow now includes an additional required field:
+
+- `discussion_intent` ("Stage Context (One-Liner)")
+
+During persona generation, the context builder also injects `rep_call_context` from localStorage into `session_context` (not shown in context-builder UI), so the training agent can adapt to the rep's profile and goals.

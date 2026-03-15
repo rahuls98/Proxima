@@ -17,6 +17,7 @@ import {
 import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
 import { setSessionContext } from "@/lib/session-context";
+import { getUserCallContext } from "@/lib/user-settings";
 
 type AdditionalFileItem = {
     id: number;
@@ -32,6 +33,7 @@ type FormValues = {
     industry: string;
     // Persona fields
     discussion_stage: string;
+    discussion_intent: string;
     objection_archetype: string;
     skepticism_level: string;
     negotiation_toughness: string;
@@ -45,6 +47,7 @@ const REQUIRED_FIELDS: (keyof FormValues)[] = [
     "location",
     "industry",
     "discussion_stage",
+    "discussion_intent",
     "objection_archetype",
     "skepticism_level",
     "negotiation_toughness",
@@ -66,6 +69,7 @@ const emptyForm: FormValues = {
     location: "",
     industry: "",
     discussion_stage: "",
+    discussion_intent: "",
     objection_archetype: "",
     skepticism_level: "",
     negotiation_toughness: "",
@@ -208,6 +212,7 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                         location: context.location || "",
                         industry: context.industry || "",
                         discussion_stage: context.discussion_stage || "",
+                        discussion_intent: context.discussion_intent || "",
                         objection_archetype: context.objection_archetype || "",
                         skepticism_level:
                             String(context.skepticism_level || "") || "",
@@ -271,6 +276,7 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             location: useRef<HTMLDivElement>(null),
             industry: useRef<HTMLDivElement>(null),
             discussion_stage: useRef<HTMLDivElement>(null),
+            discussion_intent: useRef<HTMLDivElement>(null),
             objection_archetype: useRef<HTMLDivElement>(null),
             skepticism_level: useRef<HTMLDivElement>(null),
             negotiation_toughness: useRef<HTMLDivElement>(null),
@@ -327,8 +333,12 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             }
 
             try {
+                const repCallContext = getUserCallContext().trim();
                 const sessionContext: Record<string, unknown> = {
                     ...formValues,
+                    ...(repCallContext
+                        ? { rep_call_context: repCallContext }
+                        : {}),
                     additional_files_context: additionalFiles
                         .filter((f) => f.key && (f.file || f.value.trim()))
                         .map((f) => ({
@@ -631,6 +641,36 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                             <option>Expansion</option>
                         </select>
                         {showFieldError("discussion_stage") && (
+                            <span className="text-xs text-danger">
+                                Required
+                            </span>
+                        )}
+                    </div>
+                    <div
+                        className="mb-8"
+                        ref={fieldRefs.discussion_intent}
+                        id="field-discussion_intent"
+                    >
+                        <label className="text-sm font-medium text-text-muted mb-1 block">
+                            Stage Context (One-Liner)
+                        </label>
+                        <Input
+                            type="text"
+                            placeholder="e.g. Validate implementation timeline for Q3 rollout"
+                            value={formValues.discussion_intent}
+                            onChange={(e) =>
+                                handleFieldChange(
+                                    "discussion_intent",
+                                    e.target.value
+                                )
+                            }
+                            className={
+                                showFieldError("discussion_intent")
+                                    ? "border-danger"
+                                    : ""
+                            }
+                        />
+                        {showFieldError("discussion_intent") && (
                             <span className="text-xs text-danger">
                                 Required
                             </span>

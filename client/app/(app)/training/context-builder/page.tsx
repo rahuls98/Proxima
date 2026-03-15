@@ -62,7 +62,7 @@ export default function BuildContextPage() {
             {isBuildingPersona ? (
                 <PersonaConfiguringOverlay
                     fixed
-                    message="Building a context-aware simulation profile for your training session..."
+                    message="Configuring training session"
                 />
             ) : null}
         </div>

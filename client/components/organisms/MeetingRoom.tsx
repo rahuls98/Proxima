@@ -18,6 +18,7 @@ import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import { saveTrainingSessionWithReport } from "@/lib/training-history";
 import { generateSessionReport } from "@/lib/api";
+import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
 import { getSessionContext } from "@/lib/session-context";
 import type {
     ProximaAgentConnectionState,
@@ -69,11 +70,13 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         null
     );
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
-    const [sessionContext, setSessionContext] = useState<
-        Record<string, unknown> | null
-    >(null);
+    const [sessionContext, setSessionContext] = useState<Record<
+        string,
+        unknown
+    > | null>(null);
     const [prospectName, setProspectName] = useState<string | null>(null);
     const [prospectTone, setProspectTone] = useState<string | null>(null);
+    const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
     const [isPersonaReady, setIsPersonaReady] = useState(false);
     const [personaError, setPersonaError] = useState<string | null>(null);
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -91,6 +94,15 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     const screenCaptureCleanupRef = useRef<(() => void) | null>(null);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const coachPopupTimeoutRef = useRef<number | null>(null);
+    const activeSessionIdRef = useRef<string | null>(initialSessionId ?? null);
+
+    const clearPersonaImageCache = useCallback(() => {
+        const avatarSessionId =
+            activeSessionIdRef.current ?? initialSessionId ?? null;
+        if (avatarSessionId) {
+            sessionStorage.removeItem(`persona_image_${avatarSessionId}`);
+        }
+    }, [initialSessionId]);
 
     const markSpeaker = useCallback((speaker: "user" | "agent") => {
         setActiveSpeaker(speaker);
@@ -158,6 +170,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                 case "session_ready":
                     // Store session ID for report generation
                     if (event.session_id) {
+                        activeSessionIdRef.current = event.session_id;
                         setSessionId(event.session_id);
                     }
                     if (
@@ -273,7 +286,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             onEvent: handleEvent,
         });
 
-        const applyContext = (
+        const applyContext = async (
             context: Awaited<ReturnType<typeof getSessionContext>> | null
         ) => {
             if (!context) {
@@ -281,9 +294,10 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             }
 
             if (context.session_context) {
-                setSessionContext(
-                    (context.session_context as Record<string, unknown>) || null
-                );
+                const nextContext =
+                    (context.session_context as Record<string, unknown>) ||
+                    null;
+                setSessionContext(nextContext);
                 const draftName =
                     (context.session_context?.prospect_name as
                         | string
@@ -294,6 +308,21 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                         | string
                         | undefined) || null;
                 setProspectTone(tone);
+                // Image is stored in sessionStorage (not in server context)
+                // to avoid exceeding Firestore document size limits.
+                if (initialSessionId) {
+                    if (await fetchAvatarGenerationEnabled()) {
+                        const storedImage = sessionStorage.getItem(
+                            `persona_image_${initialSessionId}`
+                        );
+                        setPersonaImageUrl(storedImage);
+                    } else {
+                        sessionStorage.removeItem(
+                            `persona_image_${initialSessionId}`
+                        );
+                        setPersonaImageUrl(null);
+                    }
+                }
             }
 
             if (context.persona_instruction) {
@@ -332,7 +361,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     );
                     return;
                 }
-                applyContext(context);
+                await applyContext(context);
             } catch (error) {
                 console.error("Failed to load session context:", error);
                 setPersonaError(
@@ -368,6 +397,20 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             }
         };
     }, [handleEvent, initialSessionId]);
+
+    useEffect(() => {
+        const handlePageLeave = () => {
+            clearPersonaImageCache();
+        };
+
+        window.addEventListener("pagehide", handlePageLeave);
+        window.addEventListener("beforeunload", handlePageLeave);
+
+        return () => {
+            window.removeEventListener("pagehide", handlePageLeave);
+            window.removeEventListener("beforeunload", handlePageLeave);
+        };
+    }, [clearPersonaImageCache]);
 
     useEffect(() => {
         if (!screenShareVideoRef.current) {
@@ -464,6 +507,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         setSessionStartedAt(null);
         setMessage("Session ended.");
         appendTranscript("system", "Session ended.");
+        clearPersonaImageCache();
         currentBotMessageIdRef.current = null;
         currentUserMessageIdRef.current = null;
         setActiveSpeaker(null);
@@ -706,10 +750,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             <div className="h-full w-full flex items-center justify-center bg-surface-base">
                 <PersonaConfiguringOverlay
                     fixed
-                    message={
-                        personaError ||
-                        "Preparing your training agent with the generated persona..."
-                    }
+                    message={personaError || "Preparing your training agent"}
                 />
             </div>
         );
@@ -720,7 +761,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             {isGeneratingReport ? (
                 <PersonaConfiguringOverlay
                     fixed
-                    message="Generating your session report..."
+                    message="Generating session report"
                 />
             ) : null}
             <header className="h-20 px-8 bg-surface-base border-b border-border-subtle flex items-center justify-between z-50">
@@ -804,6 +845,9 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                                 toneLabel={prospectTone}
                                                 compact
                                                 className="aspect-[16/9] bg-surface-panel"
+                                                avatarUrl={
+                                                    personaImageUrl || undefined
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -833,90 +877,115 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                         subtitle="Training Agent"
                                         isSpeaking={activeSpeaker === "agent"}
                                         toneLabel={prospectTone}
+                                        avatarUrl={personaImageUrl || undefined}
                                     />
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex justify-center">
-                        <div className="flex flex-col items-center gap-3">
-                            {coachPopup && !isScreenShareActive ? (
-                                <div className="max-w-[560px] rounded-2xl border border-primary/40 bg-surface-panel/95 px-4 py-3 text-center text-sm font-medium text-text-main shadow-lg backdrop-blur-md">
-                                    {coachPopup}
-                                </div>
-                            ) : null}
+                    <div
+                        className="flex justify-center relative"
+                        style={{ minHeight: 72 }}
+                    >
+                        {/* Reserve space for coaching popup, absolutely position it so tiles never shift */}
+                        <div className="flex flex-col items-center gap-3 w-full">
+                            <div
+                                style={{
+                                    height: 56,
+                                    position: "relative",
+                                    width: "100%",
+                                }}
+                            >
+                                {coachPopup && !isScreenShareActive ? (
+                                    <div
+                                        className="max-w-[560px] rounded-2xl border border-primary/40 bg-surface-panel/95 px-4 py-3 text-center text-sm font-medium text-text-main shadow-lg backdrop-blur-md"
+                                        style={{
+                                            position: "absolute",
+                                            left: "50%",
+                                            top: 0,
+                                            transform: "translateX(-50%)",
+                                            zIndex: 20,
+                                            width: "100%",
+                                            maxWidth: 560,
+                                        }}
+                                    >
+                                        {coachPopup}
+                                    </div>
+                                ) : null}
+                            </div>
                             <div className="flex items-center gap-3 rounded-full border border-border-subtle bg-surface-panel/95 px-4 py-3 backdrop-blur-md shadow-2xl">
-                            {state === "disconnected" ||
-                            state === "error" ||
-                            state === "connecting" ? (
+                                {state === "disconnected" ||
+                                state === "error" ||
+                                state === "connecting" ? (
+                                    <IconButton
+                                        label="Join Session"
+                                        icon={
+                                            <span
+                                                className="material-symbols-outlined"
+                                                style={{
+                                                    fontVariationSettings:
+                                                        '"FILL" 1',
+                                                }}
+                                            >
+                                                login
+                                            </span>
+                                        }
+                                        onClick={connect}
+                                        disabled={state === "connecting"}
+                                        showLabel
+                                    />
+                                ) : null}
                                 <IconButton
-                                    label="Join Session"
+                                    label={
+                                        state === "connected"
+                                            ? "Mute Microphone"
+                                            : "Unmute Microphone"
+                                    }
                                     icon={
-                                        <span
-                                            className="material-symbols-outlined"
-                                            style={{
-                                                fontVariationSettings:
-                                                    '"FILL" 1',
-                                            }}
-                                        >
-                                            login
+                                        <span className="material-symbols-outlined">
+                                            {state === "connected"
+                                                ? "mic"
+                                                : "mic_off"}
                                         </span>
                                     }
-                                    onClick={connect}
-                                    disabled={state === "connecting"}
+                                    onClick={toggleMute}
+                                    disabled={
+                                        state !== "connected" &&
+                                        state !== "muted"
+                                    }
                                     showLabel
                                 />
-                            ) : null}
-                            <IconButton
-                                label={
-                                    state === "connected"
-                                        ? "Mute Microphone"
-                                        : "Unmute Microphone"
-                                }
-                                icon={
-                                    <span className="material-symbols-outlined">
-                                        {state === "connected"
-                                            ? "mic"
-                                            : "mic_off"}
-                                    </span>
-                                }
-                                onClick={toggleMute}
-                                disabled={
-                                    state !== "connected" && state !== "muted"
-                                }
-                                showLabel
-                            />
-                            <IconButton
-                                label={
-                                    isScreenShareActive
-                                        ? "Stop Screen Share"
-                                        : "Start Screen Share"
-                                }
-                                icon={
-                                    <span className="material-symbols-outlined">
-                                        present_to_all
-                                    </span>
-                                }
-                                onClick={toggleScreenShare}
-                                disabled={
-                                    state === "disconnected" ||
-                                    state === "connecting"
-                                }
-                                showLabel
-                            />
-                            <IconButton
-                                label="End Session"
-                                icon={
-                                    <span className="material-symbols-outlined">
-                                        call_end
-                                    </span>
-                                }
-                                onClick={endSession}
-                                disabled={state === "connecting"}
-                                danger
-                                showLabel
-                            />
+                                <IconButton
+                                    label={
+                                        isScreenShareActive
+                                            ? "Stop Screen Share"
+                                            : "Start Screen Share"
+                                    }
+                                    icon={
+                                        <span className="material-symbols-outlined">
+                                            present_to_all
+                                        </span>
+                                    }
+                                    onClick={toggleScreenShare}
+                                    disabled={
+                                        state === "disconnected" ||
+                                        state === "connecting"
+                                    }
+                                    showLabel
+                                />
+                                <IconButton
+                                    label="End Session"
+                                    icon={
+                                        <span className="material-symbols-outlined">
+                                            call_end
+                                        </span>
+                                    }
+                                    onClick={endSession}
+                                    disabled={state === "connecting"}
+                                    danger
+                                    showLabel
+                                />
                             </div>
                         </div>
                     </div>

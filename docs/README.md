@@ -11,6 +11,7 @@ This folder replaces the previous per-folder READMEs. The intent is to keep the 
 - [Gemini Live](./server/gemini-live.md)
 - [Gemini Multimodal](./server/gemini-multimodal.md)
 - [Gemini Tools](./server/gemini-tools.md)
+- [Gemini Imagen](./server/gemini-imagen.md)
 - [Feature → API Map](./API_FEATURE_MAP.md)
 
 ## Client

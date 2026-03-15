@@ -33,6 +33,11 @@ class DummyStorage:
         self._draft_order: list[str] = []
         self._session_contexts: dict[str, dict[str, Any]] = {}
         self._session_transcripts: dict[str, dict[str, Any]] = {}
+        self._ai_feature_settings: dict[str, Any] = {
+            "id": "global",
+            "avatarGenerationEnabled": True,
+            "updated_at": _now_iso(),
+        }
 
     # Personas
     def list_personas(self) -> list[dict[str, Any]]:
@@ -194,3 +199,17 @@ class DummyStorage:
 
     def get_session_transcript(self, session_id: str) -> dict[str, Any] | None:
         return self._session_transcripts.get(session_id)
+
+    # Global Settings
+    def get_ai_feature_settings(self) -> dict[str, Any]:
+        return copy.deepcopy(self._ai_feature_settings)
+
+    def set_ai_feature_settings(self, payload: dict[str, Any]) -> dict[str, Any]:
+        self._ai_feature_settings = {
+            **self._ai_feature_settings,
+            "avatarGenerationEnabled": bool(
+                payload.get("avatarGenerationEnabled", True)
+            ),
+            "updated_at": _now_iso(),
+        }
+        return copy.deepcopy(self._ai_feature_settings)

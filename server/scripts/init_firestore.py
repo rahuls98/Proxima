@@ -34,6 +34,7 @@ def main() -> None:
         "metrics",
         "drafts",
         "session_contexts",
+        "app_settings",
     ]
 
     for name in collections:

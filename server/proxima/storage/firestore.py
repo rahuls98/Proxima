@@ -33,6 +33,7 @@ class FirestoreStorage:
         self.drafts = self.client.collection("drafts")
         self.session_contexts = self.client.collection("session_contexts")
         self.session_transcripts = self.client.collection("session_transcripts")
+        self.app_settings = self.client.collection("app_settings")
 
     # Personas
     def list_personas(self) -> list[dict[str, Any]]:
@@ -315,6 +316,32 @@ class FirestoreStorage:
         if not doc.exists:
             return None
         return self._doc_to_dict(doc)
+
+    # Global Settings
+    def get_ai_feature_settings(self) -> dict[str, Any]:
+        doc_ref = self.app_settings.document("global")
+        doc = doc_ref.get()
+        if not doc.exists:
+            data = {
+                "id": "global",
+                "avatarGenerationEnabled": True,
+                "updated_at": _now_iso(),
+            }
+            doc_ref.set(data, merge=True)
+            return data
+        return self._doc_to_dict(doc)
+
+    def set_ai_feature_settings(self, payload: dict[str, Any]) -> dict[str, Any]:
+        doc_ref = self.app_settings.document("global")
+        data = {
+            "id": "global",
+            "avatarGenerationEnabled": bool(
+                payload.get("avatarGenerationEnabled", True)
+            ),
+            "updated_at": _now_iso(),
+        }
+        doc_ref.set(data, merge=True)
+        return self._doc_to_dict(doc_ref.get())
 
     @staticmethod
     def _doc_to_dict(doc: firestore.DocumentSnapshot | None) -> dict[str, Any]:

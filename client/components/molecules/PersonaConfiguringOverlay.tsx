@@ -18,9 +18,7 @@ export function PersonaConfiguringOverlay({
                     </span>
                     <div className="absolute inset-0 rounded-full border-2 border-surface-hover border-t-primary animate-spin" />
                 </div>
-                <h2 className="text-2xl font-bold text-text-main mb-3 tracking-tight">
-                    Configuring Persona
-                </h2>
+                <br />
                 <p className="text-sm text-text-muted leading-relaxed">
                     {message}
                 </p>

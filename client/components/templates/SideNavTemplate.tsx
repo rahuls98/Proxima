@@ -7,7 +7,7 @@ const NAV_ITEMS = [
     { label: "Dashboard", icon: "dashboard", path: "/dashboard" },
     { label: "Sessions", icon: "video_library", path: "/sessions" },
     { label: "Personas", icon: "groups", path: "/personas" },
-    // { label: "Settings", icon: "settings", path: "/knowledge-base" },
+    { label: "Settings", icon: "settings", path: "/settings" },
 ];
 
 export default function SideNavTemplate({

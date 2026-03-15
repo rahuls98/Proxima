@@ -6,6 +6,7 @@ FastAPI backend that orchestrates Gemini Live sessions, persona generation, and 
 
 - WebSocket: `ws://localhost:8000/ws/proxima-agent?mode=training`
 - Persona generation: `POST /context/persona-instruction`
+- Persona image: `POST /context/persona-image`
 - Report generation: `POST /report/generate`
 - Health check: `GET /health`
 

@@ -63,6 +63,17 @@ export default function PersonasPage() {
         const loadPersonas = async () => {
             try {
                 const data = await getSavedPersonas();
+                // Sort by descending createdAt (no updatedAt field)
+                data.sort((a, b) => {
+                    const aDateRaw = a.createdAt;
+                    const bDateRaw = b.createdAt;
+                    const aDate = aDateRaw ? new Date(aDateRaw).getTime() : 0;
+                    const bDate = bDateRaw ? new Date(bDateRaw).getTime() : 0;
+                    // If either is NaN, treat as 0 (oldest)
+                    const aValid = isNaN(aDate) ? 0 : aDate;
+                    const bValid = isNaN(bDate) ? 0 : bDate;
+                    return bValid - aValid;
+                });
                 setPersonas(data);
             } catch (error) {
                 console.error("Failed to load personas:", error);

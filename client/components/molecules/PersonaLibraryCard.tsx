@@ -1,4 +1,5 @@
 import type { SavedPersona } from "@/lib/persona-storage";
+import { useEffect, useState } from "react";
 
 type PersonaLibraryCardProps = {
     persona: SavedPersona;
@@ -19,13 +20,7 @@ export function PersonaLibraryCard({
     onDelete,
     showDelete = false,
 }: PersonaLibraryCardProps) {
-    const formatDate = (value: string) => {
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) {
-            return "--";
-        }
-        return date.toISOString().slice(0, 10);
-    };
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const personaName = persona.name || "Unknown Persona";
     const personality =
         (persona.sessionContext?.personality as string | undefined) ||
@@ -34,14 +29,42 @@ export function PersonaLibraryCard({
         (persona.sessionContext?.company_name as string | undefined) ||
         "Proxima Enterprise";
 
+    // Local date formatting utility
+    const formatDate = (value: string) => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return "--";
+        }
+        return date.toISOString().slice(0, 10);
+    };
+
+    // Only access sessionStorage on client
+    useEffect(() => {
+        if (typeof window !== "undefined" && persona.id) {
+            const stored = sessionStorage.getItem(
+                `persona_image_${persona.id}`
+            );
+            if (stored) setAvatarUrl(stored);
+            else setAvatarUrl(null);
+        }
+    }, [persona.id]);
+
     return (
         <article className="group bg-surface-panel border border-border-subtle rounded-2xl p-4 sm:p-6 transition-all hover:border-primary/50 flex flex-col min-h-[320px] w-full min-w-0">
             <div className="flex items-start gap-3 sm:gap-4 mb-5">
-                <img
-                    className="w-14 h-14 sm:w-[64px] sm:h-[64px] rounded-xl object-cover border border-border-subtle"
-                    src={imageSrc}
-                    alt={personaName}
-                />
+                {avatarUrl ? (
+                    <img
+                        className="w-14 h-14 sm:w-[64px] sm:h-[64px] rounded-xl object-cover border border-border-subtle filter grayscale opacity-80"
+                        src={avatarUrl}
+                        alt={personaName}
+                    />
+                ) : (
+                    <div className="w-14 h-14 sm:w-[64px] sm:h-[64px] rounded-xl border border-border-subtle bg-surface-hover flex items-center justify-center text-text-muted">
+                        <span className="material-symbols-outlined text-2xl">
+                            person
+                        </span>
+                    </div>
+                )}
                 <div className="flex-1">
                     <h4 className="text-lg font-bold text-text-main leading-tight">
                         {personaName}

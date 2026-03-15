@@ -47,8 +47,13 @@ export default function PersonaDetailsPage() {
 
     const contextEntries = activePersona
         ? Object.entries(activePersona.sessionContext).filter(
-              ([, value]) =>
-                  value !== undefined && value !== null && value !== ""
+              ([key, value]) => {
+                  const k = key.toLowerCase();
+                  if (k.includes("voice") || k.includes("gender")) {
+                      return false;
+                  }
+                  return value !== undefined && value !== null && value !== "";
+              }
           )
         : [];
 
@@ -76,6 +81,11 @@ export default function PersonaDetailsPage() {
         );
     }
 
+    if (!activePersona) {
+        // Loading state is handled above; this is a fallback
+        return null;
+    }
+
     return (
         <div className="flex-1 min-h-0 flex flex-col bg-surface-base">
             <AppPageHeader title="Persona Details" />
@@ -91,13 +101,13 @@ export default function PersonaDetailsPage() {
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                             <div>
                                 <h2 className="text-2xl font-bold text-text-main leading-tight">
-                                    {activePersona.name}
+                                    {activePersona?.name || "Unknown Persona"}
                                 </h2>
                                 <p className="text-primary font-semibold mt-1">
-                                    {activePersona.jobTitle || "Role not set"}
+                                    {activePersona?.jobTitle || "Role not set"}
                                 </p>
                                 <p className="text-sm text-text-muted mt-1">
-                                    {activePersona.department || "General"}
+                                    {activePersona?.department || "General"}
                                 </p>
                             </div>
                             <button
@@ -118,8 +128,7 @@ export default function PersonaDetailsPage() {
                                     .personality as string) || "The Pragmatist"}
                             </span>
                             <span className="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider">
-                                Created{" "}
-                                {formatDate(activePersona.createdAt)}
+                                Created {formatDate(activePersona.createdAt)}
                             </span>
                         </div>
                     </div>

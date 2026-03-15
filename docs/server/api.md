@@ -13,6 +13,10 @@ Generates a persona system instruction from structured session context. Returns:
 - `voice_gender`
 - `voice_tone`
 
+`POST /context/persona-image`
+
+Generates a professional persona avatar from session context. Returns PNG bytes.
+
 ## Reports
 
 `POST /report/generate`

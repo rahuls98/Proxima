@@ -54,6 +54,82 @@ export async function generatePersonaInstruction(sessionContext: {
 }
 
 /**
+ * Generate a persona image from session context
+ * @param sessionContext - The session context JSON object
+ * @returns Promise resolving to a blob URL for the generated image
+ */
+export async function generatePersonaImage(sessionContext: {
+    [key: string]: unknown;
+}): Promise<string> {
+    const url = getApiUrl("/context/persona-image");
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            session_context: sessionContext,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+            errorData.detail || `API error: ${response.statusText}`
+        );
+    }
+
+    // Convert the image blob to a blob URL
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+}
+
+/**
+ * Generate a persona image and return it as a base64 data URL.
+ * Useful when the image needs to be persisted in session context.
+ */
+export async function generatePersonaImageDataUrl(sessionContext: {
+    [key: string]: unknown;
+}): Promise<string> {
+    const url = getApiUrl("/context/persona-image");
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            session_context: sessionContext,
+        }),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(
+            errorData.detail || `API error: ${response.statusText}`
+        );
+    }
+
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = reader.result;
+            if (typeof result === "string") {
+                resolve(result);
+                return;
+            }
+            reject(new Error("Failed to convert persona image to data URL."));
+        };
+        reader.onerror = () => {
+            reject(new Error("Failed to read persona image."));
+        };
+        reader.readAsDataURL(blob);
+    });
+}
+
+/**
  * Session report data structure - Comprehensive training analysis
  */
 export type SessionReport = {

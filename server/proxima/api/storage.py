@@ -95,6 +95,10 @@ class SessionContextPayload(BaseModel):
     updated_at: str | None = None
 
 
+class AiFeatureSettingsPayload(BaseModel):
+    avatarGenerationEnabled: bool = Field(default=True)
+
+
 @router.get("/personas")
 async def list_personas():
     return get_storage().list_personas()
@@ -300,6 +304,16 @@ async def get_session_context(session_id: str):
     if not data:
         raise HTTPException(status_code=404, detail="Session context not found")
     return data
+
+
+@router.get("/settings/ai-features")
+async def get_ai_feature_settings():
+    return get_storage().get_ai_feature_settings()
+
+
+@router.put("/settings/ai-features")
+async def set_ai_feature_settings(payload: AiFeatureSettingsPayload):
+    return get_storage().set_ai_feature_settings(payload.model_dump())
 
 
 @router.get("/reports/dummy")

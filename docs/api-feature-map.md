@@ -3,6 +3,10 @@
 Feature → API mapping for the current Firestore-backed implementation.
 
 **Pages**
+
+- `/settings` global AI feature toggles:
+    - `GET /api/settings/ai-features` (fetch global AI feature settings)
+    - `PUT /api/settings/ai-features` (update global AI feature settings)
 - `/dashboard` metrics aggregate: `GET /api/metrics/aggregate`
 - `/dashboard` metrics time series: `GET /api/metrics`
 - `/dashboard` priority personas: `GET /api/personas`
@@ -30,6 +34,11 @@ Feature → API mapping for the current Firestore-backed implementation.
 - `/training/session-report` report generation fallback: `POST /report/generate`
 
 **Shared Components**
+
+- `SettingsPage` (global AI feature toggles):
+    - Reads/writes avatar generation toggle via `/api/settings/ai-features`
+- `ContextBuilderForm` and `MeetingRoom`:
+    - Avatar generation and display logic is gated by the global setting
 - `MeetingRoom` reads draft context: `GET /api/sessions/draft/latest`
 - `MeetingRoom` saves session history: `POST /api/sessions`
 - `MeetingRoom` generates report: `POST /report/generate`
@@ -42,5 +51,6 @@ Feature → API mapping for the current Firestore-backed implementation.
 - `SessionsTable` deletes session: `DELETE /api/sessions/{session_id}`
 
 **Notes**
+
 - Reports are cached server-side. Regeneration occurs when explicitly requested.
 - Session transcripts are persisted and used for LLM-powered key moments/insights.

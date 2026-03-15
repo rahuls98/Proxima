@@ -4,7 +4,11 @@ import { forwardRef, useEffect, useImperativeHandle, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/atoms/Input";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
-import { generatePersonaInstruction } from "@/lib/api";
+import {
+    generatePersonaImageDataUrl,
+    generatePersonaInstruction,
+} from "@/lib/api";
+import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
 import { setSessionContext } from "@/lib/session-context";
 
@@ -62,6 +66,62 @@ const emptyForm: FormValues = {
     decision_timeline: "6-8 weeks",
 };
 
+const AVATAR_STORAGE_KEY_PREFIX = "persona_image_";
+const AVATAR_MAX_DIMENSION_STEPS = [512, 384, 256, 192];
+
+function isQuotaExceededError(error: unknown): boolean {
+    if (!(error instanceof DOMException)) {
+        return false;
+    }
+    return error.name === "QuotaExceededError" || error.code === 22;
+}
+
+function clearStoredPersonaImages() {
+    if (typeof window === "undefined") {
+        return;
+    }
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < sessionStorage.length; i += 1) {
+        const key = sessionStorage.key(i);
+        if (key && key.startsWith(AVATAR_STORAGE_KEY_PREFIX)) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+}
+
+async function resizeAvatarDataUrl(
+    inputDataUrl: string,
+    maxDimension: number
+): Promise<string> {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () =>
+            reject(new Error("Failed to load generated avatar image."));
+        image.src = inputDataUrl;
+    });
+
+    const longestEdge = Math.max(img.width, img.height, 1);
+    const scale = Math.min(1, maxDimension / longestEdge);
+    const width = Math.max(1, Math.round(img.width * scale));
+    const height = Math.max(1, Math.round(img.height * scale));
+
+    if (width === img.width && height === img.height) {
+        return inputDataUrl;
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+        throw new Error("Failed to initialize canvas for avatar resizing.");
+    }
+    ctx.drawImage(img, 0, 0, width, height);
+    return canvas.toDataURL("image/png");
+}
+
 export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
     function ContextBuilderForm(_, ref) {
         const searchParams = useSearchParams();
@@ -102,7 +162,6 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                         budget_status: context.budget_status || "",
                         decision_timeline: context.decision_timeline || "",
                     });
-
                 } catch (loadError) {
                     console.error("Failed to load persona:", loadError);
                 }
@@ -156,7 +215,9 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             setError(null);
 
             if (!sessionId) {
-                setError("Session ID is missing. Please refresh and try again.");
+                setError(
+                    "Session ID is missing. Please refresh and try again."
+                );
                 return null;
             }
 
@@ -189,6 +250,52 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                 sessionContext.voice_tone = data.voice_tone;
 
                 await savePersona(sessionContext, data.persona_instruction);
+
+                const avatarStorageKey = `${AVATAR_STORAGE_KEY_PREFIX}${sessionId}`;
+                if (await fetchAvatarGenerationEnabled()) {
+                    // Generate avatar before entering meeting room.
+                    let personaImageDataUrl: string;
+                    try {
+                        personaImageDataUrl =
+                            await generatePersonaImageDataUrl(sessionContext);
+                    } catch (imgErr) {
+                        throw new Error(
+                            imgErr instanceof Error
+                                ? `Failed to generate persona avatar: ${imgErr.message}`
+                                : "Failed to generate persona avatar."
+                        );
+                    }
+
+                    let stored = false;
+
+                    for (const maxDimension of AVATAR_MAX_DIMENSION_STEPS) {
+                        const resizedAvatar = await resizeAvatarDataUrl(
+                            personaImageDataUrl,
+                            maxDimension
+                        );
+                        try {
+                            sessionStorage.setItem(
+                                avatarStorageKey,
+                                resizedAvatar
+                            );
+                            stored = true;
+                            break;
+                        } catch (storageErr) {
+                            if (!isQuotaExceededError(storageErr)) {
+                                throw storageErr;
+                            }
+                            clearStoredPersonaImages();
+                        }
+                    }
+
+                    if (!stored) {
+                        throw new Error(
+                            "Failed to cache persona avatar locally due to browser storage limits."
+                        );
+                    }
+                } else {
+                    sessionStorage.removeItem(avatarStorageKey);
+                }
 
                 const contextPayload = {
                     persona_instruction: data.persona_instruction,

@@ -19,11 +19,19 @@ export function PersonaLibraryCard({
     onDelete,
     showDelete = false,
 }: PersonaLibraryCardProps) {
+    const formatDate = (value: string) => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return "--";
+        }
+        return date.toISOString().slice(0, 10);
+    };
+    const personaName = persona.name || "Unknown Persona";
     const personality =
-        (persona.sessionContext.personality as string | undefined) ||
+        (persona.sessionContext?.personality as string | undefined) ||
         "The Pragmatist";
     const company =
-        (persona.sessionContext.company_name as string | undefined) ||
+        (persona.sessionContext?.company_name as string | undefined) ||
         "Proxima Enterprise";
 
     return (
@@ -32,11 +40,11 @@ export function PersonaLibraryCard({
                 <img
                     className="w-14 h-14 sm:w-[64px] sm:h-[64px] rounded-xl object-cover border border-border-subtle"
                     src={imageSrc}
-                    alt={persona.name}
+                    alt={personaName}
                 />
                 <div className="flex-1">
                     <h4 className="text-lg font-bold text-text-main leading-tight">
-                        {persona.name}
+                        {personaName}
                     </h4>
                     <p className="text-sm text-primary font-medium">
                         {persona.jobTitle || "Role not set"}
@@ -74,8 +82,7 @@ export function PersonaLibraryCard({
                         history
                     </span>
                     <span className="text-[11px] text-text-muted">
-                        Last used{" "}
-                        {new Date(persona.createdAt).toLocaleDateString()}
+                        Last used {formatDate(persona.createdAt)}
                     </span>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">

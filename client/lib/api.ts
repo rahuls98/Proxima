@@ -26,6 +26,7 @@ export async function generatePersonaInstruction(sessionContext: {
 }): Promise<{
     persona_instruction: string;
     source_fields_count: number;
+    prospect_name: string;
 }> {
     const url = getApiUrl("/context/persona-instruction");
 

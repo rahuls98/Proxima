@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
                     source: "/report/:path*",
                     destination: "http://localhost:8000/report/:path*",
                 },
+                {
+                    source: "/api/:path*",
+                    destination: "http://localhost:8000/api/:path*",
+                },
             ],
         };
     },

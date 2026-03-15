@@ -20,7 +20,7 @@ Comprehensive performance reports generated after each AI sales training session
 **Key Features:**
 
 - ✅ Comprehensive 12-section report schema
-- ✅ Abstracted storage (localStorage → API migration ready)
+- ✅ Abstracted storage (API-backed)
 - ✅ Performance scoring across 5 categories
 - ✅ Conversation metrics and discovery signals
 - ✅ Actionable coaching feedback
@@ -91,13 +91,9 @@ SessionReport {
 }
 ```
 
-**Migration to API:**
+**API Endpoints:**
 
-```typescript
-// In training-report-storage.ts:
-const USE_API_STORAGE = true;  // Switch from localStorage to API
-
-// Implement these endpoints:
+```
 PUT    /api/reports/:sessionId  - Save/update report
 GET    /api/reports/:sessionId  - Get report
 DELETE /api/reports/:sessionId  - Delete report
@@ -250,7 +246,7 @@ trainingDevUtils.logDevHelp();
 
 **File:** `persona-storage.ts`
 
-Manages saved training personas in localStorage.
+Manages saved training personas via API.
 
 **Usage:**
 
@@ -263,16 +259,16 @@ import {
 } from "@/lib/persona-storage";
 
 // Save a persona
-const persona = savePersona(sessionContext, personaInstruction);
+const persona = await savePersona(sessionContext, personaInstruction);
 
 // Get all personas
-const personas = getSavedPersonas();
+const personas = await getSavedPersonas();
 
 // Get specific persona
-const persona = getPersonaById(personaId);
+const persona = await getPersonaById(personaId);
 
 // Delete persona
-deletePersona(personaId);
+await deletePersona(personaId);
 ```
 
 ## API Utilities
@@ -291,16 +287,9 @@ const result = await generatePersonaInstruction(sessionContext);
 const report = await generateSessionReport(sessionId);
 ```
 
-## LocalStorage Keys
+## API Endpoints
 
-The training system uses these localStorage keys:
-
-- `proxima_training_reports` - Training report data
-- `proxima_training_metrics` - Metric data points (max 100 sessions)
-- `proxima_training_strengths` - All strengths for frequency analysis
-- `proxima_training_feedback` - All feedback for frequency analysis
-- `proxima_training_history` - Session metadata (max 50 sessions)
-- `proxima_saved_personas` - Saved persona configurations
+The training system reads and writes data through API endpoints defined in the server.
 
 ## Architecture Patterns
 
@@ -313,15 +302,13 @@ Application Layer
        ↓
 Storage Interface (Abstract)
        ↓
-   ┌───┴───┐
-   ↓       ↓
-Local   API
-Storage Impl
+   ↓
+ API Storage Impl
 ```
 
 **Benefits:**
 
-- Easy migration from localStorage to API
+- Clear separation between storage and UI
 - Consistent interface across components
 - Single flag to switch implementations
 - No code changes needed in application layer
@@ -388,10 +375,8 @@ await seedHistoricalData(30);
 
 ## API Migration Checklist
 
-When migrating from localStorage to API:
+This project now uses API-backed storage. For future changes:
 
-- [ ] Implement backend endpoints (see migration sections above)
-- [ ] Set `USE_API_STORAGE = true` in storage files
 - [ ] Test CRUD operations work correctly
 - [ ] Verify dashboard loads data from API
 - [ ] Update environment variables if needed
@@ -405,11 +390,7 @@ When migrating from localStorage to API:
 
 ### Reports not persisting
 
-```javascript
-// Check browser localStorage:
-localStorage.getItem("proxima_training_reports");
-localStorage.getItem("proxima_training_metrics");
-```
+Check API responses and server logs for storage errors.
 
 ### Metrics not appearing on dashboard
 
@@ -419,9 +400,8 @@ localStorage.getItem("proxima_training_metrics");
 
 ### Performance issues
 
-- Check localStorage size: `JSON.stringify(localStorage).length`
 - Clear old data if needed: `await clearMockData()`
-- Consider migrating to API storage for large datasets
+- Consider pagination and caching for large datasets
 
 ## Future Enhancements
 

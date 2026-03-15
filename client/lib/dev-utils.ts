@@ -57,16 +57,16 @@ export async function seedMockReports(): Promise<void> {
 
     // Save all reports and sessions
     await saveTrainingReport(avgReport.session_overview.session_id, avgReport);
-    saveTrainingSession(avgSession);
+    await saveTrainingSession(avgSession);
 
     await saveTrainingReport(
         highReport.session_overview.session_id,
         highReport
     );
-    saveTrainingSession(highSession);
+    await saveTrainingSession(highSession);
 
     await saveTrainingReport(lowReport.session_overview.session_id, lowReport);
-    saveTrainingSession(lowSession);
+    await saveTrainingSession(lowSession);
 
     console.log("✅ Seeded 3 mock training reports");
     console.log("   - Average performance: sess_avg_001");
@@ -83,7 +83,7 @@ export async function clearMockData(): Promise<void> {
     const { clearTrainingHistory } = await import("./training-history");
 
     await clearAllTrainingReports();
-    clearTrainingHistory();
+    await clearTrainingHistory();
 
     console.log("🗑️  Cleared all mock training data");
 }
@@ -162,7 +162,7 @@ export async function seedHistoricalData(days: number = 30): Promise<void> {
 
         // Save report (which also saves metrics)
         await saveTrainingReport(sessionId, report);
-        saveTrainingSession(session);
+        await saveTrainingSession(session);
 
         sessions.push(session);
     }

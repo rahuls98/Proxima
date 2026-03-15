@@ -30,6 +30,13 @@ export function SessionsTable({
     showFooter = false,
     totalCount,
 }: SessionsTableProps) {
+    const formatDate = (value: string) => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return "--";
+        }
+        return date.toISOString().slice(0, 10);
+    };
     const PAGE_SIZE = 10;
     const [currentPage, setCurrentPage] = useState(1);
     const resolvedTotalCount = totalCount ?? rows.length;
@@ -160,9 +167,7 @@ export function SessionsTable({
                                         )}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-text-main">
-                                        {new Date(
-                                            row.timestamp
-                                        ).toLocaleDateString()}
+                                        {formatDate(row.timestamp)}
                                     </td>
                                     <td className="px-6 py-4 text-sm text-text-main text-left">
                                         {row.duration}

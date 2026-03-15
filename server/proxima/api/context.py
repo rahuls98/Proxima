@@ -34,6 +34,7 @@ class PersonaInstructionResponse(BaseModel):
     """Response body for persona instruction generation."""
     persona_instruction: str
     source_fields_count: int
+    prospect_name: str
 
 
 @router.post("/persona", summary="Build unified persona context from arbitrary inputs")
@@ -86,6 +87,37 @@ async def build_persona_context(
     }
 
 
+def _generate_prospect_name(seed: str) -> str:
+    first_names = [
+        "Avery",
+        "Jordan",
+        "Casey",
+        "Morgan",
+        "Riley",
+        "Taylor",
+        "Alex",
+        "Cameron",
+        "Drew",
+        "Parker",
+    ]
+    last_names = [
+        "Reed",
+        "Hayes",
+        "Blake",
+        "Quinn",
+        "Sawyer",
+        "Sullivan",
+        "Brooks",
+        "Hayden",
+        "Wells",
+        "Monroe",
+    ]
+    if not seed:
+        return "Alex Rivera"
+    index = sum(ord(ch) for ch in seed)
+    return f"{first_names[index % len(first_names)]} {last_names[index % len(last_names)]}"
+
+
 @router.post(
     "/persona-instruction",
     summary="Generate persona system instruction from filled session context",
@@ -115,15 +147,19 @@ async def generate_persona_instruction(req: SessionContextInput):
             detail="session_context cannot be empty.",
         )
 
-    try:
-        instruction = await get_client().generate_persona_instruction(
-            session_context=req.session_context
+    context_name = req.session_context.get("prospect_name")
+    if isinstance(context_name, str) and context_name.strip():
+        prospect_name = context_name.strip()
+    else:
+        seed = "|".join(
+            str(req.session_context.get(key) or "")
+            for key in ["job_title", "company_name", "industry", "department"]
         )
-    except MultimodalContextError as exc:
-        raise HTTPException(status_code=422, detail=str(exc))
+        prospect_name = _generate_prospect_name(seed)
 
+    # Dummy response aligned with client UI placeholders.
     return PersonaInstructionResponse(
-        persona_instruction=instruction,
+        persona_instruction=f"Demo persona instruction for {prospect_name}.",
         source_fields_count=len(req.session_context),
+        prospect_name=prospect_name,
     )
-

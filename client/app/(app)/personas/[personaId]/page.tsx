@@ -1,35 +1,58 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
-import { getSavedPersonas } from "@/lib/persona-storage";
-import { DUMMY_PERSONA_IMAGES, DUMMY_PERSONAS } from "@/lib/ui-dummy-data";
+import { getPersonaById, type SavedPersona } from "@/lib/persona-storage";
+import { DUMMY_PERSONA_IMAGES } from "@/lib/ui-dummy-data";
 
 export default function PersonaDetailsPage() {
     const router = useRouter();
     const params = useParams<{ personaId: string }>();
     const personaId = params.personaId;
 
-    const persona = useMemo(() => {
-        const saved = getSavedPersonas();
-        const source = saved.length > 0 ? saved : DUMMY_PERSONAS;
-        return source.find((entry) => entry.id === personaId) || null;
+    const [persona, setPersona] = useState<SavedPersona | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        const loadPersona = async () => {
+            setIsLoading(true);
+            try {
+                const result = await getPersonaById(personaId);
+                setPersona(result);
+            } catch (error) {
+                console.error("Failed to load persona:", error);
+                setPersona(null);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadPersona();
     }, [personaId]);
 
-    const imageSrc = persona
-        ? DUMMY_PERSONA_IMAGES[persona.name] ||
-          DUMMY_PERSONA_IMAGES["Priya Nair"]
-        : DUMMY_PERSONA_IMAGES["Priya Nair"];
+    const activePersona = persona;
+    const formatDate = (value: string) => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return "--";
+        }
+        return date.toISOString().slice(0, 10);
+    };
 
-    const contextEntries = persona
-        ? Object.entries(persona.sessionContext).filter(
+    const imageSrc =
+        activePersona && activePersona.name
+            ? DUMMY_PERSONA_IMAGES[activePersona.name] ||
+              DUMMY_PERSONA_IMAGES["Priya Nair"]
+            : DUMMY_PERSONA_IMAGES["Priya Nair"];
+
+    const contextEntries = activePersona
+        ? Object.entries(activePersona.sessionContext).filter(
               ([, value]) =>
                   value !== undefined && value !== null && value !== ""
           )
         : [];
 
-    if (!persona) {
+    if (!activePersona && !isLoading) {
         return (
             <div className="flex-1 min-h-0 flex flex-col bg-surface-base">
                 <AppPageHeader title="Persona Details" />
@@ -61,26 +84,26 @@ export default function PersonaDetailsPage() {
                 <section className="bg-surface-panel border border-border-subtle rounded-2xl p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-[96px_1fr] gap-6 items-start">
                     <img
                         src={imageSrc}
-                        alt={persona.name}
+                        alt={activePersona?.name || "Persona"}
                         className="w-24 h-24 rounded-2xl object-cover border border-border-subtle"
                     />
                     <div className="space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                             <div>
                                 <h2 className="text-2xl font-bold text-text-main leading-tight">
-                                    {persona.name}
+                                    {activePersona.name}
                                 </h2>
                                 <p className="text-primary font-semibold mt-1">
-                                    {persona.jobTitle || "Role not set"}
+                                    {activePersona.jobTitle || "Role not set"}
                                 </p>
                                 <p className="text-sm text-text-muted mt-1">
-                                    {persona.department || "General"}
+                                    {activePersona.department || "General"}
                                 </p>
                             </div>
                             <button
                                 onClick={() =>
                                     router.push(
-                                        `/training/context-builder?personaId=${persona.id}`
+                                        `/training/context-builder?personaId=${activePersona.id}`
                                     )
                                 }
                                 className="bg-primary/10 text-primary font-bold px-4 py-2 rounded-lg hover:bg-primary/20 transition-colors"
@@ -91,14 +114,12 @@ export default function PersonaDetailsPage() {
 
                         <div className="flex flex-wrap gap-2">
                             <span className="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider">
-                                {(persona.sessionContext
+                                {(activePersona.sessionContext
                                     .personality as string) || "The Pragmatist"}
                             </span>
                             <span className="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider">
                                 Created{" "}
-                                {new Date(
-                                    persona.createdAt
-                                ).toLocaleDateString()}
+                                {formatDate(activePersona.createdAt)}
                             </span>
                         </div>
                     </div>
@@ -130,7 +151,8 @@ export default function PersonaDetailsPage() {
                         Persona Instruction
                     </h3>
                     <p className="text-sm text-text-muted leading-relaxed whitespace-pre-wrap">
-                        {persona.personaInstruction || "No instruction saved."}
+                        {activePersona.personaInstruction ||
+                            "No instruction saved."}
                     </p>
                 </section>
             </div>

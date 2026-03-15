@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/atoms/Button";
 import {
@@ -9,37 +9,9 @@ import {
     togglePersonaPriority,
     type SavedPersona,
 } from "@/lib/persona-storage";
-import { DUMMY_PERSONA_IMAGES, DUMMY_PERSONAS } from "@/lib/ui-dummy-data";
+import { DUMMY_PERSONA_IMAGES } from "@/lib/ui-dummy-data";
 import { PersonaLibraryCard } from "@/components/molecules/PersonaLibraryCard";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
-
-const subscribeNoop = () => () => {};
-const PERSONAS_STORAGE_KEY = "proxima_saved_personas";
-let cachedPersonasRaw: string | null = null;
-let cachedPersonasSnapshot: SavedPersona[] = [];
-
-function getCachedPersistedPersonasSnapshot(): SavedPersona[] {
-    if (typeof window === "undefined") {
-        return [];
-    }
-
-    const raw = localStorage.getItem(PERSONAS_STORAGE_KEY) ?? "[]";
-    if (raw === cachedPersonasRaw) {
-        return cachedPersonasSnapshot;
-    }
-
-    cachedPersonasRaw = raw;
-    try {
-        const parsed = JSON.parse(raw);
-        cachedPersonasSnapshot = Array.isArray(parsed)
-            ? (parsed as SavedPersona[])
-            : [];
-    } catch {
-        cachedPersonasSnapshot = [];
-    }
-
-    return cachedPersonasSnapshot;
-}
 
 function getCardsPerRow(viewportWidth: number) {
     const SIDE_NAV_WIDTH = 256;
@@ -75,38 +47,34 @@ export default function PersonasPage() {
     const router = useRouter();
     const [personas, setPersonas] = useState<SavedPersona[]>([]);
     const [currentPage, setCurrentPage] = useState(1);
-    const persistedPersonas = useSyncExternalStore(
-        subscribeNoop,
-        getCachedPersistedPersonasSnapshot,
-        () => []
-    );
-    const cardsPerRow = useSyncExternalStore(
-        (onStoreChange) => {
-            if (typeof window === "undefined") {
-                return () => {};
-            }
+    const [cardsPerRow, setCardsPerRow] = useState(1);
 
-            window.addEventListener("resize", onStoreChange);
-            return () => window.removeEventListener("resize", onStoreChange);
-        },
-        () => getCardsPerRow(window.innerWidth),
-        () => 1
-    );
+    useEffect(() => {
+        const handleResize = () => {
+            setCardsPerRow(getCardsPerRow(window.innerWidth));
+        };
+        handleResize();
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    useEffect(() => {
+        const loadPersonas = async () => {
+            try {
+                const data = await getSavedPersonas();
+                setPersonas(data);
+            } catch (error) {
+                console.error("Failed to load personas:", error);
+            }
+        };
+        loadPersonas();
+    }, []);
+
     const pageSize = getPageSizeForCardsPerRow(cardsPerRow);
 
-    const effectivePersonas =
-        personas.length > 0 ? personas : persistedPersonas;
-
-    const activePersonas = useMemo(
-        () =>
-            effectivePersonas.length > 0 ? effectivePersonas : DUMMY_PERSONAS,
-        [effectivePersonas]
-    );
-
-    const usingDummyData = effectivePersonas.length === 0;
+    const activePersonas = useMemo(() => personas, [personas]);
 
     const totalPages = Math.max(1, Math.ceil(activePersonas.length / pageSize));
-
     const safeCurrentPage = Math.min(currentPage, totalPages);
 
     const paginatedPersonas = useMemo(() => {
@@ -125,14 +93,14 @@ export default function PersonasPage() {
         router.push(`/training/context-builder?personaId=${personaId}`);
     };
 
-    const handleDelete = (id: string) => {
-        if (usingDummyData) {
-            return;
-        }
-
+    const handleDelete = async (id: string) => {
         if (confirm("Are you sure you want to delete this persona?")) {
-            deletePersona(id);
-            setPersonas(getSavedPersonas());
+            try {
+                await deletePersona(id);
+                setPersonas(await getSavedPersonas());
+            } catch (error) {
+                console.error("Failed to delete persona:", error);
+            }
         }
     };
 
@@ -140,13 +108,13 @@ export default function PersonasPage() {
         router.push(`/personas/${personaId}`);
     };
 
-    const handleTogglePriority = (personaId: string) => {
-        if (usingDummyData) {
-            return;
+    const handleTogglePriority = async (personaId: string) => {
+        try {
+            await togglePersonaPriority(personaId);
+            setPersonas(await getSavedPersonas());
+        } catch (error) {
+            console.error("Failed to toggle priority:", error);
         }
-
-        togglePersonaPriority(personaId);
-        setPersonas(getSavedPersonas());
     };
 
     return (
@@ -186,14 +154,15 @@ export default function PersonasPage() {
                                 key={persona.id}
                                 persona={persona}
                                 imageSrc={
-                                    DUMMY_PERSONA_IMAGES[persona.name] ||
+                                    (persona.name &&
+                                        DUMMY_PERSONA_IMAGES[persona.name]) ||
                                     DUMMY_PERSONA_IMAGES["Priya Nair"]
                                 }
                                 onQuickStart={handleNewTraining}
                                 onViewDetails={handleViewDetails}
                                 onTogglePriority={handleTogglePriority}
                                 onDelete={handleDelete}
-                                showDelete={!usingDummyData}
+                                showDelete
                             />
                         ))
                     )}

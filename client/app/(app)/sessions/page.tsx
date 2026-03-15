@@ -12,19 +12,15 @@ import {
     type TrainingSession,
 } from "@/lib/training-history";
 import { getAllTrainingMetrics } from "@/lib/training-metrics-storage";
-import {
-    DUMMY_PERSONAS,
-    DUMMY_TRAINING_HISTORY,
-    DUMMY_TRAINING_METRICS,
-} from "@/lib/ui-dummy-data";
 
 export default function TrainingHistoryPage() {
     const router = useRouter();
-    const [sessions, setSessions] = useState<TrainingSession[]>(() =>
-        getTrainingHistory()
-    );
+    const [sessions, setSessions] = useState<TrainingSession[]>([]);
+    const [savedPersonas, setSavedPersonas] = useState<
+        Awaited<ReturnType<typeof getSavedPersonas>>
+    >([]);
     const [metricBySessionId, setMetricBySessionId] = useState<
-        Record<string, (typeof DUMMY_TRAINING_METRICS)[number]>
+        Record<string, Awaited<ReturnType<typeof getAllTrainingMetrics>>[number]>
     >({});
 
     useEffect(() => {
@@ -33,16 +29,11 @@ export default function TrainingHistoryPage() {
                 const all = await getAllTrainingMetrics();
                 const map: Record<
                     string,
-                    (typeof DUMMY_TRAINING_METRICS)[number]
+                    Awaited<ReturnType<typeof getAllTrainingMetrics>>[number]
                 > = {};
                 all.forEach((m) => {
                     map[m.session_id] = m;
                 });
-                if (Object.keys(map).length === 0) {
-                    DUMMY_TRAINING_METRICS.forEach((m) => {
-                        map[m.session_id] = m;
-                    });
-                }
                 setMetricBySessionId(map);
             } catch (error) {
                 console.error("Failed to load metrics:", error);
@@ -51,19 +42,30 @@ export default function TrainingHistoryPage() {
         loadMetrics();
     }, []);
 
-    const activeSessions = useMemo(
-        () => (sessions.length > 0 ? sessions : DUMMY_TRAINING_HISTORY),
-        [sessions]
-    );
+    useEffect(() => {
+        const loadSessions = async () => {
+            try {
+                const [history, personas] = await Promise.all([
+                    getTrainingHistory(),
+                    getSavedPersonas(),
+                ]);
+                setSessions(history);
+                setSavedPersonas(personas);
+            } catch (error) {
+                console.error("Failed to load sessions:", error);
+            }
+        };
+        loadSessions();
+    }, []);
 
-    const usingDummyData = sessions.length === 0;
+    const activeSessions = useMemo(() => sessions, [sessions]);
 
     const averageConfidence = useMemo(() => {
         const values = activeSessions
             .map((session) => metricBySessionId[session.id]?.overall_score)
             .filter((value): value is number => typeof value === "number");
         if (values.length === 0) {
-            return 82.4;
+            return 0;
         }
         return values.reduce((acc, value) => acc + value, 0) / values.length;
     }, [activeSessions, metricBySessionId]);
@@ -74,10 +76,6 @@ export default function TrainingHistoryPage() {
             return acc + (metric?.duration_seconds ?? 0);
         }, 0);
 
-        if (totalSeconds === 0) {
-            return 4.2;
-        }
-
         return totalSeconds / 3600;
     }, [activeSessions, metricBySessionId]);
 
@@ -87,7 +85,7 @@ export default function TrainingHistoryPage() {
             .filter((value): value is number => typeof value === "number");
 
         if (values.length === 0) {
-            return 91;
+            return 0;
         }
 
         const positiveCount = values.filter((value) => value > 0).length;
@@ -95,13 +93,15 @@ export default function TrainingHistoryPage() {
     }, [activeSessions, metricBySessionId]);
 
     const personaIdByName = useMemo(() => {
-        const saved = getSavedPersonas();
-        const source = saved.length > 0 ? saved : DUMMY_PERSONAS;
-
         return new Map(
-            source.map((persona) => [persona.name.toLowerCase(), persona.id])
+            savedPersonas
+                .filter((persona) => typeof persona.name === "string")
+                .map((persona) => [
+                    persona.name.trim().toLowerCase(),
+                    persona.id,
+                ])
         );
-    }, []);
+    }, [savedPersonas]);
 
     const sessionRows = useMemo(
         () =>
@@ -118,8 +118,8 @@ export default function TrainingHistoryPage() {
                         : undefined,
                     timestamp: session.timestamp,
                     duration: session.duration || "--",
-                    confidence: metric?.overall_score ?? 72,
-                    sentiment: metric?.trust_change ?? 0.1,
+                    confidence: metric?.overall_score ?? 0,
+                    sentiment: metric?.trust_change ?? 0,
                 };
             }),
         [activeSessions, metricBySessionId, personaIdByName]
@@ -130,16 +130,17 @@ export default function TrainingHistoryPage() {
     };
 
     const handleDelete = (id: string) => {
-        if (usingDummyData) {
-            return;
-        }
         if (
             confirm(
                 "Are you sure you want to delete this training session from history?"
             )
         ) {
-            deleteTrainingSession(id);
-            setSessions(getTrainingHistory());
+            deleteTrainingSession(id)
+                .then(() => getTrainingHistory())
+                .then((history) => setSessions(history))
+                .catch((error) =>
+                    console.error("Failed to delete session:", error)
+                );
         }
     };
 
@@ -191,7 +192,7 @@ export default function TrainingHistoryPage() {
                         onViewReport={handleViewReport}
                         onViewPersona={handleViewPersona}
                         onDelete={handleDelete}
-                        showDelete={!usingDummyData}
+                        showDelete
                         showFooter
                         totalCount={activeSessions.length}
                     />

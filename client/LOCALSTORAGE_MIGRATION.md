@@ -1,10 +1,10 @@
 # LocalStorage Features - Migration Plan
 
-This document outlines all client-side features currently using localStorage that need to be migrated to server-side APIs with proper document store persistence.
+This document outlines the historical localStorage implementation and the migration plan to server-side APIs. The client now uses API-backed storage, and this file is retained for reference.
 
 ## Overview
 
-Current implementation uses browser localStorage for rapid prototyping. All features listed below should eventually be moved to server-side storage with proper database backing for:
+The prior implementation used browser localStorage for rapid prototyping. All features listed below should eventually be moved to server-side storage with proper database backing for:
 
 - Multi-device access
 - User authentication and authorization

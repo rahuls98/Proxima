@@ -5,7 +5,7 @@
  * Metrics are extracted from training reports and stored in a time-series format
  * for easy charting and trend analysis.
  *
- * Like the report storage, this uses localStorage now but can easily migrate to API.
+ * Uses API-backed storage.
  */
 
 import type { SessionReport } from "./api";
@@ -79,230 +79,6 @@ interface ITrainingMetricsStorage {
     deleteMetric(sessionId: string): Promise<void>;
     clearAllMetrics(): Promise<void>;
     getAggregate(): Promise<MetricsAggregate>;
-}
-
-/**
- * LocalStorage implementation
- */
-class LocalStorageMetricsStorage implements ITrainingMetricsStorage {
-    private readonly storageKey = "proxima_training_metrics";
-    private readonly strengthsKey = "proxima_training_strengths";
-    private readonly feedbackKey = "proxima_training_feedback";
-
-    private getAllMetricsData(): TrainingMetricDataPoint[] {
-        if (typeof window === "undefined") return [];
-
-        const stored = localStorage.getItem(this.storageKey);
-        if (!stored) return [];
-
-        try {
-            return JSON.parse(stored);
-        } catch (error) {
-            console.error("Failed to parse training metrics:", error);
-            return [];
-        }
-    }
-
-    private setAllMetricsData(metrics: TrainingMetricDataPoint[]): void {
-        localStorage.setItem(this.storageKey, JSON.stringify(metrics));
-    }
-
-    private saveStrengthsAndFeedback(
-        strengths: string[],
-        feedback: string[]
-    ): void {
-        // Append to cumulative lists
-        const existingStrengths = this.getAllStrengths();
-        const existingFeedback = this.getAllFeedback();
-
-        const updatedStrengths = [...existingStrengths, ...strengths];
-        const updatedFeedback = [...existingFeedback, ...feedback];
-
-        localStorage.setItem(
-            this.strengthsKey,
-            JSON.stringify(updatedStrengths)
-        );
-        localStorage.setItem(this.feedbackKey, JSON.stringify(updatedFeedback));
-    }
-
-    private getAllStrengths(): string[] {
-        if (typeof window === "undefined") return [];
-        const stored = localStorage.getItem(this.strengthsKey);
-        return stored ? JSON.parse(stored) : [];
-    }
-
-    private getAllFeedback(): string[] {
-        if (typeof window === "undefined") return [];
-        const stored = localStorage.getItem(this.feedbackKey);
-        return stored ? JSON.parse(stored) : [];
-    }
-
-    async saveMetric(metric: TrainingMetricDataPoint): Promise<void> {
-        const metrics = this.getAllMetricsData();
-
-        // Remove existing metric with same session_id if exists
-        const filtered = metrics.filter(
-            (m) => m.session_id !== metric.session_id
-        );
-
-        // Add new metric
-        filtered.push(metric);
-
-        // Sort by timestamp (newest first)
-        filtered.sort(
-            (a, b) =>
-                new Date(b.timestamp).getTime() -
-                new Date(a.timestamp).getTime()
-        );
-
-        // Keep last 100 sessions
-        const limited = filtered.slice(0, 100);
-
-        this.setAllMetricsData(limited);
-    }
-
-    async getMetric(
-        sessionId: string
-    ): Promise<TrainingMetricDataPoint | null> {
-        const metrics = this.getAllMetricsData();
-        return metrics.find((m) => m.session_id === sessionId) || null;
-    }
-
-    async getAllMetrics(): Promise<TrainingMetricDataPoint[]> {
-        return this.getAllMetricsData();
-    }
-
-    async getMetricsInRange(
-        startDate: Date,
-        endDate: Date
-    ): Promise<TrainingMetricDataPoint[]> {
-        const metrics = this.getAllMetricsData();
-        return metrics.filter((m) => {
-            const timestamp = new Date(m.timestamp);
-            return timestamp >= startDate && timestamp <= endDate;
-        });
-    }
-
-    async deleteMetric(sessionId: string): Promise<void> {
-        const metrics = this.getAllMetricsData();
-        const filtered = metrics.filter((m) => m.session_id !== sessionId);
-        this.setAllMetricsData(filtered);
-    }
-
-    async clearAllMetrics(): Promise<void> {
-        localStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.strengthsKey);
-        localStorage.removeItem(this.feedbackKey);
-    }
-
-    async getAggregate(): Promise<MetricsAggregate> {
-        const metrics = this.getAllMetricsData();
-
-        if (metrics.length === 0) {
-            return {
-                total_sessions: 0,
-                avg_overall_score: 0,
-                avg_discovery_score: 0,
-                avg_objection_score: 0,
-                avg_value_comm_score: 0,
-                avg_conversation_control: 0,
-                avg_emotional_intelligence: 0,
-                avg_duration_seconds: 0,
-                avg_questions_asked: 0,
-                avg_talk_ratio_rep: 0,
-                performance_distribution: {
-                    excellent: 0,
-                    good: 0,
-                    needs_improvement: 0,
-                },
-                most_common_strengths: [],
-                most_common_feedback: [],
-            };
-        }
-
-        const sum = metrics.reduce(
-            (acc, m) => ({
-                overall_score: acc.overall_score + m.overall_score,
-                discovery_score: acc.discovery_score + m.discovery_score,
-                objection_score:
-                    acc.objection_score + m.objection_handling_score,
-                value_comm_score:
-                    acc.value_comm_score + m.value_communication_score,
-                conversation_control:
-                    acc.conversation_control + m.conversation_control_score,
-                emotional_intelligence:
-                    acc.emotional_intelligence + m.emotional_intelligence_score,
-                duration: acc.duration + m.duration_seconds,
-                questions: acc.questions + m.questions_asked,
-                talk_ratio: acc.talk_ratio + m.talk_ratio_rep,
-            }),
-            {
-                overall_score: 0,
-                discovery_score: 0,
-                objection_score: 0,
-                value_comm_score: 0,
-                conversation_control: 0,
-                emotional_intelligence: 0,
-                duration: 0,
-                questions: 0,
-                talk_ratio: 0,
-            }
-        );
-
-        const count = metrics.length;
-
-        // Performance distribution
-        const distribution = metrics.reduce(
-            (acc, m) => {
-                if (m.overall_score >= 80) acc.excellent++;
-                else if (m.overall_score >= 60) acc.good++;
-                else acc.needs_improvement++;
-                return acc;
-            },
-            { excellent: 0, good: 0, needs_improvement: 0 }
-        );
-
-        // Get most common strengths and feedback
-        const strengths = this.getAllStrengths();
-        const feedback = this.getAllFeedback();
-
-        const strengthCounts = this.getTopItems(strengths, 5);
-        const feedbackCounts = this.getTopItems(feedback, 5);
-
-        return {
-            total_sessions: count,
-            avg_overall_score: Math.round(sum.overall_score / count),
-            avg_discovery_score: Math.round(sum.discovery_score / count),
-            avg_objection_score: Math.round(sum.objection_score / count),
-            avg_value_comm_score: Math.round(sum.value_comm_score / count),
-            avg_conversation_control: Math.round(
-                sum.conversation_control / count
-            ),
-            avg_emotional_intelligence: Math.round(
-                sum.emotional_intelligence / count
-            ),
-            avg_duration_seconds: Math.round(sum.duration / count),
-            avg_questions_asked: Math.round(sum.questions / count),
-            avg_talk_ratio_rep:
-                Math.round((sum.talk_ratio / count) * 100) / 100,
-            performance_distribution: distribution,
-            most_common_strengths: strengthCounts,
-            most_common_feedback: feedbackCounts,
-        };
-    }
-
-    private getTopItems(items: string[], topN: number): string[] {
-        const counts = new Map<string, number>();
-
-        items.forEach((item) => {
-            counts.set(item, (counts.get(item) || 0) + 1);
-        });
-
-        return Array.from(counts.entries())
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, topN)
-            .map(([item]) => item);
-    }
 }
 
 /**
@@ -402,22 +178,9 @@ class ApiMetricsStorage implements ITrainingMetricsStorage {
     }
 }
 
-// Configuration
-const USE_API_STORAGE = false;
-
-function getStorageAdapter(): ITrainingMetricsStorage {
-    if (USE_API_STORAGE) {
-        return new ApiMetricsStorage();
-    }
-    return new LocalStorageMetricsStorage();
-}
-
-let storageInstance: ITrainingMetricsStorage | null = null;
+const storageInstance: ITrainingMetricsStorage = new ApiMetricsStorage();
 
 function getStorage(): ITrainingMetricsStorage {
-    if (!storageInstance) {
-        storageInstance = getStorageAdapter();
-    }
     return storageInstance;
 }
 
@@ -485,15 +248,6 @@ export async function saveMetricsFromReport(
 ): Promise<void> {
     const metric = extractMetricsFromReport(report);
     await saveTrainingMetric(metric);
-
-    // Also save strengths and feedback for aggregation
-    const storage = getStorage();
-    if (storage instanceof LocalStorageMetricsStorage) {
-        (storage as any).saveStrengthsAndFeedback(
-            report.strengths,
-            report.top_feedback
-        );
-    }
 }
 
 /**

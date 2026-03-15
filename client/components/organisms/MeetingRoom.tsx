@@ -17,6 +17,7 @@ import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
 import { saveTrainingSession } from "@/lib/training-history";
 import { generateSessionReport } from "@/lib/api";
+import { getLatestDraft } from "@/lib/session-draft";
 import type {
     ProximaAgentConnectionState,
     ProximaAgentEvent,
@@ -67,6 +68,10 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         null
     );
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
+    const [sessionContext, setSessionContext] = useState<
+        Record<string, unknown> | null
+    >(null);
+    const [prospectName, setProspectName] = useState<string | null>(null);
     const isScreenShareActive = screenShareStream !== null;
 
     const serviceRef = useRef<ProximaAgentService | null>(null);
@@ -242,20 +247,55 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     );
 
     useEffect(() => {
-        // Retrieve persona instruction from localStorage
-        const personaInstruction =
-            typeof window !== "undefined"
-                ? localStorage.getItem("proxima_persona_instruction") ||
-                  undefined
-                : undefined;
+        let cancelled = false;
 
-        serviceRef.current = new ProximaAgentService({
-            mode: "training",
-            systemInstruction: personaInstruction,
-            onEvent: handleEvent,
-        });
+        const init = async () => {
+            try {
+                let draft = await getLatestDraft();
+                let attempts = 0;
+                while (
+                    attempts < 5 &&
+                    (!draft || !draft.persona_instruction)
+                ) {
+                    await new Promise((resolve) =>
+                        window.setTimeout(resolve, 300)
+                    );
+                    draft = await getLatestDraft();
+                    attempts += 1;
+                }
+                if (cancelled) {
+                    return;
+                }
+                const personaInstruction =
+                    draft?.persona_instruction || undefined;
+                setSessionContext(
+                    (draft?.session_context as Record<string, unknown>) || null
+                );
+                const draftName =
+                    (draft?.session_context?.prospect_name as
+                        | string
+                        | undefined) || null;
+                setProspectName(draftName);
+
+                serviceRef.current = new ProximaAgentService({
+                    mode: "training",
+                    systemInstruction: personaInstruction,
+                    onEvent: handleEvent,
+                });
+            } catch (error) {
+                console.error("Failed to load draft context:", error);
+                serviceRef.current = new ProximaAgentService({
+                    mode: "training",
+                    systemInstruction: undefined,
+                    onEvent: handleEvent,
+                });
+            }
+        };
+
+        init();
 
         return () => {
+            cancelled = true;
             serviceRef.current?.destroy();
             serviceRef.current = null;
             if (speakerTimeoutRef.current) {
@@ -377,17 +417,15 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         // Save session to training history if we have a session ID and transcript
         if (activeSessionId && transcript.length > 0) {
             // Extract persona info from session context
-            const sessionContextStr = localStorage.getItem(
-                "proxima_session_context"
-            );
             let personaName: string | undefined;
             let jobTitle: string | undefined;
 
-            if (sessionContextStr) {
+            if (sessionContext) {
                 try {
-                    const sessionContext = JSON.parse(sessionContextStr);
-                    personaName = sessionContext.prospect_name;
-                    jobTitle = sessionContext.job_title;
+                    personaName = sessionContext.prospect_name as
+                        | string
+                        | undefined;
+                    jobTitle = sessionContext.job_title as string | undefined;
                 } catch (error) {
                     console.error("Failed to parse session context:", error);
                 }
@@ -397,7 +435,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             try {
                 const report = await generateSessionReport(activeSessionId);
 
-                saveTrainingSession({
+                await saveTrainingSession({
                     id: activeSessionId,
                     timestamp: new Date().toISOString(),
                     transcriptLength: transcript.length,
@@ -408,7 +446,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             } catch (error) {
                 console.error("Failed to generate report:", error);
                 // Still save the session without the report
-                saveTrainingSession({
+                await saveTrainingSession({
                     id: activeSessionId,
                     timestamp: new Date().toISOString(),
                     transcriptLength: transcript.length,
@@ -596,7 +634,9 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                                 className="aspect-[16/9] bg-surface-panel"
                                             />
                                             <ParticipantTile
-                                                name="Agent"
+                                                name={
+                                                    prospectName || "Prospect"
+                                                }
                                                 subtitle="Training Agent"
                                                 isSpeaking={
                                                     activeSpeaker === "agent"
@@ -628,7 +668,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                         isSpeaking={activeSpeaker === "user"}
                                     />
                                     <ParticipantTile
-                                        name="Agent"
+                                        name={prospectName || "Prospect"}
                                         subtitle="Training Agent"
                                         isSpeaking={activeSpeaker === "agent"}
                                     />

@@ -26,11 +26,11 @@ The client provides a reusable UI architecture for a continuous conversational v
 
 **Data Management:**
 
-- `lib/persona-storage.ts` - Persona library management (localStorage)
-- `lib/training-history.ts` - Training session history (localStorage)
+- `lib/persona-storage.ts` - Persona library management (API)
+- `lib/training-history.ts` - Training session history (API)
 - `lib/api.ts` - Backend API client functions
 
-**Note:** Data management currently uses localStorage. See [`LOCALSTORAGE_MIGRATION.md`](LOCALSTORAGE_MIGRATION.md) for migration plan to server-side APIs.
+**Note:** Data management now uses server-side APIs. See [`LOCALSTORAGE_MIGRATION.md`](LOCALSTORAGE_MIGRATION.md) for historical migration notes.
 
 ### UI Component Layer (Atomic Design)
 
@@ -127,14 +127,7 @@ If unset, client defaults to:
 
 ## Data Storage
 
-Currently uses browser localStorage for rapid prototyping:
-
-- `proxima_saved_personas` - Persona library
-- `proxima_training_history` - Session history with cached reports
-- `proxima_persona_instruction` - Active session persona (staging)
-- `proxima_session_context` - Active session context (staging)
-
-See [`LOCALSTORAGE_MIGRATION.md`](LOCALSTORAGE_MIGRATION.md) for detailed migration plan to server-side storage.
+Storage is API-backed. See [`LOCALSTORAGE_MIGRATION.md`](LOCALSTORAGE_MIGRATION.md) for historical migration notes.
 
 If unset, client defaults to:
 

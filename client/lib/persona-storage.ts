@@ -1,6 +1,6 @@
 /**
  * Persona storage utilities
- * Manages storing and retrieving training personas in localStorage
+ * Now backed by the API (localStorage removed).
  */
 
 export interface SavedPersona {
@@ -12,55 +12,45 @@ export interface SavedPersona {
         [key: string]: unknown;
     };
     personaInstruction: string;
-    // Store some key fields for display
     jobTitle?: string;
     department?: string;
     prospectName?: string;
 }
 
-const PERSONAS_STORAGE_KEY = "proxima_saved_personas";
+function getApiUrl(endpoint: string): string {
+    return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+}
 
 /**
- * Get all saved personas from localStorage
+ * Get all saved personas from API
  */
-export function getSavedPersonas(): SavedPersona[] {
-    if (typeof window === "undefined") return [];
-
-    const stored = localStorage.getItem(PERSONAS_STORAGE_KEY);
-    if (!stored) return [];
-
+export async function getSavedPersonas(): Promise<SavedPersona[]> {
     try {
-        return JSON.parse(stored);
+        const response = await fetch(getApiUrl("/api/personas"));
+        if (!response.ok) {
+            throw new Error(`Failed to fetch personas: ${response.statusText}`);
+        }
+        return response.json();
     } catch (error) {
-        console.error("Failed to parse saved personas:", error);
+        console.error("Failed to load personas:", error);
         return [];
     }
 }
 
 /**
- * Save a new persona to localStorage
+ * Save a new persona via API
  */
-export function savePersona(
+export async function savePersona(
     sessionContext: { [key: string]: unknown },
     personaInstruction: string
-): SavedPersona {
-    const personas = getSavedPersonas();
-
-    // Generate a unique ID
-    const id = `persona_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-    // Extract key fields for display
+): Promise<SavedPersona> {
     const jobTitle = sessionContext.job_title as string | undefined;
     const department = sessionContext.department as string | undefined;
     const prospectName = sessionContext.prospect_name as string | undefined;
-
-    // Create a default name
     const name = prospectName || jobTitle || "Untitled Persona";
 
-    const newPersona: SavedPersona = {
-        id,
+    const payload = {
         name,
-        createdAt: new Date().toISOString(),
         sessionContext,
         personaInstruction,
         jobTitle,
@@ -68,79 +58,79 @@ export function savePersona(
         prospectName,
     };
 
-    personas.unshift(newPersona); // Add to beginning
-    localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(personas));
+    const response = await fetch(getApiUrl("/api/personas"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+    });
 
-    return newPersona;
+    if (!response.ok) {
+        throw new Error(`Failed to save persona: ${response.statusText}`);
+    }
+
+    return response.json();
 }
 
 /**
  * Get a specific persona by ID
  */
-export function getPersonaById(id: string): SavedPersona | null {
-    const personas = getSavedPersonas();
-    return personas.find((p) => p.id === id) || null;
+export async function getPersonaById(
+    id: string
+): Promise<SavedPersona | null> {
+    const response = await fetch(getApiUrl(`/api/personas/${id}`));
+    if (response.status === 404) {
+        return null;
+    }
+    if (!response.ok) {
+        throw new Error(`Failed to fetch persona: ${response.statusText}`);
+    }
+    return response.json();
 }
 
 /**
  * Delete a persona by ID
  */
-export function deletePersona(id: string): void {
-    const personas = getSavedPersonas();
-    const filtered = personas.filter((p) => p.id !== id);
-    localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(filtered));
+export async function deletePersona(id: string): Promise<void> {
+    const response = await fetch(getApiUrl(`/api/personas/${id}`), {
+        method: "DELETE",
+    });
+    if (!response.ok && response.status !== 404) {
+        throw new Error(`Failed to delete persona: ${response.statusText}`);
+    }
 }
 
 /**
  * Update a persona's name
  */
-export function updatePersonaName(id: string, name: string): void {
-    const personas = getSavedPersonas();
-    const updated = personas.map((p) => (p.id === id ? { ...p, name } : p));
-    localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updated));
+export async function updatePersonaName(
+    id: string,
+    name: string
+): Promise<void> {
+    const response = await fetch(getApiUrl(`/api/personas/${id}`), {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to update persona: ${response.statusText}`);
+    }
 }
 
 /**
  * Toggle a persona's priority status.
- * Keeps at most 2 priority personas at a time.
  */
-export function togglePersonaPriority(id: string): void {
-    const personas = getSavedPersonas();
-    const target = personas.find((p) => p.id === id);
-    if (!target) {
-        return;
+export async function togglePersonaPriority(
+    id: string
+): Promise<SavedPersona | null> {
+    const response = await fetch(getApiUrl(`/api/personas/${id}/priority`), {
+        method: "POST",
+    });
+    if (response.status === 404) {
+        return null;
     }
-
-    const nextIsPriority = !Boolean(target.isPriority);
-
-    let updated = personas.map((persona) => ({ ...persona }));
-
-    if (nextIsPriority) {
-        const existingPriority = updated.filter(
-            (persona) => persona.id !== id && Boolean(persona.isPriority)
-        );
-
-        if (existingPriority.length >= 2) {
-            const idsToDemote = existingPriority
-                .sort(
-                    (a, b) =>
-                        new Date(a.createdAt).getTime() -
-                        new Date(b.createdAt).getTime()
-                )
-                .slice(0, existingPriority.length - 1)
-                .map((persona) => persona.id);
-
-            updated = updated.map((persona) =>
-                idsToDemote.includes(persona.id)
-                    ? { ...persona, isPriority: false }
-                    : persona
-            );
-        }
+    if (!response.ok) {
+        throw new Error(`Failed to toggle priority: ${response.statusText}`);
     }
-
-    updated = updated.map((persona) =>
-        persona.id === id ? { ...persona, isPriority: nextIsPriority } : persona
-    );
-
-    localStorage.setItem(PERSONAS_STORAGE_KEY, JSON.stringify(updated));
+    return response.json();
 }
+

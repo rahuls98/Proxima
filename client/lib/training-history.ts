@@ -1,9 +1,6 @@
 /**
  * Training history storage utilities
- * Manages storing and retrieving past training sessions in localStorage
- *
- * Note: Reports are now stored separately via training-report-storage.ts
- * This allows for better separation of concerns and easier API migration.
+ * Now backed by API.
  */
 
 import type { SessionReport } from "./api";
@@ -14,30 +11,31 @@ import {
 } from "./training-report-storage";
 
 export interface TrainingSession {
-    id: string; // session_id from backend
-    timestamp: string; // ISO timestamp when session ended
-    transcriptLength: number; // number of messages
-    personaName?: string; // extracted from session context
-    jobTitle?: string; // extracted from session context
-    duration?: string; // if available
-    scenario?: string; // scenario name/description
+    id: string;
+    timestamp: string;
+    transcriptLength: number;
+    personaName?: string;
+    jobTitle?: string;
+    duration?: string;
+    scenario?: string;
 }
 
-const TRAINING_HISTORY_KEY = "proxima_training_history";
+function getApiUrl(endpoint: string): string {
+    return endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
+}
 
 /**
- * Get all training sessions from localStorage
+ * Get all training sessions from API
  */
-export function getTrainingHistory(): TrainingSession[] {
-    if (typeof window === "undefined") return [];
-
-    const stored = localStorage.getItem(TRAINING_HISTORY_KEY);
-    if (!stored) return [];
-
+export async function getTrainingHistory(): Promise<TrainingSession[]> {
     try {
-        return JSON.parse(stored);
+        const response = await fetch(getApiUrl("/api/sessions"));
+        if (!response.ok) {
+            throw new Error(`Failed to fetch sessions: ${response.statusText}`);
+        }
+        return response.json();
     } catch (error) {
-        console.error("Failed to parse training history:", error);
+        console.error("Failed to load training history:", error);
         return [];
     }
 }
@@ -45,66 +43,74 @@ export function getTrainingHistory(): TrainingSession[] {
 /**
  * Save a completed training session to history
  */
-export function saveTrainingSession(session: TrainingSession): void {
-    const history = getTrainingHistory();
+export async function saveTrainingSession(
+    session: TrainingSession
+): Promise<void> {
+    const response = await fetch(getApiUrl("/api/sessions"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(session),
+    });
 
-    // Add to beginning (most recent first)
-    history.unshift(session);
-
-    // Optionally limit to last 50 sessions
-    const limitedHistory = history.slice(0, 50);
-
-    localStorage.setItem(TRAINING_HISTORY_KEY, JSON.stringify(limitedHistory));
+    if (!response.ok) {
+        throw new Error(`Failed to save session: ${response.statusText}`);
+    }
 }
 
 /**
  * Get a specific training session by ID
  */
-export function getTrainingSessionById(id: string): TrainingSession | null {
-    const history = getTrainingHistory();
-    return history.find((s) => s.id === id) || null;
+export async function getTrainingSessionById(
+    id: string
+): Promise<TrainingSession | null> {
+    const response = await fetch(getApiUrl(`/api/sessions/${id}`));
+    if (response.status === 404) {
+        return null;
+    }
+    if (!response.ok) {
+        throw new Error(`Failed to fetch session: ${response.statusText}`);
+    }
+    return response.json();
 }
 
 /**
  * Delete a training session by ID
  */
-export function deleteTrainingSession(id: string): void {
-    const history = getTrainingHistory();
-    const filtered = history.filter((s) => s.id !== id);
-    localStorage.setItem(TRAINING_HISTORY_KEY, JSON.stringify(filtered));
+export async function deleteTrainingSession(id: string): Promise<void> {
+    const response = await fetch(getApiUrl(`/api/sessions/${id}`), {
+        method: "DELETE",
+    });
+    if (!response.ok && response.status !== 404) {
+        throw new Error(`Failed to delete session: ${response.statusText}`);
+    }
 }
 
 /**
  * Clear all training history
  */
-export function clearTrainingHistory(): void {
-    localStorage.removeItem(TRAINING_HISTORY_KEY);
+export async function clearTrainingHistory(): Promise<void> {
+    const sessions = await getTrainingHistory();
+    await Promise.all(sessions.map((session) => deleteTrainingSession(session.id)));
 }
 
 /**
  * Save a training session WITH its report
- * This is a convenience function that saves both the session metadata
- * and the report data in their respective storage locations
  */
 export async function saveTrainingSessionWithReport(
     session: TrainingSession,
     report: SessionReport
 ): Promise<void> {
-    // Save session metadata
-    saveTrainingSession(session);
-
-    // Save report separately
+    await saveTrainingSession(session);
     await saveTrainingReport(session.id, report);
 }
 
 /**
  * Get a training session WITH its report
- * Returns both session metadata and report data (if available)
  */
 export async function getTrainingSessionWithReport(
     sessionId: string
 ): Promise<{ session: TrainingSession | null; report: SessionReport | null }> {
-    const session = getTrainingSessionById(sessionId);
+    const session = await getTrainingSessionById(sessionId);
     const report = await getTrainingReport(sessionId);
 
     return { session, report };
@@ -112,14 +118,11 @@ export async function getTrainingSessionWithReport(
 
 /**
  * Delete a training session AND its report
- * Removes both session metadata and report data
  */
 export async function deleteTrainingSessionWithReport(
     sessionId: string
 ): Promise<void> {
-    // Delete session metadata
-    deleteTrainingSession(sessionId);
-
-    // Delete report
+    await deleteTrainingSession(sessionId);
     await deleteTrainingReport(sessionId);
 }
+

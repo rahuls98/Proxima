@@ -9,16 +9,15 @@ import {
     type TrainingMetricDataPoint,
 } from "@/lib/training-metrics-storage";
 import {
+    getTrainingHistory,
+    type TrainingSession,
+} from "@/lib/training-history";
+import {
     getSavedPersonas,
     togglePersonaPriority,
     type SavedPersona,
 } from "@/lib/persona-storage";
-import {
-    DUMMY_PERSONA_IMAGES,
-    DUMMY_METRICS_AGGREGATE,
-    DUMMY_PERSONAS,
-    DUMMY_TRAINING_METRICS,
-} from "@/lib/ui-dummy-data";
+import { DUMMY_PERSONA_IMAGES } from "@/lib/ui-dummy-data";
 import { TrendBadge } from "@/components/atoms/TrendBadge";
 import { SectionHeader } from "@/components/atoms/SectionHeader";
 import { MiniTrendChart } from "@/components/molecules/MiniTrendChart";
@@ -57,20 +56,24 @@ export default function DashboardPage() {
     const router = useRouter();
     const [aggregate, setAggregate] = useState<MetricsAggregate | null>(null);
     const [metrics, setMetrics] = useState<TrainingMetricDataPoint[]>([]);
-    const [savedPersonas, setSavedPersonas] = useState<SavedPersona[]>(() =>
-        getSavedPersonas()
-    );
+    const [sessions, setSessions] = useState<TrainingSession[]>([]);
+    const [savedPersonas, setSavedPersonas] = useState<SavedPersona[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const loadData = async () => {
             try {
-                const [aggregateData, allMetrics] = await Promise.all([
-                    getTrainingMetricsAggregate(),
-                    getAllTrainingMetrics(),
-                ]);
+                const [aggregateData, allMetrics, personas, history] =
+                    await Promise.all([
+                        getTrainingMetricsAggregate(),
+                        getAllTrainingMetrics(),
+                        getSavedPersonas(),
+                        getTrainingHistory(),
+                    ]);
                 setAggregate(aggregateData);
                 setMetrics(allMetrics);
+                setSavedPersonas(personas);
+                setSessions(history);
             } catch (error) {
                 console.error("Failed to load dashboard data:", error);
             } finally {
@@ -81,27 +84,55 @@ export default function DashboardPage() {
         loadData();
     }, []);
 
-    const personas = useMemo(() => {
-        if (savedPersonas.length > 0) {
-            return savedPersonas
+    const personas = useMemo(
+        () =>
+            savedPersonas
                 .filter((persona) => persona.isPriority)
-                .slice(0, 2);
-        }
-
-        return DUMMY_PERSONAS.slice(0, 2);
-    }, [savedPersonas]);
-
-    const activeAggregate = useMemo(() => {
-        if (aggregate && aggregate.total_sessions > 0) {
-            return aggregate;
-        }
-        return DUMMY_METRICS_AGGREGATE;
-    }, [aggregate]);
-
-    const activeMetrics = useMemo(
-        () => (metrics.length > 0 ? metrics : DUMMY_TRAINING_METRICS),
-        [metrics]
+                .slice(0, 2),
+        [savedPersonas]
     );
+
+    const activeAggregate = useMemo(
+        () =>
+            aggregate ?? {
+                total_sessions: 0,
+                avg_overall_score: 0,
+                avg_discovery_score: 0,
+                avg_objection_score: 0,
+                avg_value_comm_score: 0,
+                avg_conversation_control: 0,
+                avg_emotional_intelligence: 0,
+                avg_duration_seconds: 0,
+                avg_questions_asked: 0,
+                avg_talk_ratio_rep: 0,
+                performance_distribution: {
+                    excellent: 0,
+                    good: 0,
+                    needs_improvement: 0,
+                },
+                most_common_strengths: [],
+                most_common_feedback: [],
+            },
+        [aggregate]
+    );
+
+    const activeMetrics = useMemo(() => metrics, [metrics]);
+
+    const weeklyMetrics = useMemo(() => {
+        const buckets = buildRecentDayBuckets();
+        const start = new Date(`${buckets[0].dateKey}T00:00:00`);
+        const end = new Date(`${buckets[buckets.length - 1].dateKey}T23:59:59`);
+
+        const filtered = activeMetrics.filter((metric) => {
+            const metricDate = new Date(metric.timestamp);
+            if (Number.isNaN(metricDate.getTime())) {
+                return false;
+            }
+            return metricDate >= start && metricDate <= end;
+        });
+
+        return filtered;
+    }, [activeMetrics]);
 
     const timeGraphData = useMemo(() => {
         const buckets = buildRecentDayBuckets().map((day) => ({
@@ -111,7 +142,7 @@ export default function DashboardPage() {
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
 
-        activeMetrics.forEach((metric) => {
+        weeklyMetrics.forEach((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return;
@@ -137,7 +168,7 @@ export default function DashboardPage() {
                 entry.totalSeconds > 0 ? 16 : 8
             ),
         }));
-    }, [activeMetrics]);
+    }, [weeklyMetrics]);
 
     const confidenceGraphData = useMemo(() => {
         const buckets = buildRecentDayBuckets().map((day) => ({
@@ -148,7 +179,7 @@ export default function DashboardPage() {
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
 
-        activeMetrics.forEach((metric) => {
+        weeklyMetrics.forEach((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return;
@@ -172,7 +203,7 @@ export default function DashboardPage() {
                 avgRating: avgScore !== null ? avgScore / 10 : null,
             };
         });
-    }, [activeMetrics]);
+    }, [weeklyMetrics]);
 
     const confidenceSummary = useMemo(() => {
         return getTrendVisual(
@@ -208,7 +239,7 @@ export default function DashboardPage() {
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
 
-        activeMetrics.forEach((metric) => {
+        weeklyMetrics.forEach((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return;
@@ -237,7 +268,7 @@ export default function DashboardPage() {
                 avgSentimentRating: entry.totalSentimentRating / entry.count,
             };
         });
-    }, [activeMetrics]);
+    }, [weeklyMetrics]);
 
     const prospectSentimentSummary = useMemo(() => {
         return getTrendVisual(
@@ -254,19 +285,45 @@ export default function DashboardPage() {
         );
     }, [prospectSentimentGraphData]);
 
-    const recentSessionRows = useMemo(
-        () =>
-            activeMetrics.slice(0, 6).map((metric) => ({
+    const personaIdByName = useMemo(() => {
+        return new Map(
+            savedPersonas
+                .filter((persona) => typeof persona.name === "string")
+                .map((persona) => [
+                    persona.name.trim().toLowerCase(),
+                    persona.id,
+                ])
+        );
+    }, [savedPersonas]);
+
+    const recentSessionRows = useMemo(() => {
+        const sorted = [...activeMetrics].sort(
+            (a, b) =>
+                new Date(b.timestamp).getTime() -
+                new Date(a.timestamp).getTime()
+        );
+        return sorted.slice(0, 6).map((metric) => {
+            const session = sessions.find(
+                (entry) => entry.id === metric.session_id
+            );
+            const personaName =
+                session?.personaName || session?.jobTitle || "Unknown";
+            const personaId = session?.personaName
+                ? personaIdByName.get(session.personaName.toLowerCase())
+                : undefined;
+
+            return {
                 id: metric.session_id,
                 name: metric.scenario || "Training Session",
-                persona: "Unknown",
+                persona: personaName,
+                personaId,
                 timestamp: metric.timestamp,
                 duration: `${Math.floor(metric.duration_seconds / 60)}m ${metric.duration_seconds % 60}s`,
                 confidence: metric.overall_score,
                 sentiment: metric.trust_change,
-            })),
-        [activeMetrics]
-    );
+            };
+        });
+    }, [activeMetrics, sessions, personaIdByName]);
 
     const handleNewTraining = (personaId: string) => {
         router.push(`/training/context-builder?personaId=${personaId}`);
@@ -280,9 +337,13 @@ export default function DashboardPage() {
         router.push(`/personas/${personaId}`);
     };
 
-    const handleTogglePriority = (personaId: string) => {
-        togglePersonaPriority(personaId);
-        setSavedPersonas(getSavedPersonas());
+    const handleTogglePriority = async (personaId: string) => {
+        try {
+            await togglePersonaPriority(personaId);
+            setSavedPersonas(await getSavedPersonas());
+        } catch (error) {
+            console.error("Failed to toggle priority:", error);
+        }
     };
 
     if (isLoading) {
@@ -307,11 +368,12 @@ export default function DashboardPage() {
                         headerAlign="bottom"
                         indicator={
                             <span className="text-3xl font-bold text-white leading-none">
-                                {(
-                                    (activeAggregate.avg_duration_seconds *
-                                        activeAggregate.total_sessions) /
-                                    3600
-                                ).toFixed(1)}
+                                {timeGraphData
+                                    .reduce(
+                                        (sum, day) => sum + day.totalHours,
+                                        0
+                                    )
+                                    .toFixed(1)}
                                 h
                             </span>
                         }
@@ -433,7 +495,10 @@ export default function DashboardPage() {
                                     key={persona.id}
                                     persona={persona}
                                     imageSrc={
-                                        DUMMY_PERSONA_IMAGES[persona.name] ||
+                                        (persona.name &&
+                                            DUMMY_PERSONA_IMAGES[
+                                                persona.name
+                                            ]) ||
                                         DUMMY_PERSONA_IMAGES["Priya Nair"]
                                     }
                                     onQuickStart={handleNewTraining}
@@ -474,6 +539,7 @@ export default function DashboardPage() {
                     <SessionsTable
                         rows={recentSessionRows}
                         onViewReport={handleViewReport}
+                        onViewPersona={handleViewPersonaDetails}
                     />
                 </section>
             </div>

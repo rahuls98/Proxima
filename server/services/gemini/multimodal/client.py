@@ -48,6 +48,7 @@ PERSONA_CONTEXT_GENERATOR_SYSTEM_ROLE = (
     "- Incorporate voice guidance subtly\n"
     "- Clearly define objection behavior and escalation rules\n"
     "- Enforce staying in character\n"
+    "- If a prospect name is not provided, invent a realistic name and include it explicitly\n"
     "- Be between 250–450 words\n"
     "- Be formatted in clean paragraphs and bullet sections\n\n"
     "Do NOT explain your reasoning.\n"
@@ -238,4 +239,3 @@ class GeminiMultimodalClient:
             return extract_text(response)
         except ExtractionError as exc:
             raise MultimodalContextError(str(exc)) from exc
-

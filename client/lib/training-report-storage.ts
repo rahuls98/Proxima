@@ -2,7 +2,7 @@
  * Training Report Storage Layer
  *
  * Provides an abstracted interface for storing and retrieving training reports.
- * Currently uses localStorage, but can be easily swapped with API calls later.
+ * Uses API storage (localStorage removed).
  *
  * This layer separates the storage mechanism from business logic,
  * making it easy to transition from local storage to backend API.
@@ -48,65 +48,7 @@ interface ITrainingReportStorage {
 }
 
 /**
- * LocalStorage implementation of the training report storage interface
- */
-class LocalStorageReportStorage implements ITrainingReportStorage {
-    private readonly storageKey = "proxima_training_reports";
-
-    /**
-     * Get all reports from localStorage
-     */
-    private getAllReports(): Record<string, SessionReport> {
-        if (typeof window === "undefined") return {};
-
-        const stored = localStorage.getItem(this.storageKey);
-        if (!stored) return {};
-
-        try {
-            return JSON.parse(stored);
-        } catch (error) {
-            console.error("Failed to parse training reports:", error);
-            return {};
-        }
-    }
-
-    /**
-     * Save all reports to localStorage
-     */
-    private setAllReports(reports: Record<string, SessionReport>): void {
-        localStorage.setItem(this.storageKey, JSON.stringify(reports));
-    }
-
-    async saveReport(sessionId: string, report: SessionReport): Promise<void> {
-        const reports = this.getAllReports();
-        reports[sessionId] = report;
-        this.setAllReports(reports);
-    }
-
-    async getReport(sessionId: string): Promise<SessionReport | null> {
-        const reports = this.getAllReports();
-        return reports[sessionId] || null;
-    }
-
-    async deleteReport(sessionId: string): Promise<void> {
-        const reports = this.getAllReports();
-        delete reports[sessionId];
-        this.setAllReports(reports);
-    }
-
-    async getAllReportIds(): Promise<string[]> {
-        const reports = this.getAllReports();
-        return Object.keys(reports);
-    }
-
-    async clearAllReports(): Promise<void> {
-        localStorage.removeItem(this.storageKey);
-    }
-}
-
-/**
  * API-based implementation of the training report storage interface
- * (Placeholder for future implementation)
  */
 class ApiReportStorage implements ITrainingReportStorage {
     private readonly baseUrl: string;
@@ -173,32 +115,9 @@ class ApiReportStorage implements ITrainingReportStorage {
     }
 }
 
-/**
- * Storage adapter configuration
- * Change this to switch between localStorage and API storage
- */
-const USE_API_STORAGE = false; // Set to true to use API storage
+const storageInstance: ITrainingReportStorage = new ApiReportStorage();
 
-/**
- * Get the active storage implementation
- */
-function getStorageAdapter(): ITrainingReportStorage {
-    if (USE_API_STORAGE) {
-        return new ApiReportStorage();
-    }
-    return new LocalStorageReportStorage();
-}
-
-// Singleton instance
-let storageInstance: ITrainingReportStorage | null = null;
-
-/**
- * Get the storage instance (singleton pattern)
- */
 function getStorage(): ITrainingReportStorage {
-    if (!storageInstance) {
-        storageInstance = getStorageAdapter();
-    }
     return storageInstance;
 }
 

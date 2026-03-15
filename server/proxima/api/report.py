@@ -1,32 +1,14 @@
 # proxima/api/report.py
 
-import logging
-
 from fastapi import APIRouter, HTTPException  # type: ignore
 from pydantic import BaseModel  # type: ignore
 
-from services.gemini.multimodal import (
-    SessionReportGenerator,
-    SessionReportError,
-    SessionMetrics,
-    TranscriptEntry,
-)
+from proxima.dummy_data import DUMMY_SESSION_REPORT
+from proxima.storage import get_storage
 from proxima.session_store import get_session_store
 
 
-logger = logging.getLogger("report_api")
 router = APIRouter(prefix="/report", tags=["report"])
-
-# Lazy singleton for report generator
-_generator: SessionReportGenerator | None = None
-
-
-def get_generator() -> SessionReportGenerator:
-    """Get or create the session report generator."""
-    global _generator
-    if _generator is None:
-        _generator = SessionReportGenerator()
-    return _generator
 
 
 class GenerateReportRequest(BaseModel):
@@ -36,17 +18,18 @@ class GenerateReportRequest(BaseModel):
 
 class GenerateReportResponse(BaseModel):
     """Response body for report generation."""
-    session_id: str
-    session_total_time: str
-    rep_confidence_avg: float
-    rep_confidence_trend: str
-    on_rep_confidence_avg: float
-    on_rep_confidence_trend: str
-    prospect_sentiment_avg: float
-    prospect_sentiment_trend: str
-    key_moments: list[str]
-    recommendations: list[str]
-    transcript_length: int
+    session_overview: dict
+    overall_score: dict
+    conversation_metrics: dict
+    discovery_signals: dict
+    objection_handling: dict
+    value_communication: dict
+    emotional_intelligence: dict
+    prospect_engagement: dict
+    deal_progression: dict
+    top_feedback: list[str]
+    strengths: list[str]
+    practice_recommendations: dict
 
 
 @router.post(
@@ -56,78 +39,20 @@ class GenerateReportResponse(BaseModel):
 )
 async def generate_session_report(request: GenerateReportRequest):
     """
-    Generate a structured performance report from a training session transcript.
-    
-    This endpoint analyzes the session transcript using Gemini and extracts:
-    - Session total time
-    - Rep confidence metrics (internal self-confidence)
-    - On-rep confidence (how the rep appears to the prospect)
-    - Prospect sentiment across the session
-    - Key moments and coaching recommendations
-    
-    Args:
-        request: Contains session_id to generate report for.
-    
-    Returns:
-        Structured performance metrics and coaching insights.
-    
-    Raises:
-        404: Session not found.
-        422: Transcript is empty or invalid.
-        500: Gemini API error or analysis failure.
+    Generate a structured performance report for a session.
+
+    For now, returns the UI dummy report structure and persists it in the
+    report storage abstraction.
     """
-    session_store = get_session_store()
-    session = session_store.get_session(request.session_id)
-    
-    if not session:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Session {request.session_id} not found",
-        )
-    
-    # Get relative transcript (timestamps from session start)
-    transcript = session.get_relative_transcript()
-    
-    if not transcript:
-        raise HTTPException(
-            status_code=422,
-            detail="Session transcript is empty. Cannot generate report.",
-        )
-    
-    # Convert to the format expected by the report generator
-    transcript_entries: list[TranscriptEntry] = []
-    for msg in transcript:
-        transcript_entries.append({
-            "speaker": msg["speaker"],
-            "text": msg["text"],
-            "timestamp": msg["timestamp"],
-        })
-    
-    # Generate report using Gemini
-    generator = get_generator()
-    try:
-        metrics = await generator.generate_report(transcript_entries)
-    except SessionReportError as exc:
-        logger.exception("Failed to generate session report")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate report: {str(exc)}",
-        ) from exc
-    
-    # Return structured response
-    return GenerateReportResponse(
-        session_id=request.session_id,
-        session_total_time=metrics["session_total_time"],
-        rep_confidence_avg=metrics["rep_confidence_avg"],
-        rep_confidence_trend=metrics["rep_confidence_trend"],
-        on_rep_confidence_avg=metrics["on_rep_confidence_avg"],
-        on_rep_confidence_trend=metrics["on_rep_confidence_trend"],
-        prospect_sentiment_avg=metrics["prospect_sentiment_avg"],
-        prospect_sentiment_trend=metrics["prospect_sentiment_trend"],
-        key_moments=metrics["key_moments"],
-        recommendations=metrics["recommendations"],
-        transcript_length=len(transcript),
-    )
+    report = {
+        **DUMMY_SESSION_REPORT,
+        "session_overview": {
+            **DUMMY_SESSION_REPORT["session_overview"],
+            "session_id": request.session_id,
+        },
+    }
+    get_storage().save_report(request.session_id, report)
+    return GenerateReportResponse(**report)
 
 
 @router.get(

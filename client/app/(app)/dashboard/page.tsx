@@ -36,21 +36,23 @@ function getDateKey(date: Date) {
     return `${year}-${month}-${day}`;
 }
 
-function buildRecentDayBuckets() {
+function buildCurrentWeekBuckets() {
     const today = new Date();
-    const start = new Date(today);
-    start.setHours(0, 0, 0, 0);
-    start.setDate(start.getDate() - start.getDay()); // Sunday
+    const weekStart = new Date(today);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(today.getDate() - today.getDay());
 
-    return Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(start);
-        date.setDate(start.getDate() + index);
+    const todayKey = getDateKey(today);
+    return Array.from({ length: DASHBOARD_DAY_COUNT }, (_, index) => {
+        const date = new Date(weekStart);
+        date.setDate(weekStart.getDate() + index);
 
         return {
             dateKey: getDateKey(date),
             dayLabel: date.toLocaleDateString(undefined, {
                 weekday: "short",
             }),
+            isAfterToday: getDateKey(date) > todayKey,
         };
     });
 }
@@ -271,24 +273,32 @@ export default function DashboardPage() {
         };
     }, [aggregate, activeMetrics]);
 
-    const weeklyMetrics = useMemo(() => {
-        const buckets = buildRecentDayBuckets();
-        const start = new Date(`${buckets[0].dateKey}T00:00:00`);
-        const end = new Date(`${buckets[buckets.length - 1].dateKey}T23:59:59`);
+    const chartDayBuckets = useMemo(() => {
+        return buildCurrentWeekBuckets();
+    }, []);
 
-        const filtered = activeMetrics.filter((metric) => {
+    const chartMetrics = useMemo(() => {
+        if (chartDayBuckets.length === 0) {
+            return [] as TrainingMetricDataPoint[];
+        }
+
+        const validDateKeys = new Set(
+            chartDayBuckets
+                .filter((day) => !day.isAfterToday)
+                .map((day) => day.dateKey)
+        );
+        return activeMetrics.filter((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return false;
             }
-            return metricDate >= start && metricDate <= end;
-        });
 
-        return filtered;
-    }, [activeMetrics]);
+            return validDateKeys.has(getDateKey(metricDate));
+        });
+    }, [activeMetrics, chartDayBuckets]);
 
     const timeGraphData = useMemo(() => {
-        const buckets = buildRecentDayBuckets().map((day) => ({
+        const buckets = chartDayBuckets.map((day) => ({
             ...day,
             totalSeconds: 0,
             displayLabel: "0m",
@@ -296,7 +306,7 @@ export default function DashboardPage() {
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
 
-        weeklyMetrics.forEach((metric) => {
+        chartMetrics.forEach((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return;
@@ -326,17 +336,18 @@ export default function DashboardPage() {
             return {
                 ...entry,
                 totalHours,
-                displayLabel,
-                barHeightPercent: Math.max(
-                    (entry.totalSeconds / maxSeconds) * 100,
-                    entry.totalSeconds > 0 ? 16 : 8
-                ),
+                displayLabel: entry.isAfterToday ? "-" : displayLabel,
+                barHeightPercent: entry.isAfterToday
+                    ? 0
+                    : entry.totalSeconds > 0
+                      ? Math.max((entry.totalSeconds / maxSeconds) * 100, 16)
+                      : 0,
             };
         });
-    }, [weeklyMetrics]);
+    }, [chartDayBuckets, chartMetrics]);
 
     const confidenceGraphData = useMemo(() => {
-        const buckets = buildRecentDayBuckets().map((day) => ({
+        const buckets = chartDayBuckets.map((day) => ({
             ...day,
             totalScore: 0,
             count: 0,
@@ -344,7 +355,7 @@ export default function DashboardPage() {
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
 
-        weeklyMetrics.forEach((metric) => {
+        chartMetrics.forEach((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return;
@@ -368,7 +379,7 @@ export default function DashboardPage() {
                 avgRating: avgScore !== null ? avgScore / 10 : null,
             };
         });
-    }, [weeklyMetrics]);
+    }, [chartDayBuckets, chartMetrics]);
 
     const confidenceSummary = useMemo(() => {
         return getTrendVisual(
@@ -400,7 +411,7 @@ export default function DashboardPage() {
             return 1; // dissatisfied
         };
 
-        const buckets = buildRecentDayBuckets().map((day) => ({
+        const buckets = chartDayBuckets.map((day) => ({
             ...day,
             totalSentimentRating: 0,
             count: 0,
@@ -408,7 +419,7 @@ export default function DashboardPage() {
 
         const byDate = new Map(buckets.map((entry) => [entry.dateKey, entry]));
 
-        weeklyMetrics.forEach((metric) => {
+        chartMetrics.forEach((metric) => {
             const metricDate = new Date(metric.timestamp);
             if (Number.isNaN(metricDate.getTime())) {
                 return;
@@ -437,7 +448,7 @@ export default function DashboardPage() {
                 avgSentimentRating: entry.totalSentimentRating / entry.count,
             };
         });
-    }, [weeklyMetrics]);
+    }, [chartDayBuckets, chartMetrics]);
 
     const prospectSentimentSummary = useMemo(() => {
         return getTrendVisual(
@@ -499,87 +510,60 @@ export default function DashboardPage() {
             }
             return metricTrust ?? 0;
         };
-        const sessionById = new Map(
-            sessions.map((session) => [session.id, session])
+        const metricBySessionId = new Map(
+            activeMetrics.map((metric) => [metric.session_id, metric])
         );
-        const rowsFromMetrics = [...activeMetrics]
+
+        const rowsFromSessions = [...sessions]
             .sort(
                 (a, b) =>
                     new Date(b.timestamp).getTime() -
                     new Date(a.timestamp).getTime()
             )
-            .map((metric) => {
-                const session = sessionById.get(metric.session_id);
-                const report = reportBySessionId[metric.session_id];
+            .map((session) => {
+                const metric = metricBySessionId.get(session.id);
+                const report = reportBySessionId[session.id];
                 const personaName =
                     session?.personaName || session?.jobTitle || "Unknown";
                 const personaId = session?.personaName
                     ? personaIdByName.get(session.personaName.toLowerCase())
                     : undefined;
 
+                const duration = metric
+                    ? `${Math.floor(metric.duration_seconds / 60)}m ${(
+                          metric.duration_seconds % 60
+                      )
+                          .toString()
+                          .padStart(2, "0")}s`
+                    : session.duration || "--";
+
                 return {
-                    id: metric.session_id,
+                    id: session.id,
                     name:
-                        metric.scenario ||
+                        report?.session_overview.scenario ||
+                        metric?.scenario ||
                         session?.scenario ||
                         "Training Session",
                     persona: personaName,
                     personaId,
-                    timestamp: metric.timestamp || session?.timestamp || "",
-                    duration: `${Math.floor(metric.duration_seconds / 60)}m ${(
-                        metric.duration_seconds % 60
-                    )
-                        .toString()
-                        .padStart(2, "0")}s`,
+                    timestamp:
+                        report?.session_overview.session_start_time ||
+                        metric?.timestamp ||
+                        session?.timestamp ||
+                        "",
+                    duration,
                     confidence: resolveScore(
-                        metric.overall_score,
+                        metric?.overall_score,
                         report?.overall_score.score
                     ),
                     sentiment: resolveTrust(
-                        metric.trust_change,
+                        metric?.trust_change,
                         report?.prospect_engagement.trust_change
                     ),
                 };
             });
-        const fallback = [...sessions]
-            .sort(
-                (a, b) =>
-                    new Date(b.timestamp).getTime() -
-                    new Date(a.timestamp).getTime()
-            )
-            .slice(0, 3)
-            .map((session) => ({
-                id: session.id,
-                name: session.scenario || "Training Session",
-                persona: session.personaName || session.jobTitle || "Unknown",
-                personaId: session.personaName
-                    ? personaIdByName.get(session.personaName.toLowerCase())
-                    : undefined,
-                timestamp: session.timestamp,
-                duration: session.duration || "--",
-                confidence:
-                    reportBySessionId[session.id]?.overall_score.score ?? 0,
-                sentiment:
-                    reportBySessionId[session.id]?.prospect_engagement
-                        .trust_change ?? 0,
-            }));
-        const combined = [...rowsFromMetrics, ...fallback]
-            .reduce(
-                (acc, row) => {
-                    if (!acc.some((entry) => entry.id === row.id)) {
-                        acc.push(row);
-                    }
-                    return acc;
-                },
-                [] as typeof rowsFromMetrics
-            )
-            .sort(
-                (a, b) =>
-                    new Date(b.timestamp).getTime() -
-                    new Date(a.timestamp).getTime()
-            );
 
-        return combined.slice(0, 3);
+        return rowsFromSessions.slice(0, 3);
     }, [activeMetrics, sessions, personaIdByName]);
 
     const isSessionsLoading = shouldShowLoading || isReportsLoading;
@@ -624,7 +608,7 @@ export default function DashboardPage() {
                 <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     <SummaryMetricCard
                         title="Total Time"
-                        description="Total practice time recorded this week."
+                        description="Total practice time recorded this week through today."
                         headerAlign="bottom"
                         indicator={
                             <span className="text-3xl font-bold text-white leading-none">
@@ -671,7 +655,7 @@ export default function DashboardPage() {
 
                     <SummaryMetricCard
                         title="Confidence Rating"
-                        description="Average daily score on a 0–10 scale."
+                        description="Average daily score on a 0–10 scale for this week through today."
                         indicator={
                             <TrendBadge
                                 direction={confidenceSummary.direction}
@@ -711,7 +695,7 @@ export default function DashboardPage() {
 
                     <SummaryMetricCard
                         title="Prospect Average Sentiment Trend"
-                        description="Daily average prospect sentiment from 1–3."
+                        description="Daily average prospect sentiment from 1–3 for this week through today."
                         indicator={
                             <TrendBadge
                                 direction={prospectSentimentSummary.direction}

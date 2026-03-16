@@ -164,8 +164,14 @@ async def get_session(session_id: str):
 
 @router.delete("/sessions/{session_id}")
 async def delete_session(session_id: str):
-    if not get_storage().delete_session(session_id):
+    storage = get_storage()
+    session_deleted = storage.delete_session(session_id)
+    report_deleted = storage.delete_report(session_id)
+    metric_deleted = storage.delete_metric(session_id)
+
+    if not (session_deleted or report_deleted or metric_deleted):
         raise HTTPException(status_code=404, detail="Session not found")
+
     return {"status": "deleted", "id": session_id}
 
 

@@ -228,35 +228,34 @@ export default function TrainingHistoryPage() {
             }
             return metricTrust ?? 0;
         };
-        const byId = new Map(
-            activeSessions.map((session) => [session.id, session])
-        );
-        const rows = Object.values(metricBySessionId).map((metric) => {
-            const session = byId.get(metric.session_id);
-            const report = reportBySessionId[metric.session_id];
+        const rows = activeSessions.map((session) => {
+            const metric = metricBySessionId[session.id];
+            const report = reportBySessionId[session.id];
             const persona =
                 session?.personaName || session?.jobTitle || "Unknown";
             const personaId = session?.personaName
                 ? personaIdByName.get(session.personaName.toLowerCase())
                 : undefined;
-            const duration = `${Math.floor(metric.duration_seconds / 60)}m ${(
-                metric.duration_seconds % 60
-            )
-                .toString()
-                .padStart(2, "0")}s`;
+            const duration = metric
+                ? `${Math.floor(metric.duration_seconds / 60)}m ${(
+                      metric.duration_seconds % 60
+                  )
+                      .toString()
+                      .padStart(2, "0")}s`
+                : null;
 
             return {
-                id: metric.session_id,
+                id: session.id,
                 name:
                     report?.session_overview.scenario ||
-                    metric.scenario ||
+                    metric?.scenario ||
                     session?.scenario ||
                     "Training Session",
                 persona,
                 personaId,
                 timestamp:
                     report?.session_overview.session_start_time ||
-                    metric.timestamp ||
+                    metric?.timestamp ||
                     session?.timestamp ||
                     "",
                 duration:
@@ -274,53 +273,14 @@ export default function TrainingHistoryPage() {
                               .padStart(2, "0")}s`
                         : "--"),
                 confidence: resolveScore(
-                    metric.overall_score,
+                    metric?.overall_score,
                     report?.overall_score.score
                 ),
                 sentiment: resolveTrust(
-                    metric.trust_change,
+                    metric?.trust_change,
                     report?.prospect_engagement.trust_change
                 ),
             };
-        });
-
-        activeSessions.forEach((session) => {
-            if (metricBySessionId[session.id]) {
-                return;
-            }
-            const report = reportBySessionId[session.id];
-            const persona =
-                session.personaName || session.jobTitle || "Unknown";
-            const personaId = session.personaName
-                ? personaIdByName.get(session.personaName.toLowerCase())
-                : undefined;
-            rows.push({
-                id: session.id,
-                name:
-                    report?.session_overview.scenario ||
-                    session.scenario ||
-                    "Training Session",
-                persona,
-                personaId,
-                timestamp:
-                    report?.session_overview.session_start_time ||
-                    session.timestamp,
-                duration:
-                    session.duration ||
-                    (report
-                        ? `${Math.floor(
-                              report.session_overview.session_duration_seconds /
-                                  60
-                          )}m ${(
-                              report.session_overview.session_duration_seconds %
-                              60
-                          )
-                              .toString()
-                              .padStart(2, "0")}s`
-                        : "--"),
-                confidence: report?.overall_score.score ?? 0,
-                sentiment: report?.prospect_engagement.trust_change ?? 0,
-            });
         });
 
         return rows.sort(
@@ -351,8 +311,27 @@ export default function TrainingHistoryPage() {
             )
         ) {
             deleteTrainingSession(id)
-                .then(() => getTrainingHistory())
-                .then((history) => setSessions(history))
+                .then(() =>
+                    Promise.all([getTrainingHistory(), getAllTrainingMetrics()])
+                )
+                .then(([history, allMetrics]) => {
+                    setSessions(history);
+                    const map: Record<
+                        string,
+                        Awaited<
+                            ReturnType<typeof getAllTrainingMetrics>
+                        >[number]
+                    > = {};
+                    allMetrics.forEach((m) => {
+                        map[m.session_id] = m;
+                    });
+                    setMetricBySessionId(map);
+                    setReportBySessionId((prev) => {
+                        const next = { ...prev };
+                        delete next[id];
+                        return next;
+                    });
+                })
                 .catch((error) =>
                     console.error("Failed to delete session:", error)
                 );

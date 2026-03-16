@@ -328,7 +328,7 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                             <TrendBadge
                                 direction={confidenceTrend.direction}
                                 value={confidenceTrend.value}
-                                suffix="/10"
+                                suffix=""
                             />
                         }
                     >

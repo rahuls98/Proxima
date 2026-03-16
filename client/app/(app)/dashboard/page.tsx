@@ -660,7 +660,7 @@ export default function DashboardPage() {
                             <TrendBadge
                                 direction={confidenceSummary.direction}
                                 value={confidenceSummary.value}
-                                suffix="/10"
+                                suffix=""
                             />
                         }
                     >
@@ -694,7 +694,7 @@ export default function DashboardPage() {
                     </SummaryMetricCard>
 
                     <SummaryMetricCard
-                        title="Prospect Average Sentiment Trend"
+                        title="Prospect Sentiment Trend"
                         description="Daily average prospect sentiment from 1–3 for this week through today."
                         indicator={
                             <TrendBadge

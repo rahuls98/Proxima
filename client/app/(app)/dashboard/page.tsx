@@ -17,7 +17,6 @@ import {
     togglePersonaPriority,
     type SavedPersona,
 } from "@/lib/persona-storage";
-import { DUMMY_PERSONA_IMAGES } from "@/lib/ui-dummy-data";
 import { TrendBadge } from "@/components/atoms/TrendBadge";
 import { SectionHeader } from "@/components/atoms/SectionHeader";
 import { MiniTrendChart } from "@/components/molecules/MiniTrendChart";
@@ -787,13 +786,6 @@ export default function DashboardPage() {
                                 <PersonaLibraryCard
                                     key={persona.id}
                                     persona={persona}
-                                    imageSrc={
-                                        (persona.name &&
-                                            DUMMY_PERSONA_IMAGES[
-                                                persona.name
-                                            ]) ||
-                                        DUMMY_PERSONA_IMAGES["Priya Nair"]
-                                    }
                                     onQuickStart={handleNewTraining}
                                     onViewDetails={handleViewPersonaDetails}
                                     onTogglePriority={handleTogglePriority}

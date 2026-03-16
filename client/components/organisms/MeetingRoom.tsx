@@ -17,7 +17,10 @@ import { getUserName } from "@/lib/user-settings";
 import { PersonaConfiguringOverlay } from "@/components/molecules/PersonaConfiguringOverlay";
 import { startScreenFrameCapture } from "@/lib/proxima-agent/screen-share";
 import { ProximaAgentService } from "@/lib/proxima-agent/service";
-import { saveTrainingSessionWithReport } from "@/lib/training-history";
+import {
+    saveTrainingSession,
+    saveTrainingSessionWithReport,
+} from "@/lib/training-history";
 import { generateSessionReport } from "@/lib/api";
 import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
 import { getSessionContext } from "@/lib/session-context";
@@ -561,87 +564,48 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                 );
             } catch (error) {
                 console.error("Failed to generate report:", error);
-                // Still save the session without the report
-                await saveTrainingSessionWithReport(
-                    {
+                try {
+                    // Retry once to avoid persisting placeholder reports during
+                    // eventual consistency windows right after session end.
+                    await new Promise((resolve) => setTimeout(resolve, 1500));
+                    const retryReport =
+                        await generateSessionReport(activeSessionId);
+                    const retryDurationSeconds =
+                        retryReport.session_overview.session_duration_seconds ??
+                        0;
+                    const retryMinutes = Math.floor(retryDurationSeconds / 60);
+                    const retrySeconds = retryDurationSeconds % 60;
+
+                    await saveTrainingSessionWithReport(
+                        {
+                            id: activeSessionId,
+                            timestamp:
+                                retryReport.session_overview
+                                    .session_start_time ||
+                                new Date().toISOString(),
+                            transcriptLength: transcript.length,
+                            personaName,
+                            jobTitle,
+                            scenario: retryReport.session_overview.scenario,
+                            duration: `${retryMinutes}m ${retrySeconds
+                                .toString()
+                                .padStart(2, "0")}s`,
+                        },
+                        retryReport
+                    );
+                } catch (retryError) {
+                    console.error(
+                        "Retry report generation failed; saving session without report:",
+                        retryError
+                    );
+                    await saveTrainingSession({
                         id: activeSessionId,
                         timestamp: new Date().toISOString(),
                         transcriptLength: transcript.length,
                         personaName,
                         jobTitle,
-                    },
-                    {
-                        session_overview: {
-                            session_id: activeSessionId,
-                            scenario: "Training Session",
-                            prospect_persona: personaName ?? "Prospect",
-                            difficulty: "Intermediate",
-                            session_duration_seconds: 0,
-                            session_start_time: new Date().toISOString(),
-                        },
-                        overall_score: {
-                            score: 0,
-                            performance_level: "Unavailable",
-                            breakdown: {
-                                discovery: 0,
-                                objection_handling: 0,
-                                value_communication: 0,
-                                conversation_control: 0,
-                                emotional_intelligence: 0,
-                            },
-                        },
-                        conversation_metrics: {
-                            talk_ratio_rep: 0,
-                            talk_ratio_prospect: 0,
-                            questions_asked: 0,
-                            open_questions: 0,
-                            interruptions: 0,
-                            avg_response_latency_seconds: 0,
-                        },
-                        discovery_signals: {
-                            pain_identified: false,
-                            current_tools_identified: false,
-                            budget_discussed: false,
-                            decision_process_identified: false,
-                            timeline_discussed: "not_discussed",
-                        },
-                        objection_handling: {
-                            objections_detected: 0,
-                            acknowledgment_quality: "Unavailable",
-                            evidence_used: "Unavailable",
-                            follow_up_questions: "Unavailable",
-                        },
-                        value_communication: {
-                            value_clarity: "Unavailable",
-                            feature_vs_benefit_balance: "Unavailable",
-                            roi_quantified: false,
-                            personalization: "Unavailable",
-                        },
-                        emotional_intelligence: {
-                            empathy: "Unavailable",
-                            listening_signals: "Unavailable",
-                            rapport_building: "Unavailable",
-                            tone_adaptation: "Unavailable",
-                        },
-                        prospect_engagement: {
-                            trust_change: 0,
-                            engagement_level: "Unavailable",
-                            objection_frequency: 0,
-                            conversation_momentum: "Unavailable",
-                        },
-                        deal_progression: {
-                            buying_interest: "Unavailable",
-                            next_step_clarity: "Unavailable",
-                            commitment_secured: false,
-                        },
-                        top_feedback: [],
-                        strengths: [],
-                        practice_recommendations: {
-                            focus_area: "Unavailable",
-                            recommended_exercise: "Unavailable",
-                        },
-                    }
-                );
+                    });
+                }
             }
 
             // Navigate to session report page

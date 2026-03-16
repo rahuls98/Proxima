@@ -168,11 +168,21 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                 item.toLowerCase().includes("open-ended questions")
             );
             const genericMoments = keyMoments.some((moment) =>
-                (moment.title || "")
-                    .toLowerCase()
-                    .includes("early momentum")
+                (moment.title || "").toLowerCase().includes("early momentum")
             );
             return genericStrengths || genericFeedback || genericMoments;
+        };
+
+        const isPlaceholderReport = (candidate: SessionReport) => {
+            const score = candidate.overall_score?.score ?? 0;
+            const performanceLevel =
+                candidate.overall_score?.performance_level?.toLowerCase() || "";
+            const noInsights =
+                (candidate.strengths?.length ?? 0) === 0 &&
+                (candidate.top_feedback?.length ?? 0) === 0;
+            return (
+                score === 0 && performanceLevel === "unavailable" && noInsights
+            );
         };
 
         const loadReport = async () => {
@@ -181,7 +191,11 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
 
             try {
                 const cachedReport = await getTrainingReport(sessionId);
-                if (cachedReport && !isGenericReport(cachedReport)) {
+                if (
+                    cachedReport &&
+                    !isGenericReport(cachedReport) &&
+                    !isPlaceholderReport(cachedReport)
+                ) {
                     setReport(cachedReport);
                     setIsLoading(false);
                     return;
@@ -366,7 +380,10 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                         </h2>
                         <div className="relative space-y-8 pl-8 border-l border-border-subtle ml-2">
                             {keyMoments.map((moment, idx) => (
-                                <div key={`${moment.title}-${idx}`} className="relative">
+                                <div
+                                    key={`${moment.title}-${idx}`}
+                                    className="relative"
+                                >
                                     <div
                                         className={`absolute -left-[41px] top-0 w-4 h-4 rounded-full bg-surface-base border-2 ${
                                             idx === 0
@@ -407,7 +424,9 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                                 <span className="material-symbols-outlined text-success">
                                     psychology
                                 </span>
-                                <h3 className="font-bold text-white">AI Insights</h3>
+                                <h3 className="font-bold text-white">
+                                    AI Insights
+                                </h3>
                             </div>
                             <div className="divide-y divide-border-subtle">
                                 {[
@@ -422,9 +441,14 @@ export function SessionReportView({ sessionId }: SessionReportViewProps) {
                                         text,
                                     })),
                                 ].map((item, idx) => (
-                                    <div key={`${item.type}-${idx}`} className="py-4 first:pt-0 last:pb-0">
+                                    <div
+                                        key={`${item.type}-${idx}`}
+                                        className="py-4 first:pt-0 last:pb-0"
+                                    >
                                         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-text-muted">
-                                            <span className={`material-symbols-outlined text-[16px] ${item.tone}`}>
+                                            <span
+                                                className={`material-symbols-outlined text-[16px] ${item.tone}`}
+                                            >
                                                 {item.type === "Strength"
                                                     ? "verified"
                                                     : "trending_up"}

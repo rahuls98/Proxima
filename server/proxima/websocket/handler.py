@@ -688,7 +688,7 @@ class ProximaAgentWebSocketHandler:
             session_store.end_session(session_id)
             try:
                 session = session_store.get_session(session_id)
-                if session and session.transcript:
+                if session:
                     get_storage().set_session_transcript(
                         session_id,
                         {

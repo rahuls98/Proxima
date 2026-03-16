@@ -14,7 +14,7 @@ type ParticipantTileProps = {
 export function ParticipantTile({
     name,
     subtitle,
-    isSpeaking = false,
+    isSpeaking: _isSpeaking = false,
     toneLabel = null,
     children,
     className = "",
@@ -27,11 +27,7 @@ export function ParticipantTile({
 
     return (
         <div
-            className={`relative flex flex-col justify-end overflow-hidden rounded-2xl border bg-surface-panel text-white ${compact ? "" : "flex-1"} ${sizeClass} ${className} ${
-                isSpeaking
-                    ? "border-primary shadow-[0_0_20px_-2px_rgba(13,185,242,0.4)]"
-                    : "border-border-subtle"
-            }`}
+            className={`relative flex flex-col justify-end overflow-hidden rounded-2xl border border-border-subtle bg-surface-panel text-white ${compact ? "" : "flex-1"} ${sizeClass} ${className}`}
         >
             {avatarUrl ? (
                 <div
@@ -68,17 +64,6 @@ export function ParticipantTile({
                         >
                             i
                         </button>
-                    ) : null}
-                    {isSpeaking ? (
-                        <span
-                            className={`rounded-full bg-primary/20 border border-primary/30 text-primary font-semibold uppercase tracking-wide ${
-                                compact
-                                    ? "px-1.5 py-0.5 text-[9px]"
-                                    : "px-2 py-1 text-[10px]"
-                            }`}
-                        >
-                            Live
-                        </span>
                     ) : null}
                 </div>
             </div>

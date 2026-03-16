@@ -1,5 +1,6 @@
 # proxima/api/report.py
 
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException  # type: ignore
@@ -14,6 +15,69 @@ from services.gemini.multimodal.session_report import (
 
 
 router = APIRouter(prefix="/report", tags=["report"])
+
+
+def _coerce_unix_timestamp(value) -> float:
+    if value is None:
+        return datetime.now(timezone.utc).timestamp()
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return datetime.now(timezone.utc).timestamp()
+        try:
+            return float(candidate)
+        except ValueError:
+            try:
+                return datetime.fromisoformat(
+                    candidate.replace("Z", "+00:00")
+                ).timestamp()
+            except ValueError:
+                return datetime.now(timezone.utc).timestamp()
+    return datetime.now(timezone.utc).timestamp()
+
+
+def _coerce_optional_unix_timestamp(value) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        candidate = value.strip()
+        if not candidate:
+            return None
+        try:
+            return float(candidate)
+        except ValueError:
+            try:
+                return datetime.fromisoformat(
+                    candidate.replace("Z", "+00:00")
+                ).timestamp()
+            except ValueError:
+                return None
+    return None
+
+
+def _parse_human_duration_seconds(value) -> int | None:
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    if not text:
+        return None
+    matches = re.findall(r"(\d+)\s*([hms])", text)
+    if not matches:
+        return None
+    seconds = 0
+    for amount, unit in matches:
+        amount_int = int(amount)
+        if unit == "h":
+            seconds += amount_int * 3600
+        elif unit == "m":
+            seconds += amount_int * 60
+        elif unit == "s":
+            seconds += amount_int
+    return seconds
 
 
 class GenerateReportRequest(BaseModel):
@@ -52,31 +116,63 @@ async def generate_session_report(request: GenerateReportRequest):
     """
     storage = get_storage()
     session_store = get_session_store()
+    saved_session = storage.get_session(request.session_id) or {}
     session = session_store.get_session(request.session_id)
     transcript_messages = None
     started_at = None
+    ended_at = None
     created_at = None
     duration_seconds = None
 
     if session:
         transcript_messages = session.transcript
         started_at = session.started_at or session.created_at
+        ended_at = session.ended_at
         created_at = session.created_at
         duration_seconds = session.get_duration()
     else:
-        transcript_record = storage.get_session_transcript(request.session_id)
-        if transcript_record and transcript_record.get("transcript"):
-            transcript_messages = transcript_record.get("transcript")
+        import asyncio
+        transcript_record = None
+        for _ in range(10):
+            transcript_record = storage.get_session_transcript(request.session_id)
+            if transcript_record and "transcript" in transcript_record:
+                break
+            await asyncio.sleep(1)
+            
+        if transcript_record and "transcript" in transcript_record:
+            transcript_messages = transcript_record.get("transcript") or []
             started_at = transcript_record.get("started_at") or transcript_record.get(
                 "created_at"
             )
+            ended_at = transcript_record.get("ended_at")
             created_at = transcript_record.get("created_at") or started_at
             duration_seconds = transcript_record.get("duration_seconds")
         else:
             cached_report = storage.get_report(request.session_id)
             if cached_report:
-                return cached_report
-            raise HTTPException(status_code=404, detail="Session not found")
+                cached_duration = (
+                    cached_report.get("session_overview", {})
+                    .get("session_duration_seconds")
+                )
+                if isinstance(cached_duration, (int, float)) and cached_duration > 0:
+                    return cached_report
+
+            context_record = storage.get_session_context(request.session_id) or {}
+            session_context_fallback = context_record.get("session_context") or {}
+            if session_context_fallback or saved_session:
+                transcript_messages = []
+                started_at = _coerce_unix_timestamp(
+                    context_record.get("created_at")
+                )
+                ended_at = _coerce_optional_unix_timestamp(
+                    context_record.get("updated_at")
+                )
+                created_at = started_at
+                duration_seconds = _parse_human_duration_seconds(
+                    saved_session.get("duration")
+                )
+            else:
+                raise HTTPException(status_code=404, detail="Session not found")
 
     context_record = storage.get_session_context(request.session_id) or {}
     session_context = context_record.get("session_context") or {}
@@ -105,7 +201,13 @@ async def generate_session_report(request: GenerateReportRequest):
         if " but " in f" {msg.get('text', '').lower()} "
     )
 
-    started_at = started_at or created_at or datetime.now(timezone.utc).timestamp()
+    started_at = (
+        _coerce_optional_unix_timestamp(started_at)
+        or _coerce_optional_unix_timestamp(created_at)
+        or _coerce_optional_unix_timestamp(saved_session.get("timestamp"))
+        or datetime.now(timezone.utc).timestamp()
+    )
+    ended_at = _coerce_optional_unix_timestamp(ended_at)
 
     def relative_seconds(message: dict) -> int:
         try:
@@ -182,9 +284,13 @@ async def generate_session_report(request: GenerateReportRequest):
             )
         if llm_entries:
             llm_report = await generator.generate_report(llm_entries)
-    except SessionReportError:
+    except SessionReportError as e:
+        import logging
+        logging.getLogger(__name__).error(f"SessionReportError during report generation: {e}")
         llm_report = None
-    except Exception:
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception(f"Unexpected error during report generation: {e}")
         llm_report = None
 
     def clamp(value: float, low: float, high: float) -> float:
@@ -224,14 +330,40 @@ async def generate_session_report(request: GenerateReportRequest):
     emotional_score = clamp(base_score + 2, 40, 95)
 
     session_start_time = datetime.fromtimestamp(started_at, timezone.utc)
-    if duration_seconds is None:
-        try:
-            duration_seconds = max(
-                0, int(float(transcript_messages[-1]["timestamp"]) - started_at)
-            )
-        except Exception:
-            duration_seconds = 0
-    duration_seconds = int(duration_seconds)
+    duration_candidates: list[float] = []
+
+    duration_from_payload = _coerce_optional_unix_timestamp(duration_seconds)
+    if duration_from_payload is not None:
+        duration_candidates.append(max(0.0, duration_from_payload))
+
+    duration_from_saved_session = _parse_human_duration_seconds(
+        saved_session.get("duration")
+    )
+    if duration_from_saved_session is not None:
+        duration_candidates.append(float(duration_from_saved_session))
+
+    if ended_at is not None and ended_at >= started_at:
+        duration_candidates.append(ended_at - started_at)
+
+    if transcript_messages:
+        transcript_timestamps = []
+        for message in transcript_messages:
+            ts = _coerce_optional_unix_timestamp(message.get("timestamp"))
+            if ts is not None:
+                transcript_timestamps.append(ts)
+        if transcript_timestamps:
+            max_ts = max(transcript_timestamps)
+            min_ts = min(transcript_timestamps)
+            # Relative transcript timestamps are typically small values in seconds.
+            if max_ts < 10_000_000:
+                duration_candidates.append(max_ts)
+            else:
+                duration_candidates.append(max(0.0, max_ts - started_at))
+                duration_candidates.append(max(0.0, max_ts - min_ts))
+
+    duration_seconds = (
+        int(round(max(duration_candidates))) if duration_candidates else 0
+    )
 
     prospect_name = session_context.get("prospect_name") or "Prospect"
     scenario = build_session_name(session_context, prospect_name)

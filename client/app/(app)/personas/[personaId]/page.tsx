@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
 import { getPersonaById, type SavedPersona } from "@/lib/persona-storage";
-import { DUMMY_PERSONA_IMAGES } from "@/lib/ui-dummy-data";
 
 export default function PersonaDetailsPage() {
     const router = useRouter();
@@ -38,12 +37,6 @@ export default function PersonaDetailsPage() {
         }
         return date.toISOString().slice(0, 10);
     };
-
-    const imageSrc =
-        activePersona && activePersona.name
-            ? DUMMY_PERSONA_IMAGES[activePersona.name] ||
-              DUMMY_PERSONA_IMAGES["Priya Nair"]
-            : DUMMY_PERSONA_IMAGES["Priya Nair"];
 
     const contextEntries = activePersona
         ? Object.entries(activePersona.sessionContext).filter(
@@ -91,12 +84,7 @@ export default function PersonaDetailsPage() {
             <AppPageHeader title="Persona Details" />
 
             <div className="flex-1 overflow-y-auto p-8 no-scrollbar max-w-7xl mx-auto w-full space-y-8">
-                <section className="bg-surface-panel border border-border-subtle rounded-2xl p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-[96px_1fr] gap-6 items-start">
-                    <img
-                        src={imageSrc}
-                        alt={activePersona?.name || "Persona"}
-                        className="w-24 h-24 rounded-2xl object-cover border border-border-subtle"
-                    />
+                <section className="bg-surface-panel border border-border-subtle rounded-2xl p-6 lg:p-8">
                     <div className="space-y-4">
                         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                             <div>

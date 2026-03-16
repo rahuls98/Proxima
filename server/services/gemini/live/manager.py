@@ -67,14 +67,11 @@ class GeminiLiveManager:
         file_name: str,
         mime_type: str,
     ):
-        await self.send_text_message(
-            (
-                "A user uploaded a file in the chat. "
-                f"file_id={file_id}, file_name={file_name}, mime_type={mime_type}. "
-                "Call summarize_uploaded_file with this file_id and then explain the "
-                "file's purpose and key points in a short response."
-            )
-        )
+        # Warm the file summary cache without creating an assistant turn.
+        # This prevents duplicate/ghost intent messages immediately after upload.
+        _ = file_name
+        _ = mime_type
+        await self.uploaded_file_tools.summarize_uploaded_file(file_id)
 
     async def connect(self, config: types.LiveConnectConfig):
         """Initializes the bidirectional WebSocket session."""
@@ -128,11 +125,27 @@ class GeminiLiveManager:
         """
         if not self.session:
             return
+
         suppress_text = False
         suppress_audio = False
+        pending_text_parts: list[str] = []
+
+        def queue_text(text: str):
+            cleaned = (text or "").strip()
+            if cleaned:
+                pending_text_parts.append(cleaned)
+
+        def flush_text() -> str | None:
+            if not pending_text_parts:
+                return None
+            merged = " ".join(pending_text_parts)
+            pending_text_parts.clear()
+            return merged
+
         turn = self.session.receive()
         async for response in turn:
             if response.server_content and response.server_content.interrupted:
+                pending_text_parts.clear()
                 yield {"type": "interruption"}
                 suppress_text = False
                 suppress_audio = False
@@ -154,8 +167,10 @@ class GeminiLiveManager:
                 for part in response.server_content.model_turn.parts:
                     if part.function_call:
                         has_function_call = True
+
             if has_function_call:
-                # Silence all text output for the remainder of this tool-invocation turn.
+                # Drop any pre-tool phrasing to avoid dual-intent ghost messages.
+                pending_text_parts.clear()
                 suppress_text = True
                 suppress_audio = True
 
@@ -165,10 +180,7 @@ class GeminiLiveManager:
                 and response.server_content.output_transcription.text
                 and not suppress_text
             ):
-                yield {
-                    "type": "text",
-                    "text": response.server_content.output_transcription.text,
-                }
+                queue_text(response.server_content.output_transcription.text)
 
             if response.tool_call and response.tool_call.function_calls:
                 function_responses = []
@@ -176,13 +188,18 @@ class GeminiLiveManager:
                     # Intercept coaching hints to generate UI events
                     if function_call.name == "trigger_ui_coaching_hint":
                         import json
-                        args = json.loads(function_call.args) if isinstance(function_call.args, str) else function_call.args
+
+                        args = (
+                            json.loads(function_call.args)
+                            if isinstance(function_call.args, str)
+                            else function_call.args
+                        )
                         yield {
                             "type": "ui_event",
                             "sub_type": "coaching",
                             "data": args,
                         }
-                    
+
                     result = await self.dispatcher.execute(function_call)
                     function_responses.append(
                         types.FunctionResponse(
@@ -191,20 +208,15 @@ class GeminiLiveManager:
                             response=result,
                         )
                     )
-                await self.session.send_tool_response(function_responses=function_responses)
+                await self.session.send_tool_response(
+                    function_responses=function_responses
+                )
 
             if response.server_content and response.server_content.model_turn:
                 for part in response.server_content.model_turn.parts:
-                    # Skip text parts during tool calls to prevent "ghost" pre-fill messages
-                    # The model will send the real response after the tool completes
                     if part.text and not suppress_text:
-                        # Only yield text if there's no concurrent tool call
-                        yield {
-                            "type": "text",
-                            "text": part.text,
-                        }
-                    
-                    # Suppress audio if a tool call is present in this response packet
+                        queue_text(part.text)
+
                     if (
                         part.inline_data
                         and part.inline_data.data
@@ -213,12 +225,20 @@ class GeminiLiveManager:
                         yield {
                             "type": "audio",
                             "data": part.inline_data.data,
-                            "mime_type": part.inline_data.mime_type or "audio/pcm;rate=24000",
+                            "mime_type": part.inline_data.mime_type
+                            or "audio/pcm;rate=24000",
                         }
 
             if response.server_content and response.server_content.turn_complete:
+                final_text = flush_text()
+                if final_text and not suppress_text:
+                    yield {
+                        "type": "text",
+                        "text": final_text,
+                    }
                 yield {"type": "turn_complete"}
                 suppress_text = False
                 suppress_audio = False
+
             if response.server_content and response.server_content.waiting_for_input:
                 yield {"type": "waiting_for_input"}

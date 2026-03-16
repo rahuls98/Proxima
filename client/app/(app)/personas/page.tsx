@@ -9,7 +9,6 @@ import {
     togglePersonaPriority,
     type SavedPersona,
 } from "@/lib/persona-storage";
-import { DUMMY_PERSONA_IMAGES } from "@/lib/ui-dummy-data";
 import { PersonaLibraryCard } from "@/components/molecules/PersonaLibraryCard";
 import { AppPageHeader } from "@/components/molecules/AppPageHeader";
 
@@ -159,7 +158,7 @@ export default function PersonasPage() {
                     </Button>
                 </section>
 
-                <section className="grid [grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))] gap-6 pb-12">
+                <section className="grid [grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr))] gap-6 auto-rows-fr pb-12">
                     {paginatedPersonas.length === 0 ? (
                         <article className="col-span-full bg-surface-panel border border-border-subtle rounded-2xl p-10 flex flex-col items-center justify-center text-center">
                             <span className="material-symbols-outlined text-text-muted !text-[30px] mb-3">
@@ -178,11 +177,6 @@ export default function PersonasPage() {
                             <PersonaLibraryCard
                                 key={persona.id}
                                 persona={persona}
-                                imageSrc={
-                                    (persona.name &&
-                                        DUMMY_PERSONA_IMAGES[persona.name]) ||
-                                    DUMMY_PERSONA_IMAGES["Priya Nair"]
-                                }
                                 onQuickStart={handleNewTraining}
                                 onViewDetails={handleViewDetails}
                                 onTogglePriority={handleTogglePriority}

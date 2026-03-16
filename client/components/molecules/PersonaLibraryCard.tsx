@@ -1,9 +1,7 @@
 import type { SavedPersona } from "@/lib/persona-storage";
-import { useEffect, useState } from "react";
 
 type PersonaLibraryCardProps = {
     persona: SavedPersona;
-    imageSrc: string;
     onQuickStart: (personaId: string) => void;
     onViewDetails?: (personaId: string) => void;
     onTogglePriority?: (personaId: string) => void;
@@ -13,18 +11,31 @@ type PersonaLibraryCardProps = {
 
 export function PersonaLibraryCard({
     persona,
-    imageSrc,
     onQuickStart,
     onViewDetails,
     onTogglePriority,
     onDelete,
     showDelete = false,
 }: PersonaLibraryCardProps) {
-    const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
     const personaName = persona.name || "Unknown Persona";
-    const personality =
-        (persona.sessionContext?.personality as string | undefined) ||
-        "The Pragmatist";
+    const toLabel = (value: unknown) =>
+        String(value ?? "")
+            .replaceAll("_", " ")
+            .trim();
+
+    const personaTag =
+        toLabel(persona.sessionContext?.personality) ||
+        toLabel(persona.sessionContext?.objection_archetype) ||
+        toLabel(persona.sessionContext?.discussion_stage) ||
+        "Persona";
+
+    const segmentTag =
+        toLabel(persona.department) ||
+        toLabel(persona.sessionContext?.department) ||
+        toLabel(persona.sessionContext?.industry) ||
+        toLabel(persona.sessionContext?.decision_style) ||
+        "Context";
+
     const company =
         (persona.sessionContext?.company_name as string | undefined) ||
         "Proxima Enterprise";
@@ -38,33 +49,9 @@ export function PersonaLibraryCard({
         return date.toISOString().slice(0, 10);
     };
 
-    // Only access sessionStorage on client
-    useEffect(() => {
-        if (typeof window !== "undefined" && persona.id) {
-            const stored = sessionStorage.getItem(
-                `persona_image_${persona.id}`
-            );
-            if (stored) setAvatarUrl(stored);
-            else setAvatarUrl(null);
-        }
-    }, [persona.id]);
-
     return (
-        <article className="group bg-surface-panel border border-border-subtle rounded-2xl p-4 sm:p-6 transition-all hover:border-primary/50 flex flex-col min-h-[320px] w-full min-w-0">
+        <article className="group bg-surface-panel border border-border-subtle rounded-2xl p-4 sm:p-6 transition-all hover:border-primary/50 flex flex-col h-full min-h-[252px] w-full min-w-0">
             <div className="flex items-start gap-3 sm:gap-4 mb-5">
-                {avatarUrl ? (
-                    <img
-                        className="w-14 h-14 sm:w-[64px] sm:h-[64px] rounded-xl object-cover border border-border-subtle filter grayscale opacity-80"
-                        src={avatarUrl}
-                        alt={personaName}
-                    />
-                ) : (
-                    <div className="w-14 h-14 sm:w-[64px] sm:h-[64px] rounded-xl border border-border-subtle bg-surface-hover flex items-center justify-center text-text-muted">
-                        <span className="material-symbols-outlined text-2xl">
-                            person
-                        </span>
-                    </div>
-                )}
                 <div className="flex-1">
                     <h4 className="text-lg font-bold text-text-main leading-tight">
                         {personaName}
@@ -87,19 +74,14 @@ export function PersonaLibraryCard({
 
             <div className="flex flex-wrap gap-2 mb-4">
                 <span className="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider">
-                    {personality}
+                    {personaTag}
                 </span>
                 <span className="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider">
-                    {persona.department || "General"}
+                    {segmentTag}
                 </span>
             </div>
 
-            <p className="text-sm text-text-muted leading-relaxed line-clamp-3 mb-auto">
-                {persona.jobTitle || "Business leader"} persona calibrated for
-                context-rich enterprise sales simulations and coaching drills.
-            </p>
-
-            <div className="pt-4 border-t border-border-subtle flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-4">
+            <div className="pt-4 border-t border-border-subtle flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mt-auto">
                 <div className="flex items-center gap-2">
                     <span className="material-symbols-outlined text-text-muted !text-sm">
                         history

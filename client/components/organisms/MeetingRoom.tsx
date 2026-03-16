@@ -95,6 +95,7 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     const stateRef = useRef<ProximaAgentConnectionState>("disconnected");
     const transcriptIdRef = useRef(0);
     const currentBotMessageIdRef = useRef<number | null>(null);
+    const currentTeammateMessageIdRef = useRef<number | null>(null);
     const currentUserMessageIdRef = useRef<number | null>(null);
     const speakerTimeoutRef = useRef<number | null>(null);
     const screenShareStreamRef = useRef<MediaStream | null>(null);
@@ -172,6 +173,35 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         [appendTranscript]
     );
 
+    const appendTeammateText = useCallback(
+        (chunk: string) => {
+            if (!chunk) {
+                return;
+            }
+
+            const existingId = currentTeammateMessageIdRef.current;
+            if (existingId === null) {
+                currentTeammateMessageIdRef.current = appendTranscript(
+                    "teammate",
+                    chunk
+                );
+                return;
+            }
+
+            setTranscript((prev) =>
+                prev.map((entry) =>
+                    entry.id === existingId
+                        ? {
+                              ...entry,
+                              text: mergeTextWithOverlap(entry.text, chunk),
+                          }
+                        : entry
+                )
+            );
+        },
+        [appendTranscript]
+    );
+
     const handleEvent = useCallback(
         (event: ProximaAgentEvent) => {
             switch (event.type) {
@@ -228,13 +258,21 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                 case "text":
                     markSpeaker("agent");
                     currentUserMessageIdRef.current = null;
-                    appendBotText(event.text);
+                    if (event.speaker === "teammate") {
+                        // Teammate text goes into its own transcript entry
+                        appendTeammateText(event.text);
+                    } else {
+                        // Prospect text uses the normal bot message
+                        currentTeammateMessageIdRef.current = null;
+                        appendBotText(event.text);
+                    }
                     return;
                 case "audio":
                     markSpeaker("agent");
                     return;
                 case "turn_complete":
                     currentBotMessageIdRef.current = null;
+                    currentTeammateMessageIdRef.current = null;
                     if (stateRef.current === "connected") {
                         setMessage("Live conversation in progress.");
                     }
@@ -281,11 +319,33 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     return;
             }
         },
-        [appendBotText, appendTranscript, markSpeaker, updateTranscriptText]
+        [
+            appendBotText,
+            appendTeammateText,
+            appendTranscript,
+            markSpeaker,
+            updateTranscriptText,
+        ]
     );
 
     useEffect(() => {
         let cancelled = false;
+
+        // Retrieve teammate config from localStorage
+        const teammateConfigStr =
+            typeof window !== "undefined"
+                ? localStorage.getItem("proxima_teammate_config")
+                : null;
+
+        if (teammateConfigStr) {
+            try {
+                const config = JSON.parse(teammateConfigStr) as TeammateConfig;
+                setTeammateConfig(config);
+                setTeammateActive(true);
+            } catch (error) {
+                console.error("Failed to parse teammate config:", error);
+            }
+        }
 
         serviceRef.current = new ProximaAgentService({
             mode: "training",
@@ -823,6 +883,19 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                             muted
                                             playsInline
                                         />
+                                        {teammateActive && teammateConfig && (
+                                            <ParticipantTile
+                                                name={
+                                                    teammateConfig.teammate_name
+                                                }
+                                                subtitle={
+                                                    teammateConfig.teammate_role
+                                                }
+                                                isSpeaking={false}
+                                                compact
+                                                className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
+                                            />
+                                        )}
                                     </div>
                                 </div>
                             ) : (
@@ -950,6 +1023,13 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                     danger
                                     showLabel
                                 />
+                                {teammateActive && teammateConfig && (
+                                    <ParticipantTile
+                                        name={teammateConfig.teammate_name}
+                                        subtitle={teammateConfig.teammate_role}
+                                        isSpeaking={false}
+                                    />
+                                )}
                             </div>
                         </div>
                     </div>

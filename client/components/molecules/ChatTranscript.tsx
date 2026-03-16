@@ -43,7 +43,8 @@ export function ChatTranscript({
                         className={
                             entry.role === "user"
                                 ? "flex justify-end"
-                                : entry.role === "bot"
+                                : entry.role === "bot" ||
+                                    entry.role === "teammate"
                                   ? "flex justify-start"
                                   : entry.role === "coach"
                                     ? "flex justify-center"

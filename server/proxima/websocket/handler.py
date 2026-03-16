@@ -122,8 +122,20 @@ class ProximaAgentWebSocketHandler:
         # Initialize session storage
         session_store = get_session_store()
         session_id = websocket.query_params.get("session_id")
+        
+        # Check for teammate config in query params (base64-encoded JSON)
+        teammate_config_b64 = websocket.query_params.get("teammate_config")
+        teammate_config = None
+        if teammate_config_b64:
+            try:
+                teammate_config_json = base64.b64decode(teammate_config_b64).decode("utf-8")
+                teammate_config = json.loads(teammate_config_json)
+                self.logger.info("Received teammate config: %s", teammate_config.get("teammate_name"))
+            except Exception as exc:
+                self.logger.warning("Failed to decode teammate_config: %s", exc)
+        
         if not session_id:
-            session_id = session_store.create_session(mode=mode)
+            session_id = session_store.create_session(mode=mode, teammate_config=teammate_config)
         session_store.start_session(session_id)
         self.logger.info("Session tracking enabled (session_id=%s)", session_id)
 
@@ -280,7 +292,14 @@ class ProximaAgentWebSocketHandler:
                         break
 
                 await manager.close()
-                await manager.connect(config)
+                # Connect based on manager type
+                if is_multi_participant:
+                    await manager.connect()  # MultiParticipantManager doesn't need config arg
+                else:
+                    if config is None:
+                        self.logger.error("Cannot reconnect: config is None for single-participant session")
+                        raise RuntimeError("Configuration not initialized for single-participant session")
+                    await manager.connect(config)
                 stream_enabled = True
                 await enqueue_outbound(
                     {
@@ -380,7 +399,12 @@ class ProximaAgentWebSocketHandler:
 
                         if event["type"] in {"user_text", "text"} and event.get("text"):
                             # Store transcript message
-                            speaker = "rep" if event["type"] == "user_text" else "prospect"
+                            # For multi-participant sessions, use the speaker tag from the event
+                            if "speaker" in event:
+                                speaker = event["speaker"]
+                            else:
+                                speaker = "rep" if event["type"] == "user_text" else "prospect"
+                            
                             session_store.add_message(
                                 session_id=session_id,
                                 speaker=speaker,
@@ -391,6 +415,7 @@ class ProximaAgentWebSocketHandler:
                                 {
                                     "type": event["type"],
                                     "text": event["text"],
+                                    "speaker": speaker,  # Include speaker in outbound event
                                 }
                             )
                             continue
@@ -419,13 +444,15 @@ class ProximaAgentWebSocketHandler:
                     raise
                 except Exception as exc:
                     exc_str = str(exc)
-                    if "1000" in exc_str:
-                        # Normal close from reconnect - just sleep and retry
-                        await asyncio.sleep(0.1)
+                    # Normal close from reconnect (code 1000) or stream-end
+                    # during a reconnect that was already handled elsewhere.
+                    # Just sleep and retry — do NOT trigger another reconnect.
+                    if "1000" in exc_str or "stream ended" in exc_str.lower():
+                        await asyncio.sleep(0.2)
                         continue
                     self.logger.exception("receive_from_gemini failed")
                     await reconnect_live_session(f"receive failure: {exc}")
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.2)
 
         # ============================================================================
         # Task 5: receive_from_client
@@ -455,6 +482,33 @@ class ProximaAgentWebSocketHandler:
 
                 if message.get("bytes"):
                     if stream_enabled:
+                        # ---- Global Interruption (Doc 2, §1-2) ----
+                        # On every audio frame from the user, immediately:
+                        #   1. Drain any pending agent audio from outbound_queue so
+                        #      the user's speaker is cleared (Server-Side Audio Muting).
+                        #   2. Signal the manager to seize the floor, which explicitly
+                        #      interrupts the teammate session if it is mid-speech.
+                        #      (Prospect interruption is handled by its own VAD.)
+                        if is_multi_participant and isinstance(manager, MultiParticipantManager):
+                            # Drain audio chunks from outbound_queue, keeping
+                            # non-audio events (text, interruption, etc.) intact.
+                            _drained: list[dict] = []
+                            while not outbound_queue.empty():
+                                try:
+                                    _item = outbound_queue.get_nowait()
+                                    if _item.get("type") != "audio":
+                                        _drained.append(_item)
+                                except asyncio.QueueEmpty:
+                                    break
+                            for _item in _drained:
+                                outbound_queue.put_nowait(_item)
+
+                            # Signal agents (teammate needs explicit interrupt).
+                            try:
+                                await manager.user_interrupt_agents()
+                            except Exception:
+                                pass  # non-fatal; user audio still forwarded below
+
                         await enqueue_audio(message["bytes"])
                     continue
 
@@ -643,7 +697,14 @@ class ProximaAgentWebSocketHandler:
                     return
 
         try:
-            await manager.connect(config)
+            # Connect based on manager type
+            if is_multi_participant:
+                await manager.connect()  # MultiParticipantManager doesn't need config arg
+            else:
+                if config is None:
+                    self.logger.error("Cannot initialize: config is None for single-participant session")
+                    raise RuntimeError("Configuration not initialized for single-participant session")
+                await manager.connect(config)
             self.logger.info("proxima-agent Gemini session connected")
             await enqueue_outbound({
                 "type": "session_ready",

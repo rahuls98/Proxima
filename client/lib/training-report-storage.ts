@@ -8,7 +8,7 @@
  * making it easy to transition from local storage to backend API.
  */
 
-import type { SessionReport } from "./api";
+import type { RealSessionReport } from "./api";
 
 /**
  * Storage interface for training reports
@@ -20,14 +20,14 @@ interface ITrainingReportStorage {
      * @param sessionId - Unique session identifier
      * @param report - Complete session report data
      */
-    saveReport(sessionId: string, report: SessionReport): Promise<void>;
+    saveReport(sessionId: string, report: RealSessionReport): Promise<void>;
 
     /**
      * Retrieve a training report by session ID
      * @param sessionId - Unique session identifier
      * @returns Report data or null if not found
      */
-    getReport(sessionId: string): Promise<SessionReport | null>;
+    getReport(sessionId: string): Promise<RealSessionReport | null>;
 
     /**
      * Delete a training report
@@ -57,7 +57,10 @@ class ApiReportStorage implements ITrainingReportStorage {
         this.baseUrl = baseUrl;
     }
 
-    async saveReport(sessionId: string, report: SessionReport): Promise<void> {
+    async saveReport(
+        sessionId: string,
+        report: RealSessionReport
+    ): Promise<void> {
         const response = await fetch(`${this.baseUrl}/reports/${sessionId}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -69,7 +72,7 @@ class ApiReportStorage implements ITrainingReportStorage {
         }
     }
 
-    async getReport(sessionId: string): Promise<SessionReport | null> {
+    async getReport(sessionId: string): Promise<RealSessionReport | null> {
         const response = await fetch(`${this.baseUrl}/reports/${sessionId}`);
 
         if (response.status === 404) {
@@ -131,18 +134,15 @@ function getStorage(): ITrainingReportStorage {
  */
 export async function saveTrainingReport(
     sessionId: string,
-    report: SessionReport,
+    report: RealSessionReport,
     saveMetrics: boolean = true
 ): Promise<void> {
     // Save the report
     await getStorage().saveReport(sessionId, report);
 
-    // Also save metrics for dashboard analytics
-    if (saveMetrics) {
-        const { saveMetricsFromReport } =
-            await import("./training-metrics-storage");
-        await saveMetricsFromReport(report);
-    }
+    // Note: Metrics saving is currently only supported for mock reports
+    // The real backend report structure uses different metrics format
+    // TODO: Implement metrics extraction from RealSessionReport if needed
 }
 
 /**
@@ -152,7 +152,7 @@ export async function saveTrainingReport(
  */
 export async function getTrainingReport(
     sessionId: string
-): Promise<SessionReport | null> {
+): Promise<RealSessionReport | null> {
     return getStorage().getReport(sessionId);
 }
 

@@ -9,6 +9,14 @@ from .config import (
     resolve_mode,
 )
 from .prompts import ProximaAgentPrompt
+from .teammate_personas import (
+    TeammateArchetype,
+    TeammateConfig,
+    generate_teammate_config,
+    get_archetype_description,
+    ARCHETYPE_DEFINITIONS,
+)
+from .teammate_prompts import build_teammate_system_prompt
 
 __all__ = [
     "ProximaAgentMode",
@@ -18,4 +26,10 @@ __all__ = [
     "SYSTEM_PROMPTS",
     "build_live_config",
     "resolve_mode",
+    "TeammateArchetype",
+    "TeammateConfig",
+    "generate_teammate_config",
+    "get_archetype_description",
+    "ARCHETYPE_DEFINITIONS",
+    "build_teammate_system_prompt",
 ]

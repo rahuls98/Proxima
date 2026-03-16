@@ -671,7 +671,11 @@ export class ProximaAgentService {
                 return;
             case "text":
                 if (payload.text) {
-                    this.onEvent({ type: "text", text: payload.text });
+                    this.onEvent({
+                        type: "text",
+                        text: payload.text,
+                        speaker: payload.speaker,
+                    });
                 }
                 return;
             case "turn_complete":

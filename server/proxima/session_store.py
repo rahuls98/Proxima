@@ -20,7 +20,7 @@ logger = logging.getLogger("session_store")
 
 class Message(TypedDict):
     """Single message in a session transcript."""
-    speaker: str  # "rep" or "prospect"
+    speaker: str  # "rep", "prospect", or "teammate"
     text: str
     timestamp: float  # Unix timestamp
 
@@ -34,6 +34,7 @@ class Session:
     ended_at: float | None = None
     transcript: list[Message] = field(default_factory=list)
     mode: str = "training"
+    teammate_config: dict | None = None  # Optional teammate configuration
     
     def add_message(self, speaker: str, text: str, timestamp: float | None = None):
         """Add a message to the transcript."""
@@ -97,12 +98,13 @@ class SessionStore:
         self._sessions: dict[str, Session] = {}
         self._lock = Lock()
     
-    def create_session(self, mode: str = "training") -> str:
+    def create_session(self, mode: str = "training", teammate_config: dict | None = None) -> str:
         """
         Create a new session and return its ID.
         
         Args:
             mode: Session mode (e.g., "training", "roleplay").
+            teammate_config: Optional teammate configuration for multi-participant sessions.
         
         Returns:
             Newly created session ID.
@@ -112,9 +114,10 @@ class SessionStore:
             self._sessions[session_id] = Session(
                 session_id=session_id,
                 mode=mode,
+                teammate_config=teammate_config,
             )
         
-        logger.info("Created session %s (mode=%s)", session_id, mode)
+        logger.info("Created session %s (mode=%s, teammate=%s)", session_id, mode, bool(teammate_config))
         return session_id
     
     def get_session(self, session_id: str) -> Session | None:

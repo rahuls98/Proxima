@@ -51,13 +51,17 @@ export function ChatTranscript({
                                     : "flex justify-center"
                         }
                     >
-                        {entry.role === "user" || entry.role === "bot" ? (
+                        {entry.role === "user" ||
+                        entry.role === "bot" ||
+                        entry.role === "teammate" ? (
                             <div className="max-w-[85%] space-y-1">
                                 <p
                                     className={
                                         entry.role === "user"
                                             ? "rounded-2xl rounded-br-md bg-primary/20 border border-primary/20 px-3 py-2 text-text-main"
-                                            : "rounded-2xl rounded-bl-md bg-surface-panel border border-border-subtle px-3 py-2 text-text-main"
+                                            : entry.role === "teammate"
+                                              ? "rounded-2xl rounded-bl-md bg-surface-panel/60 border border-border-subtle px-3 py-2 text-text-main"
+                                              : "rounded-2xl rounded-bl-md bg-surface-panel border border-border-subtle px-3 py-2 text-text-main"
                                     }
                                 >
                                     {entry.text}
@@ -69,8 +73,12 @@ export function ChatTranscript({
                                             : "text-[10px] text-text-muted text-left px-1"
                                     }
                                 >
-                                    {entry.role === "user" ? "You" : "Agent"} •{" "}
-                                    {formatTimestamp(entry.createdAt)}
+                                    {entry.role === "user"
+                                        ? "You"
+                                        : entry.role === "teammate"
+                                          ? "Teammate"
+                                          : "Agent"}{" "}
+                                    • {formatTimestamp(entry.createdAt)}
                                 </p>
                             </div>
                         ) : (

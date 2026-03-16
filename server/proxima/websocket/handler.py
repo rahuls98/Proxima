@@ -40,6 +40,7 @@ from typing import Any
 from fastapi import WebSocket, WebSocketDisconnect  # type: ignore
 
 from services.gemini.live import GeminiLiveManager
+from services.gemini.live.multi_participant_manager import MultiParticipantManager
 from services.gemini.live.voice_manager import LiveVoiceManager
 
 from ..config import build_live_config, resolve_mode, SYSTEM_PROMPTS
@@ -191,14 +192,48 @@ class ProximaAgentWebSocketHandler:
         if not voice_name:
             voice_name = voice_manager.get_random_voice().name
 
-        # Initialize Gemini Live manager and session configuration
-        manager = self.manager_factory()
-        live_tools = None
-        if hasattr(manager, "live_tool_declarations"):
-            live_tools = manager.live_tool_declarations()
-        config = build_live_config(
-            system_instruction, mode, voice_name=voice_name, tools=live_tools
+        # Initialize Gemini manager (single-participant by default, or
+        # multi-participant when teammate config is provided by the client).
+        is_multi_participant = bool(
+            isinstance(teammate_config, dict)
+            and teammate_config.get("teammate_enabled") is True
         )
+
+        manager: GeminiLiveManager | MultiParticipantManager
+        config = None
+        live_tools = None
+
+        if is_multi_participant:
+            self.logger.info(
+                "Initializing multi-participant session (teammate=%s, archetype=%s)",
+                teammate_config.get("teammate_name"),
+                teammate_config.get("behavior_archetype"),
+            )
+
+            temp_manager = self.manager_factory()
+            if hasattr(temp_manager, "live_tool_declarations"):
+                live_tools = temp_manager.live_tool_declarations()
+
+            prospect_config = build_live_config(
+                system_instruction,
+                mode,
+                voice_name=voice_name,
+                tools=live_tools,
+            )
+            manager = MultiParticipantManager(
+                teammate_config=teammate_config,
+                prospect_config=prospect_config,
+            )
+        else:
+            manager = self.manager_factory()
+            if hasattr(manager, "live_tool_declarations"):
+                live_tools = manager.live_tool_declarations()
+            config = build_live_config(
+                system_instruction,
+                mode,
+                voice_name=voice_name,
+                tools=live_tools,
+            )
 
         # Communication queues for inter-task messaging
         outbound_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -684,12 +719,22 @@ class ProximaAgentWebSocketHandler:
                         )
                         if combined_instruction != system_instruction:
                             system_instruction = combined_instruction
-                            config = build_live_config(
-                                system_instruction,
-                                mode,
-                                voice_name=voice_name,
-                                tools=live_tools,
-                            )
+                            if is_multi_participant and isinstance(
+                                manager, MultiParticipantManager
+                            ):
+                                manager.prospect_config = build_live_config(
+                                    system_instruction,
+                                    mode,
+                                    voice_name=voice_name,
+                                    tools=live_tools,
+                                )
+                            else:
+                                config = build_live_config(
+                                    system_instruction,
+                                    mode,
+                                    voice_name=voice_name,
+                                    tools=live_tools,
+                                )
                         self.logger.info("System instruction updated from client")
                         # Reconnect with new system instruction
                         await reconnect_live_session("system instruction update")

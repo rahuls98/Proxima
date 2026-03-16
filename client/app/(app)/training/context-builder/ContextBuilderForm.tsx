@@ -10,14 +10,20 @@ import {
 import { useSearchParams } from "next/navigation";
 import { Input } from "@/components/atoms/Input";
 import { AdditionalFileContext } from "@/components/molecules/AdditionalFileContext";
+import { TeammateConfigPanel } from "@/components/molecules/TeammateConfigPanel";
 import {
     generatePersonaImageDataUrl,
     generatePersonaInstruction,
 } from "@/lib/api";
 import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
+import {
+    generateTeammateConfig,
+    type TeammateConfig,
+} from "@/lib/teammate-config";
 import { savePersona, getPersonaById } from "@/lib/persona-storage";
 import { setSessionContext } from "@/lib/session-context";
 import { getUserCallContext } from "@/lib/user-settings";
+import type { TeammateSelection } from "@/components/molecules/TeammateConfigPanel";
 
 type AdditionalFileItem = {
     id: number;
@@ -183,6 +189,12 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
 
         const [error, setError] = useState<string | null>(null);
         const [submitAttempted, setSubmitAttempted] = useState(false);
+        const [teammateEnabled, setTeammateEnabled] = useState(false);
+        const [teammateSelection, setTeammateSelection] =
+            useState<TeammateSelection>({
+                role: "random",
+                archetype: "random",
+            });
 
         // Randomize Persona section values on mount (if not loading existing persona)
         useEffect(() => {
@@ -222,6 +234,20 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                         trust_level_at_start:
                             String(context.trust_level_at_start || "") || "",
                     });
+
+                    const savedTeammateEnabled =
+                        context.teammate_enabled === true;
+                    const savedTeammateConfig =
+                        (context.teammate_config as
+                            | TeammateConfig
+                            | undefined) || null;
+                    setTeammateEnabled(savedTeammateEnabled);
+                    if (savedTeammateConfig) {
+                        setTeammateSelection({
+                            role: savedTeammateConfig.teammate_role,
+                            archetype: savedTeammateConfig.behavior_archetype,
+                        });
+                    }
                 } catch (loadError) {
                     console.error("Failed to load persona:", loadError);
                 }
@@ -333,11 +359,35 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
             }
 
             try {
+                let resolvedTeammateConfig: TeammateConfig | undefined;
+                if (teammateEnabled) {
+                    try {
+                        resolvedTeammateConfig = await generateTeammateConfig(
+                            teammateSelection.archetype === "random"
+                                ? undefined
+                                : teammateSelection.archetype,
+                            teammateSelection.role === "random"
+                                ? undefined
+                                : teammateSelection.role
+                        );
+                    } catch (teammateError) {
+                        throw new Error(
+                            teammateError instanceof Error
+                                ? `Failed to configure teammate: ${teammateError.message}`
+                                : "Failed to configure teammate."
+                        );
+                    }
+                }
+
                 const repCallContext = getUserCallContext().trim();
                 const sessionContext: Record<string, unknown> = {
                     ...formValues,
                     ...(repCallContext
                         ? { rep_call_context: repCallContext }
+                        : {}),
+                    teammate_enabled: teammateEnabled,
+                    ...(teammateEnabled && resolvedTeammateConfig
+                        ? { teammate_config: resolvedTeammateConfig }
                         : {}),
                     additional_files_context: additionalFiles
                         .filter((f) => f.key && (f.file || f.value.trim()))
@@ -862,6 +912,31 @@ export const ContextBuilderForm = forwardRef<ContextBuilderFormHandle>(
                             )}
                         </div>
                     </div>
+                </section>
+
+                <section className="bg-surface-panel rounded-2xl border border-border-subtle p-6 space-y-8">
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-lg text-primary flex">
+                                <span className="material-symbols-outlined !text-[20px]">
+                                    groups
+                                </span>
+                            </div>
+                            <h2 className="text-lg font-bold text-white uppercase tracking-wider">
+                                AI Teammate (Multi-Participant Training)
+                            </h2>
+                        </div>
+                        <span className="px-2.5 py-1 bg-surface-hover border border-border-subtle text-text-main text-[10px] font-bold rounded uppercase tracking-wider">
+                            Optional
+                        </span>
+                    </div>
+
+                    <TeammateConfigPanel
+                        enabled={teammateEnabled}
+                        onToggle={setTeammateEnabled}
+                        onSelectionChange={setTeammateSelection}
+                        initialSelection={teammateSelection}
+                    />
                 </section>
 
                 <section className="bg-surface-panel rounded-2xl border border-border-subtle p-6 space-y-8">

@@ -5,7 +5,7 @@ export type ProximaAgentConnectionState =
     | "muted"
     | "error";
 
-export type TranscriptRole = "user" | "bot" | "system" | "coach";
+export type TranscriptRole = "user" | "bot" | "teammate" | "system" | "coach";
 
 export type TranscriptItem = {
     id: number;
@@ -45,6 +45,7 @@ export type ProximaAgentInboundMessage = {
     mimeType?: string;
     fileId?: string;
     fileName?: string;
+    speaker?: "rep" | "prospect" | "teammate";
     payload?: {
         category?: CoachingInterventionType;
         hint?: string;
@@ -83,7 +84,7 @@ export type ProximaAgentEvent =
     | { type: "stream_stopped" }
     | { type: "file_uploaded"; fileId: string; fileName: string }
     | { type: "user_text"; text: string }
-    | { type: "text"; text: string }
+    | { type: "text"; text: string; speaker?: "prospect" | "teammate" }
     | { type: "audio" }
     | { type: "turn_complete" }
     | { type: "waiting_for_input" }

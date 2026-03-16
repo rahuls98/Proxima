@@ -45,6 +45,7 @@ import type {
     ProximaAgentInboundMessage,
     ProximaAgentOutboundMessage,
 } from "./types";
+import type { TeammateConfig } from "@/lib/teammate-config";
 
 /**
  * Configuration options for ProximaAgentService
@@ -58,6 +59,8 @@ type ProximaAgentServiceOptions = {
     sessionId?: string;
     /** Custom system instruction (overrides server default) */
     systemInstruction?: string;
+    /** Optional teammate configuration for multi-participant sessions */
+    teammateConfig?: TeammateConfig;
     /** Callback for all events from server */
     onEvent: (event: ProximaAgentEvent) => void;
 };
@@ -81,6 +84,8 @@ export class ProximaAgentService {
     private readonly sessionId: string | undefined;
     /** Custom system instruction (if provided by caller) */
     private systemInstruction: string | undefined;
+    /** Optional teammate configuration to send during connection */
+    private readonly teammateConfig: TeammateConfig | undefined;
     /** Event callback provided by caller */
     private readonly onEvent: (event: ProximaAgentEvent) => void;
 
@@ -128,6 +133,7 @@ export class ProximaAgentService {
         this.mode = options.mode ?? "training";
         this.sessionId = options.sessionId;
         this.systemInstruction = options.systemInstruction;
+        this.teammateConfig = options.teammateConfig;
         this.wsUrl = options.wsUrl ?? this.defaultWebSocketUrl();
         this.onEvent = options.onEvent;
     }
@@ -418,6 +424,18 @@ export class ProximaAgentService {
         if (this.sessionId) {
             params.set("session_id", this.sessionId);
         }
+        if (
+            this.teammateConfig?.teammate_enabled &&
+            typeof window !== "undefined"
+        ) {
+            const bytes = new TextEncoder().encode(
+                JSON.stringify(this.teammateConfig)
+            );
+            const encoded = window.btoa(
+                String.fromCharCode(...Array.from(bytes))
+            );
+            params.set("teammate_config", encoded);
+        }
         const separator = baseUrl.includes("?") ? "&" : "?";
         return `${baseUrl}${separator}${params.toString()}`;
     }
@@ -674,7 +692,12 @@ export class ProximaAgentService {
                     this.onEvent({
                         type: "text",
                         text: payload.text,
-                        speaker: payload.speaker,
+                        speaker:
+                            payload.speaker === "teammate"
+                                ? "teammate"
+                                : payload.speaker === "prospect"
+                                  ? "prospect"
+                                  : undefined,
                     });
                 }
                 return;

@@ -374,21 +374,24 @@ class MultiParticipantManager:
         if self._teammate_speaking:
             return False
 
-        if self.conversation_turns < 2:
+        if self.conversation_turns < 1:
             result = False
         else:
             turns_since = self.conversation_turns - self.teammate_last_spoke_turn
             archetype = self.teammate_config.get("behavior_archetype", "supportive")
 
             thresholds = {
-                "dominator": 2,
-                "overly_excited": 2,
-                "supportive": 3,
-                "strategic_ae": 3,
-                "nervous_junior": 5,
-                "passive": 7,
+                "dominator": 1,
+                "overly_excited": 1,
+                "supportive": 2,
+                "strategic_ae": 2,
+                "nervous_junior": 4,
+                "passive": 6,
             }
-            result = turns_since >= thresholds.get(archetype, 3)
+            # Safety fallback: even passive archetypes should not remain silent
+            # for too many turns during testing/short sessions.
+            effective_threshold = min(thresholds.get(archetype, 2), 3)
+            result = turns_since >= effective_threshold
 
         logger.info(
             "_should_teammate_speak: turn=%d, last_spoke=%d -> %s",

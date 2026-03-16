@@ -24,11 +24,30 @@ import {
 import { generateSessionReport } from "@/lib/api";
 import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
 import { getSessionContext } from "@/lib/session-context";
+import type { TeammateConfig } from "@/lib/teammate-config";
+import { getTeammateRoleLabel } from "@/lib/teammate-config";
 import type {
     ProximaAgentConnectionState,
     ProximaAgentEvent,
     TranscriptItem,
 } from "@/lib/proxima-agent/types";
+
+function isTeammateConfig(value: unknown): value is TeammateConfig {
+    if (!value || typeof value !== "object") {
+        return false;
+    }
+
+    const candidate = value as Partial<TeammateConfig>;
+    return (
+        candidate.teammate_enabled === true &&
+        typeof candidate.teammate_name === "string" &&
+        typeof candidate.teammate_role === "string" &&
+        typeof candidate.behavior_archetype === "string" &&
+        typeof candidate.interruption_frequency === "string" &&
+        typeof candidate.confidence_level === "string" &&
+        typeof candidate.helpfulness_level === "string"
+    );
+}
 
 function mergeTextWithOverlap(existing: string, incoming: string): string {
     if (!existing) {
@@ -51,6 +70,10 @@ function mergeTextWithOverlap(existing: string, incoming: string): string {
 type MeetingRoomProps = {
     initialSessionId?: string;
 };
+
+// Temporary testing toggle: keep the user on the meeting room after ending a
+// session to allow repeated start/stop cycles without report navigation.
+const TEMP_STAY_ON_MEETING_AFTER_END = true;
 
 export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     const router = useRouter();
@@ -85,6 +108,11 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     }, []);
     const [prospectTone, setProspectTone] = useState<string | null>(null);
     const [personaImageUrl, setPersonaImageUrl] = useState<string | null>(null);
+    // Removed teammateImageUrl state
+    const [teammateConfig, setTeammateConfig] = useState<TeammateConfig | null>(
+        null
+    );
+    const [teammateActive, setTeammateActive] = useState(false);
     const [isPersonaReady, setIsPersonaReady] = useState(false);
     const [personaError, setPersonaError] = useState<string | null>(null);
     const [isGeneratingReport, setIsGeneratingReport] = useState(false);
@@ -331,22 +359,6 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
     useEffect(() => {
         let cancelled = false;
 
-        // Retrieve teammate config from localStorage
-        const teammateConfigStr =
-            typeof window !== "undefined"
-                ? localStorage.getItem("proxima_teammate_config")
-                : null;
-
-        if (teammateConfigStr) {
-            try {
-                const config = JSON.parse(teammateConfigStr) as TeammateConfig;
-                setTeammateConfig(config);
-                setTeammateActive(true);
-            } catch (error) {
-                console.error("Failed to parse teammate config:", error);
-            }
-        }
-
         serviceRef.current = new ProximaAgentService({
             mode: "training",
             sessionId: initialSessionId,
@@ -376,10 +388,22 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                         | string
                         | undefined) || null;
                 setProspectTone(tone);
+
+                const teammateEnabled =
+                    context.session_context?.teammate_enabled === true;
+                const teammateFromContext =
+                    context.session_context?.teammate_config;
+                const resolvedTeammate = isTeammateConfig(teammateFromContext)
+                    ? teammateFromContext
+                    : null;
+                setTeammateActive(teammateEnabled && resolvedTeammate !== null);
+                setTeammateConfig(resolvedTeammate);
+
                 // Image is stored in sessionStorage (not in server context)
                 // to avoid exceeding Firestore document size limits.
                 if (initialSessionId) {
                     if (await fetchAvatarGenerationEnabled()) {
+                        // Training agent avatar
                         const storedImage = sessionStorage.getItem(
                             `persona_image_${initialSessionId}`
                         );
@@ -394,9 +418,32 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
             }
 
             if (context.persona_instruction) {
-                serviceRef.current?.setSystemInstruction(
-                    context.persona_instruction
-                );
+                serviceRef.current?.destroy();
+                const teammateCandidate =
+                    context.session_context?.teammate_config;
+                const selectedTeammateConfig = isTeammateConfig(
+                    teammateCandidate
+                )
+                    ? teammateCandidate
+                    : undefined;
+                const traineeName = (getUserName() || "Trainee Rep").trim();
+                const multiParticipantGreetingRule =
+                    context.session_context?.teammate_enabled === true &&
+                    selectedTeammateConfig
+                        ? `\n\n## Multi-Participant Greeting Rule\nIf you greet at the start of the call, greet BOTH participants by name in one line: ${traineeName} and ${selectedTeammateConfig.teammate_name}. Do not greet only one participant.`
+                        : "";
+                serviceRef.current = new ProximaAgentService({
+                    mode: "training",
+                    sessionId: initialSessionId,
+                    systemInstruction:
+                        context.persona_instruction +
+                        multiParticipantGreetingRule,
+                    teammateConfig:
+                        context.session_context?.teammate_enabled === true
+                            ? selectedTeammateConfig
+                            : undefined,
+                    onEvent: handleEvent,
+                });
                 setIsPersonaReady(true);
             }
         };
@@ -584,72 +631,76 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         if (activeSessionId && transcript.length > 0) {
             setIsGeneratingReport(true);
             // Extract persona info from session context
-            let personaName: string | undefined;
-            let jobTitle: string | undefined;
-
+            let personaName: string | undefined = undefined;
+            let jobTitle: string | undefined = undefined;
             if (sessionContext) {
                 try {
-                    personaName = sessionContext.prospect_name as
-                        | string
-                        | undefined;
-                    jobTitle = sessionContext.job_title as string | undefined;
+                    personaName =
+                        typeof sessionContext.prospect_name === "string"
+                            ? sessionContext.prospect_name
+                            : undefined;
+                    jobTitle =
+                        typeof sessionContext.job_title === "string"
+                            ? sessionContext.job_title
+                            : undefined;
                 } catch (error) {
                     console.error("Failed to parse session context:", error);
                 }
             }
 
-            // Generate and cache the report
+            // Helper to parse session_total_time (format: HH:MM:SS)
+            const parseDuration = (timeStr: string | undefined): number => {
+                if (!timeStr) return 0;
+                const parts = timeStr.split(":");
+                if (parts.length === 3) {
+                    return (
+                        parseInt(parts[0], 10) * 3600 +
+                        parseInt(parts[1], 10) * 60 +
+                        parseInt(parts[2], 10)
+                    );
+                }
+                return 0;
+            };
+
             try {
                 const report = await generateSessionReport(activeSessionId);
-                const durationSeconds =
-                    report.session_overview.session_duration_seconds ?? 0;
+                const durationSeconds = parseDuration(
+                    report.session_total_time
+                );
                 const minutes = Math.floor(durationSeconds / 60);
                 const seconds = durationSeconds % 60;
-
                 await saveTrainingSessionWithReport(
                     {
                         id: activeSessionId,
-                        timestamp:
-                            report.session_overview.session_start_time ||
-                            new Date().toISOString(),
+                        timestamp: new Date().toISOString(),
                         transcriptLength: transcript.length,
                         personaName,
                         jobTitle,
-                        scenario: report.session_overview.scenario,
-                        duration: `${minutes}m ${seconds
-                            .toString()
-                            .padStart(2, "0")}s`,
+                        scenario: "",
+                        duration: `${minutes}m ${seconds.toString().padStart(2, "0")}s`,
                     },
                     report
                 );
             } catch (error) {
                 console.error("Failed to generate report:", error);
                 try {
-                    // Retry once to avoid persisting placeholder reports during
-                    // eventual consistency windows right after session end.
                     await new Promise((resolve) => setTimeout(resolve, 1500));
                     const retryReport =
                         await generateSessionReport(activeSessionId);
-                    const retryDurationSeconds =
-                        retryReport.session_overview.session_duration_seconds ??
-                        0;
+                    const retryDurationSeconds = parseDuration(
+                        retryReport.session_total_time
+                    );
                     const retryMinutes = Math.floor(retryDurationSeconds / 60);
                     const retrySeconds = retryDurationSeconds % 60;
-
                     await saveTrainingSessionWithReport(
                         {
                             id: activeSessionId,
-                            timestamp:
-                                retryReport.session_overview
-                                    .session_start_time ||
-                                new Date().toISOString(),
+                            timestamp: new Date().toISOString(),
                             transcriptLength: transcript.length,
                             personaName,
                             jobTitle,
-                            scenario: retryReport.session_overview.scenario,
-                            duration: `${retryMinutes}m ${retrySeconds
-                                .toString()
-                                .padStart(2, "0")}s`,
+                            scenario: "",
+                            duration: `${retryMinutes}m ${retrySeconds.toString().padStart(2, "0")}s`,
                         },
                         retryReport
                     );
@@ -667,8 +718,6 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                     });
                 }
             }
-
-            // Navigate to session report page
             router.push(`/training/${activeSessionId}/report`);
             return;
         }
@@ -844,7 +893,9 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                             {isScreenShareActive ? (
                                 <div className="flex min-h-0 flex-1 flex-col gap-3">
                                     <div className="flex shrink-0 justify-center">
-                                        <div className="grid w-full max-w-[430px] grid-cols-2 gap-3">
+                                        <div
+                                            className={`grid w-full ${teammateActive && teammateConfig ? "max-w-[660px] grid-cols-3" : "max-w-[430px] grid-cols-2"} gap-3`}
+                                        >
                                             <ParticipantTile
                                                 name={userName}
                                                 subtitle={
@@ -873,6 +924,21 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                                     personaImageUrl || undefined
                                                 }
                                             />
+                                            {teammateActive &&
+                                            teammateConfig ? (
+                                                <ParticipantTile
+                                                    name={
+                                                        teammateConfig.teammate_name
+                                                    }
+                                                    subtitle={
+                                                        teammateConfig.teammate_role
+                                                    }
+                                                    isSpeaking={false}
+                                                    compact
+                                                    className="aspect-[16/9] bg-surface-panel"
+                                                    // avatarUrl removed for teammate
+                                                />
+                                            ) : null}
                                         </div>
                                     </div>
                                     <div className="min-h-0 flex-1 overflow-hidden rounded-3xl border border-border-subtle bg-surface-panel">
@@ -883,23 +949,12 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                             muted
                                             playsInline
                                         />
-                                        {teammateActive && teammateConfig && (
-                                            <ParticipantTile
-                                                name={
-                                                    teammateConfig.teammate_name
-                                                }
-                                                subtitle={
-                                                    teammateConfig.teammate_role
-                                                }
-                                                isSpeaking={false}
-                                                compact
-                                                className="aspect-[16/9] bg-zinc-900/80 backdrop-blur"
-                                            />
-                                        )}
                                     </div>
                                 </div>
                             ) : (
-                                <div className="grid min-h-[320px] w-full max-w-6xl grid-cols-2 gap-6">
+                                <div
+                                    className={`grid min-h-[320px] w-full ${teammateActive && teammateConfig ? "max-w-7xl grid-cols-3" : "max-w-6xl grid-cols-2"} gap-6`}
+                                >
                                     <ParticipantTile
                                         name={userName}
                                         subtitle={
@@ -916,6 +971,15 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                         toneLabel={prospectTone}
                                         avatarUrl={personaImageUrl || undefined}
                                     />
+                                    {teammateActive && teammateConfig ? (
+                                        <ParticipantTile
+                                            name={teammateConfig.teammate_name}
+                                            subtitle={getTeammateRoleLabel(
+                                                teammateConfig.teammate_role
+                                            )}
+                                            isSpeaking={false}
+                                        />
+                                    ) : null}
                                 </div>
                             )}
                         </div>
@@ -1023,13 +1087,6 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
                                     danger
                                     showLabel
                                 />
-                                {teammateActive && teammateConfig && (
-                                    <ParticipantTile
-                                        name={teammateConfig.teammate_name}
-                                        subtitle={teammateConfig.teammate_role}
-                                        isSpeaking={false}
-                                    />
-                                )}
                             </div>
                         </div>
                     </div>

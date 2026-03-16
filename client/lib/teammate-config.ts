@@ -2,6 +2,8 @@
  * Teammate configuration utilities for multi-participant training sessions
  */
 
+import { getApiUrl } from "@/lib/api";
+
 export type TeammateRole = "BDR" | "AE" | "Junior_Rep" | "Senior_Rep";
 
 export type BehaviorArchetype =
@@ -45,8 +47,7 @@ export async function generateTeammateConfig(
     role?: TeammateRole,
     name?: string
 ): Promise<TeammateConfig & { archetype_description: ArchetypeDescription }> {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const url = `${apiUrl}/teammate/generate-config`;
+    const url = getApiUrl("/teammate/generate-config");
 
     const response = await fetch(url, {
         method: "POST",
@@ -73,8 +74,7 @@ export async function generateTeammateConfig(
  * Fetch all available teammate archetypes
  */
 export async function getTeammateArchetypes(): Promise<ArchetypeInfo[]> {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const url = `${apiUrl}/teammate/archetypes`;
+    const url = getApiUrl("/teammate/archetypes");
 
     const response = await fetch(url);
 
@@ -91,8 +91,7 @@ export async function getTeammateArchetypes(): Promise<ArchetypeInfo[]> {
 export async function getArchetypeDetails(
     archetype: BehaviorArchetype
 ): Promise<ArchetypeInfo> {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const url = `${apiUrl}/teammate/archetypes/${archetype}`;
+    const url = getApiUrl(`/teammate/archetypes/${archetype}`);
 
     const response = await fetch(url);
 

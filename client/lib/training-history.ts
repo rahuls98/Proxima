@@ -3,7 +3,7 @@
  * Now backed by API.
  */
 
-import type { SessionReport } from "./api";
+import type { RealSessionReport } from "./api";
 import {
     getTrainingReport,
     saveTrainingReport,
@@ -90,7 +90,9 @@ export async function deleteTrainingSession(id: string): Promise<void> {
  */
 export async function clearTrainingHistory(): Promise<void> {
     const sessions = await getTrainingHistory();
-    await Promise.all(sessions.map((session) => deleteTrainingSession(session.id)));
+    await Promise.all(
+        sessions.map((session) => deleteTrainingSession(session.id))
+    );
 }
 
 /**
@@ -98,7 +100,7 @@ export async function clearTrainingHistory(): Promise<void> {
  */
 export async function saveTrainingSessionWithReport(
     session: TrainingSession,
-    report: SessionReport
+    report: RealSessionReport
 ): Promise<void> {
     await saveTrainingSession(session);
     await saveTrainingReport(session.id, report);
@@ -109,10 +111,12 @@ export async function saveTrainingSessionWithReport(
  */
 export async function getTrainingSessionWithReport(
     sessionId: string
-): Promise<{ session: TrainingSession | null; report: SessionReport | null }> {
+): Promise<{
+    session: TrainingSession | null;
+    report: RealSessionReport | null;
+}> {
     const session = await getTrainingSessionById(sessionId);
     const report = await getTrainingReport(sessionId);
-
     return { session, report };
 }
 
@@ -125,4 +129,3 @@ export async function deleteTrainingSessionWithReport(
     await deleteTrainingSession(sessionId);
     await deleteTrainingReport(sessionId);
 }
-

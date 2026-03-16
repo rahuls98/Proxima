@@ -12,6 +12,7 @@ from proxima import (
     context_router,
     report_router,
     storage_router,
+    teammate_router,
 )
 
 # Load server/.env for Vertex/Gemini environment variables.
@@ -32,6 +33,7 @@ app.add_middleware(
 app.include_router(context_router)  
 app.include_router(report_router)  
 app.include_router(storage_router)
+app.include_router(teammate_router)
 
 handler = ProximaAgentWebSocketHandler(logger=logging.getLogger("proxima_agent_ws"))
 

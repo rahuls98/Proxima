@@ -183,54 +183,6 @@ def _generate_prospect_name(seed: str, gender: str | None) -> str:
     return f"{first_name} {last_name}"
 
 
-def _build_persona_instruction(
-    session_context: Dict[str, Any], name: str, tone: str | None
-) -> str:
-    def _line(label: str, key: str) -> str | None:
-        value = session_context.get(key)
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text:
-            return None
-        return f"- {label}: {text}"
-
-    lines = [
-        f"Prospect name: {name}",
-        "You are the prospect in this role-play.",
-        "After your initial greeting, introduce yourself by name.",
-        "Stay in character and use the persona details below:",
-    ]
-
-    archetype_map = {
-        "skeptic": "The Skeptic",
-        "visionary": "The Visionary",
-        "guardian": "The Guardian",
-    }
-    archetype_value = str(session_context.get("objection_archetype") or "").strip()
-    archetype_label = archetype_map.get(archetype_value, archetype_value)
-
-    details = [
-        _line("Job title", "job_title"),
-        _line("Company", "company_name"),
-        _line("Location", "location"),
-        _line("Industry", "industry"),
-        _line("Rep profile and typical call goals", "rep_call_context"),
-        _line("Discussion stage", "discussion_stage"),
-        _line("Current discussion intent", "discussion_intent"),
-        f"- Persona archetype: {archetype_label}" if archetype_label else None,
-        _line("Decision style", "decision_style"),
-        _line("Skepticism level (1-5)", "skepticism_level"),
-        _line("Negotiation toughness (1-5)", "negotiation_toughness"),
-        _line("Initial trust score (1-5)", "trust_level_at_start"),
-        _line("Tone", "voice_tone") if tone else None,
-    ]
-
-    for detail in details:
-        if detail:
-            lines.append(detail)
-
-    return "\n".join(lines)
 
 
 @router.post(
@@ -277,8 +229,17 @@ async def generate_persona_instruction(req: SessionContextInput):
         )
 
     context_name = req.session_context.get("prospect_name")
+    req_voice_tone = req.session_context.get("voice_tone")
     voice_manager = LiveVoiceManager()
-    selected_voice = voice_manager.get_random_voice()
+    
+    try:
+        # Try to match the requested tone if provided
+        tone_filter = req_voice_tone.strip() if isinstance(req_voice_tone, str) and req_voice_tone.strip() else None
+        selected_voice = voice_manager.get_random_voice(tone_filter=tone_filter)
+    except ValueError:
+        # Fallback to completely random voice if tone not found
+        selected_voice = voice_manager.get_random_voice()
+
     voice_name = selected_voice.name
     voice_gender = selected_voice.gender
     voice_tone = selected_voice.tone
@@ -291,11 +252,21 @@ async def generate_persona_instruction(req: SessionContextInput):
         )
         prospect_name = _generate_prospect_name(seed, voice_gender)
 
-    # Dummy response aligned with client UI placeholders.
+    context_for_gemini = dict(req.session_context)
+    context_for_gemini["prospect_name"] = prospect_name
+    context_for_gemini["voice_name"] = voice_name
+    context_for_gemini["voice_gender"] = voice_gender
+    context_for_gemini["voice_tone"] = voice_tone
+
+    try:
+        instruction = await get_client().generate_persona_instruction(
+            session_context=context_for_gemini
+        )
+    except MultimodalContextError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
     return PersonaInstructionResponse(
-        persona_instruction=_build_persona_instruction(
-            req.session_context, prospect_name, voice_tone
-        ),
+        persona_instruction=instruction,
         source_fields_count=len(req.session_context),
         prospect_name=prospect_name,
         voice_name=voice_name,

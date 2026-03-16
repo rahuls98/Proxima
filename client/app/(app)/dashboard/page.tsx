@@ -107,11 +107,14 @@ export default function DashboardPage() {
             }
 
             const entries = await Promise.all(
-                missing.map(async (session) => [
-                    session.id,
-                    (await getTrainingReport(session.id)) ??
-                        (await generateSessionReport(session.id)),
-                ])
+                missing.map(
+                    async (session) =>
+                        [
+                            session.id,
+                            (await getTrainingReport(session.id)) ??
+                                (await generateSessionReport(session.id)),
+                        ] as [string, any]
+                )
             );
             setReportBySessionId((prev) => {
                 const next = { ...prev };
@@ -131,10 +134,7 @@ export default function DashboardPage() {
     }, [sessions, reportBySessionId, metrics.length]);
 
     const personas = useMemo(
-        () =>
-            savedPersonas
-                .filter((persona) => persona.isPriority)
-                .slice(0, 2),
+        () => savedPersonas.filter((persona) => persona.isPriority).slice(0, 2),
         [savedPersonas]
     );
 
@@ -520,7 +520,10 @@ export default function DashboardPage() {
 
                 return {
                     id: metric.session_id,
-                    name: metric.scenario || session?.scenario || "Training Session",
+                    name:
+                        metric.scenario ||
+                        session?.scenario ||
+                        "Training Session",
                     persona: personaName,
                     personaId,
                     timestamp: metric.timestamp || session?.timestamp || "",
@@ -562,12 +565,15 @@ export default function DashboardPage() {
                         .trust_change ?? 0,
             }));
         const combined = [...rowsFromMetrics, ...fallback]
-            .reduce((acc, row) => {
-                if (!acc.some((entry) => entry.id === row.id)) {
-                    acc.push(row);
-                }
-                return acc;
-            }, [] as typeof rowsFromMetrics)
+            .reduce(
+                (acc, row) => {
+                    if (!acc.some((entry) => entry.id === row.id)) {
+                        acc.push(row);
+                    }
+                    return acc;
+                },
+                [] as typeof rowsFromMetrics
+            )
             .sort(
                 (a, b) =>
                     new Date(b.timestamp).getTime() -
@@ -625,8 +631,7 @@ export default function DashboardPage() {
                             <span className="text-3xl font-bold text-white leading-none">
                                 {(() => {
                                     const totalSeconds = timeGraphData.reduce(
-                                        (sum, day) =>
-                                            sum + day.totalSeconds,
+                                        (sum, day) => sum + day.totalSeconds,
                                         0
                                     );
                                     if (totalSeconds < 3600) {

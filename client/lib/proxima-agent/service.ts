@@ -133,22 +133,6 @@ export class ProximaAgentService {
     }
 
     /**
-     * Calculate default WebSocket URL based on current browser location
-     *
-     * @returns ws://host:8000/ws/proxima-agent?mode=training
-     */
-    private defaultWebSocketUrl(): string {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        const host = window.location.hostname;
-        const port = 8000;
-        const params = new URLSearchParams({ mode: this.mode });
-        if (this.sessionId) {
-            params.set("session_id", this.sessionId);
-        }
-        return `${protocol}//${host}:${port}/ws/proxima-agent?${params.toString()}`;
-    }
-
-    /**
      * Establish WebSocket connection to server
      *
      * Flow:
@@ -267,9 +251,7 @@ export class ProximaAgentService {
      *   // Frames now being sent to server
      */
     async requestScreenShare() {
-        // Implementation will capture screen using getDisplayMedia
-        // and send frames automatically
-        await this.ensureScreenSharePipeline();
+        this.startScreenShare();
     }
 
     /**
@@ -412,7 +394,7 @@ export class ProximaAgentService {
         }
     }
 
-    private defaultWebSocketUrl() {
+    private defaultWebSocketUrl(): string {
         const baseUrl = (() => {
             if (typeof window === "undefined") {
                 return "ws://localhost:8000/ws/proxima-agent";
@@ -432,8 +414,12 @@ export class ProximaAgentService {
             return `${protocol}://${host}:8000/ws/proxima-agent`;
         })();
 
+        const params = new URLSearchParams({ mode: this.mode });
+        if (this.sessionId) {
+            params.set("session_id", this.sessionId);
+        }
         const separator = baseUrl.includes("?") ? "&" : "?";
-        return `${baseUrl}${separator}mode=${encodeURIComponent(this.mode)}`;
+        return `${baseUrl}${separator}${params.toString()}`;
     }
 
     private async ensureSocket() {

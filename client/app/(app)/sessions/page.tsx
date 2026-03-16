@@ -22,7 +22,10 @@ export default function TrainingHistoryPage() {
         Awaited<ReturnType<typeof getSavedPersonas>>
     >([]);
     const [metricBySessionId, setMetricBySessionId] = useState<
-        Record<string, Awaited<ReturnType<typeof getAllTrainingMetrics>>[number]>
+        Record<
+            string,
+            Awaited<ReturnType<typeof getAllTrainingMetrics>>[number]
+        >
     >({});
     const [reportBySessionId, setReportBySessionId] = useState<
         Record<string, Awaited<ReturnType<typeof getTrainingReport>>>
@@ -85,11 +88,14 @@ export default function TrainingHistoryPage() {
             }
 
             const entries = await Promise.all(
-                missing.map(async (session) => [
-                    session.id,
-                    (await getTrainingReport(session.id)) ??
-                        (await generateSessionReport(session.id)),
-                ])
+                missing.map(
+                    async (session) =>
+                        [
+                            session.id,
+                            (await getTrainingReport(session.id)) ??
+                                (await generateSessionReport(session.id)),
+                        ] as [string, any]
+                )
             );
             setReportBySessionId((prev) => {
                 const next = { ...prev };
@@ -124,8 +130,7 @@ export default function TrainingHistoryPage() {
 
         const reportValues = activeSessions
             .map(
-                (session) =>
-                    reportBySessionId[session.id]?.overall_score.score
+                (session) => reportBySessionId[session.id]?.overall_score.score
             )
             .filter((value): value is number => typeof value === "number");
         if (reportValues.length === 0) {
@@ -141,8 +146,7 @@ export default function TrainingHistoryPage() {
         const reportSeconds = activeSessions.reduce((acc, session) => {
             const report = reportBySessionId[session.id];
             return (
-                acc +
-                (report?.session_overview.session_duration_seconds ?? 0)
+                acc + (report?.session_overview.session_duration_seconds ?? 0)
             );
         }, 0);
 
@@ -320,7 +324,9 @@ export default function TrainingHistoryPage() {
         });
 
         return rows.sort(
-            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            (a, b) =>
+                new Date(b.timestamp).getTime() -
+                new Date(a.timestamp).getTime()
         );
     }, [activeSessions, metricBySessionId, personaIdByName, reportBySessionId]);
 
@@ -332,8 +338,7 @@ export default function TrainingHistoryPage() {
     );
     const isTableLoading =
         isReportsLoading ||
-        (sessions.length > 0 &&
-            Object.keys(reportBySessionId).length === 0);
+        (sessions.length > 0 && Object.keys(reportBySessionId).length === 0);
 
     const handleViewReport = (sessionId: string) => {
         router.push(`/training/${sessionId}/report`);

@@ -23,18 +23,21 @@ export function ContextSection({
         }
 
         switch (field.type) {
-            case "select":
-                return field.options?.[0]?.value ?? field.options?.[0]?.label ?? "";
-            case "number":
-            case "range":
+            case "dropdown":
+                return field.options?.[0] ?? "";
+            case "slider_1_5":
                 return 3;
-            case "checkbox":
+            case "slider_0_1":
+                return 0.5;
+            case "slider_low_high":
+                return "Medium";
+            case "boolean":
                 return false;
-            case "multi_select":
-            case "multi_select_combo":
-                return field.options?.slice(0, 2).map((option) => option.value) ?? [];
+            case "multi-select":
+                return field.options?.slice(0, 2) ?? [];
+            case "file":
+                return null;
             case "text":
-            case "textarea":
             default:
                 return `Sample ${field.label}`;
         }

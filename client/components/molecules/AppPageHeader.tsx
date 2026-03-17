@@ -8,7 +8,7 @@ type AppPageHeaderProps = {
 export function AppPageHeader({ title }: AppPageHeaderProps) {
     const [userName, setUserName] = useState("");
     useEffect(() => {
-        setUserName(getUserName() || "Your Name");
+        setUserName(getUserName() || "You");
     }, []);
     return (
         <header className="h-20 flex-shrink-0 flex items-center justify-between px-8 border-b border-border-subtle bg-surface-base z-10">

@@ -24,6 +24,7 @@ import {
 import { generateSessionReport } from "@/lib/api";
 import { fetchAvatarGenerationEnabled } from "@/lib/ai-feature-settings";
 import { getSessionContext } from "@/lib/session-context";
+import { deletePersona } from "@/lib/persona-storage";
 import type {
     ProximaAgentConnectionState,
     ProximaAgentEvent,
@@ -520,96 +521,78 @@ export function MeetingRoom({ initialSessionId }: MeetingRoomProps) {
         currentUserMessageIdRef.current = null;
         setActiveSpeaker(null);
 
-        // Save session to training history if we have a session ID and transcript
+        // Report generation is temporarily disabled by admin
         if (activeSessionId && transcript.length > 0) {
-            setIsGeneratingReport(true);
-            // Extract persona info from session context
-            let personaName: string | undefined;
-            let jobTitle: string | undefined;
+            // setIsGeneratingReport(true);
+            // // Extract persona info from session context
+            // let personaName: string | undefined;
+            // let jobTitle: string | undefined;
+            // if (sessionContext) {
+            //     try {
+            //         personaName = sessionContext.prospect_name as string | undefined;
+            //         jobTitle = sessionContext.job_title as string | undefined;
+            //     } catch (error) {
+            //         console.error("Failed to parse session context:", error);
+            //     }
+            // }
+            // // Generate and cache the report
+            // try {
+            //     const report = await generateSessionReport(activeSessionId);
+            //     const durationSeconds = report.session_overview.session_duration_seconds ?? 0;
+            //     const minutes = Math.floor(durationSeconds / 60);
+            //     const seconds = durationSeconds % 60;
+            //     await saveTrainingSessionWithReport(
+            //         {
+            //             id: activeSessionId,
+            //             timestamp: report.session_overview.session_start_time || new Date().toISOString(),
+            //             transcriptLength: transcript.length,
+            //             personaName,
+            //             jobTitle,
+            //             scenario: report.session_overview.scenario,
+            //             duration: `${minutes}m ${seconds.toString().padStart(2, "0")}s`,
+            //         },
+            //         report
+            //     );
+            // } catch (error) {
+            //     console.error("Failed to generate report:", error);
+            //     try {
+            //         // Retry once to avoid persisting placeholder reports during
+            //         // eventual consistency windows right after session end.
+            //         await new Promise((resolve) => setTimeout(resolve, 1500));
+            //         const retryReport = await generateSessionReport(activeSessionId);
+            //         const retryDurationSeconds = retryReport.session_overview.session_duration_seconds ?? 0;
+            //         const retryMinutes = Math.floor(retryDurationSeconds / 60);
+            //         const retrySeconds = retryDurationSeconds % 60;
+            //         await saveTrainingSessionWithReport(
+            //             {
+            //                 id: activeSessionId,
+            //                 timestamp: retryReport.session_overview.session_start_time || new Date().toISOString(),
+            //                 transcriptLength: transcript.length,
+            //                 personaName,
+            //                 jobTitle,
+            //                 scenario: retryReport.session_overview.scenario,
+            //                 duration: `${retryMinutes}m ${retrySeconds.toString().padStart(2, "0")}s`,
+            //             },
+            //             retryReport
+            //         );
+            //     } catch (retryError) {
+            //         console.error("Retry report generation failed; saving session without report:", retryError);
+            //         await saveTrainingSession({
+            //             id: activeSessionId,
+            //             timestamp: new Date().toISOString(),
+            //             transcriptLength: transcript.length,
+            //             personaName,
+            //             jobTitle,
+            //         });
+            //     }
+            // }
+            // // Navigate to session report page
+            // router.push(`/training/${activeSessionId}/report`);
 
-            if (sessionContext) {
-                try {
-                    personaName = sessionContext.prospect_name as
-                        | string
-                        | undefined;
-                    jobTitle = sessionContext.job_title as string | undefined;
-                } catch (error) {
-                    console.error("Failed to parse session context:", error);
-                }
-            }
-
-            // Generate and cache the report
-            try {
-                const report = await generateSessionReport(activeSessionId);
-                const durationSeconds =
-                    report.session_overview.session_duration_seconds ?? 0;
-                const minutes = Math.floor(durationSeconds / 60);
-                const seconds = durationSeconds % 60;
-
-                await saveTrainingSessionWithReport(
-                    {
-                        id: activeSessionId,
-                        timestamp:
-                            report.session_overview.session_start_time ||
-                            new Date().toISOString(),
-                        transcriptLength: transcript.length,
-                        personaName,
-                        jobTitle,
-                        scenario: report.session_overview.scenario,
-                        duration: `${minutes}m ${seconds
-                            .toString()
-                            .padStart(2, "0")}s`,
-                    },
-                    report
-                );
-            } catch (error) {
-                console.error("Failed to generate report:", error);
-                try {
-                    // Retry once to avoid persisting placeholder reports during
-                    // eventual consistency windows right after session end.
-                    await new Promise((resolve) => setTimeout(resolve, 1500));
-                    const retryReport =
-                        await generateSessionReport(activeSessionId);
-                    const retryDurationSeconds =
-                        retryReport.session_overview.session_duration_seconds ??
-                        0;
-                    const retryMinutes = Math.floor(retryDurationSeconds / 60);
-                    const retrySeconds = retryDurationSeconds % 60;
-
-                    await saveTrainingSessionWithReport(
-                        {
-                            id: activeSessionId,
-                            timestamp:
-                                retryReport.session_overview
-                                    .session_start_time ||
-                                new Date().toISOString(),
-                            transcriptLength: transcript.length,
-                            personaName,
-                            jobTitle,
-                            scenario: retryReport.session_overview.scenario,
-                            duration: `${retryMinutes}m ${retrySeconds
-                                .toString()
-                                .padStart(2, "0")}s`,
-                        },
-                        retryReport
-                    );
-                } catch (retryError) {
-                    console.error(
-                        "Retry report generation failed; saving session without report:",
-                        retryError
-                    );
-                    await saveTrainingSession({
-                        id: activeSessionId,
-                        timestamp: new Date().toISOString(),
-                        transcriptLength: transcript.length,
-                        personaName,
-                        jobTitle,
-                    });
-                }
-            }
-
-            // Navigate to session report page
-            router.push(`/training/${activeSessionId}/report`);
+            window.alert(
+                "Session report generation is temporarily disabled by admin. You will be redirected to the context builder."
+            );
+            router.push("/training/context-builder");
             return;
         }
 

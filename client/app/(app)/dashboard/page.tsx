@@ -619,7 +619,7 @@ export default function DashboardPage() {
                                     );
                                     if (totalSeconds < 3600) {
                                         return `${Math.max(
-                                            1,
+                                            0,
                                             Math.round(totalSeconds / 60)
                                         )}m`;
                                     }
